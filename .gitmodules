@@ -1,0 +1,3 @@
+[submodule "aeron"]
+	path = aeron
+	url = https://github.com/fdoyon/aeron.git
