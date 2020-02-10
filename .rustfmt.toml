@@ -1,0 +1,2 @@
+# see the configuration at https://github.com/rust-lang-nursery/rustfmt/blob/master/Configurations.md
+max_width = 130

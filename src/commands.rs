@@ -63,13 +63,15 @@ impl AeronCommand {
             0xF08 => Some(Self::ResponseOnCounterReady),
             0xF9 => Some(Self::ResponseOnUnavailableCounter),
             0xF0A => Some(Self::ResponseOnClientTimeout),
-            #[cfg(test)] 0x65 => Some(Self::UnitTestMessageTypeID),
+            #[cfg(test)]
+            0x65 => Some(Self::UnitTestMessageTypeID),
             _ => None,
         }
     }
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub enum AeronErrorCode {
     GenericError = 0,
     InvalidChannel = 1,
@@ -81,4 +83,3 @@ pub enum AeronErrorCode {
     MalformedCommand = 11,
     ErrorNotSupplied = 12,
 }
-

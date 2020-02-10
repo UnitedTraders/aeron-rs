@@ -2,17 +2,15 @@
 
 extern crate cache_line_size;
 
-use std::path::PathBuf;
-use std::sync::atomic;
-
 mod bit_utils;
-mod concurrent;
 mod commands;
+mod concurrent;
+mod protocol;
 
 pub struct Context {}
 
 pub struct Aeron {
-// random source
+    // random source
 // random engine
 // ctx
 // cncBuffer
@@ -33,13 +31,11 @@ mod tests {
     #[test]
     fn atomic_ptrs() {
         let mut vec = vec![0u8; 16];
-        let mut ptr = vec.as_mut_ptr();
+        let ptr = vec.as_mut_ptr();
         let position = 1isize;
         let atomic_ptr = AtomicPtr::new(unsafe { ptr.offset(position) as *mut i32 });
         let mut val: i32 = 42;
-        unsafe {
-            atomic_ptr.store(&mut val, Ordering::Release)
-        }
+        atomic_ptr.store(&mut val, Ordering::Release);
 
         let read = unsafe {
             // uncomment the following line. Should point to the same mem location
@@ -54,9 +50,9 @@ mod tests {
     fn it_works() {
         let len = 10;
         let mut vec = vec![0u8; len];
-        let mut ptr = vec.as_mut_ptr();
+        let ptr = vec.as_mut_ptr();
         let position = 0isize;
-        let mut val = 42;
+        let val = 42;
 
         // store an int32 at index 1
         unsafe {

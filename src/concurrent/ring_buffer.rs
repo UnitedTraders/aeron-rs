@@ -1,9 +1,5 @@
-use std::process::Command;
-use std::sync::atomic::AtomicBool;
+use cache_line_size::CACHE_LINE_SIZE;
 
-use cache_line_size::{CACHE_LINE_SIZE, CacheAligned};
-
-use crate::Aeron;
 use crate::bit_utils::align;
 use crate::commands::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
@@ -55,18 +51,26 @@ impl RecordDescriptor {
     }
 
     #[inline]
-    pub fn length_offset(record_offset: Index) -> Index { record_offset }
+    pub fn length_offset(record_offset: Index) -> Index {
+        record_offset
+    }
 
     #[inline]
-    pub fn type_offset(record_offset: Index) -> Index { record_offset + (::std::mem::size_of::<i32>() as Index) }
-
+    #[allow(dead_code)]
+    pub fn type_offset(record_offset: Index) -> Index {
+        record_offset + (::std::mem::size_of::<i32>() as Index)
+    }
 
     #[inline]
-    pub fn record_length(header: i64) -> Index { (header & 0xFFFFFFFF) as Index }
+    pub fn record_length(header: i64) -> Index {
+        (header & 0xFFFFFFFF) as Index
+    }
 
     #[inline]
     pub fn message_type(header: i64) -> Result<AeronCommand, RingBufferError> {
-        AeronCommand::from_header((header >> 32) as i32).ok_or_else(|| RingBufferError::UnknownCommand { cmd: (header >> 32) as i32 })
+        AeronCommand::from_header((header >> 32) as i32).ok_or_else(|| RingBufferError::UnknownCommand {
+            cmd: (header >> 32) as i32,
+        })
     }
 }
 
@@ -84,9 +88,9 @@ pub struct MPSCProducer {
     tail_position: Index,
     head_cache_position: Index,
     head_position: Index,
-
 }
 
+#[allow(dead_code)]
 pub struct MPSCConsumer {
     buffer: AtomicBuffer,
     capacity: Index,
@@ -98,6 +102,7 @@ pub struct MPSCConsumer {
     consumer_heartbeat: Index,
 }
 
+#[allow(dead_code)]
 impl MPSCProducer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let trailer_len = TRAILER_LENGTH;
@@ -120,16 +125,21 @@ impl MPSCProducer {
     pub fn write(&mut self, cmd: AeronCommand, src: &[u8]) -> Result<(), RingBufferError> {
         let mut record_len = src.len() as Index + RecordDescriptor::HEADER_LENGTH;
         if record_len > self.max_msg_len {
-            return Err(RingBufferError::MessageTooLong { msg: record_len, max: self.max_msg_len });
+            return Err(RingBufferError::MessageTooLong {
+                msg: record_len,
+                max: self.max_msg_len,
+            });
         }
 
         let required_capacity = align(record_len, RecordDescriptor::ALIGNMENT);
         // once we claim the required capacity we can write without conflicts
         let record_index = self.claim(required_capacity)?;
 
-        self.buffer.put_ordered(record_index, &mut RecordDescriptor::make_header(-record_len, cmd));
+        self.buffer
+            .put_ordered(record_index, &mut RecordDescriptor::make_header(-record_len, cmd));
         self.buffer.put_bytes(RecordDescriptor::encoded_msg_offset(record_index), src);
-        self.buffer.put_ordered(RecordDescriptor::length_offset(record_index), &mut record_len);
+        self.buffer
+            .put_ordered(RecordDescriptor::length_offset(record_index), &mut record_len);
 
         Ok(())
     }
@@ -140,7 +150,7 @@ impl MPSCProducer {
         let mut head: i64 = self.buffer.get_volatile(self.head_cache_position);
 
         let (padding, tail_index) = loop {
-            let mut tail: i64 = self.buffer.get_volatile(self.tail_position);
+            let tail: i64 = self.buffer.get_volatile(self.tail_position);
             let available_capacity = self.capacity - (tail - head) as Index;
 
             if required_capacity > available_capacity {
@@ -152,7 +162,7 @@ impl MPSCProducer {
             }
 
             let mut padding = 0;
-            let mut tail_index = (tail & mask) as Index;
+            let tail_index = (tail & mask) as Index;
 
             let len_to_buffer_end = self.capacity - tail_index;
             if required_capacity > len_to_buffer_end {
@@ -167,14 +177,15 @@ impl MPSCProducer {
                 }
                 padding = len_to_buffer_end;
             }
-            let mut t2 = tail + required_capacity as i64 + padding as i64;
+            let t2 = tail + required_capacity as i64 + padding as i64;
             if self.buffer.compare_and_set(self.tail_position, tail, t2) {
                 break (padding, tail_index);
             }
         };
 
         if padding != 0 {
-            self.buffer.put_ordered(tail_index, &mut RecordDescriptor::make_header(padding, AeronCommand::Padding));
+            self.buffer
+                .put_ordered(tail_index, &mut RecordDescriptor::make_header(padding, AeronCommand::Padding));
             Ok(0)
         } else {
             Ok(tail_index)
@@ -182,6 +193,7 @@ impl MPSCProducer {
     }
 }
 
+#[allow(dead_code)]
 impl MPSCConsumer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let capacity = buffer.capacity() - TRAILER_LENGTH;
@@ -208,7 +220,7 @@ impl MPSCConsumer {
     /// processed.
     /// Returns the number of messages processed.
     pub fn read<F: FnMut(AeronCommand, &AtomicBuffer)>(&self, msg_count_max: i32, mut handler: F) -> i32 {
-        let head: i64 = self.buffer.get(self.head_position);// non - volatile read?
+        let head: i64 = self.buffer.get(self.head_position); // non - volatile read?
         let head_index = head as Index & (self.capacity - 1);
         let contiguous_block_len = self.capacity - head_index;
 
@@ -230,38 +242,40 @@ impl MPSCConsumer {
                     continue;
                 }
                 msg_read += 1;
-                let view = self.buffer.view(RecordDescriptor::encoded_msg_offset(record_index), record_len - RecordDescriptor::HEADER_LENGTH);
+                let view = self.buffer.view(
+                    RecordDescriptor::encoded_msg_offset(record_index),
+                    record_len - RecordDescriptor::HEADER_LENGTH,
+                );
                 handler(msg_type, &view)
             } else {
                 break;
             }
         }
-// todo: move to a guard, or prevent corruption on panic
-        if bytes_read != 0 { // zero-out memory and advance the reader
+        // todo: move to a guard, or prevent corruption on panic
+        if bytes_read != 0 {
+            // zero-out memory and advance the reader
             self.buffer.set_memory(head_index, bytes_read as usize, 0);
-            self.buffer.put_ordered::<i64>(self.head_position, (head + bytes_read as i64))
+            self.buffer.put_ordered::<i64>(self.head_position, head + bytes_read as i64)
         }
         msg_read
     }
 
     // Read all messages
     #[inline]
-    pub fn read_all<F: FnMut(AeronCommand, &AtomicBuffer)>(&self, mut handler: F) -> i32 {
+    pub fn read_all<F: FnMut(AeronCommand, &AtomicBuffer)>(&self, handler: F) -> i32 {
         self.read(::std::i32::MAX, handler)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ::std::alloc::{alloc_zeroed, dealloc, Layout};
-    use std::process::Command;
-
-    use crate::bit_utils::{align, alloc_buffer_aligned, dealloc_buffer_aligned};
+    use crate::bit_utils::align;
     use crate::commands::AeronCommand;
-    use crate::commands::AeronCommand::ResponseOnCounterReady;
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::ring_buffer::{
+        MPSCConsumer, MPSCProducer, RecordDescriptor, RingBufferError, HEAD_POSITION_OFFSET, TAIL_POSITION_OFFSET, TRAILER_LENGTH,
+    };
     use crate::concurrent::Index;
-    use crate::concurrent::ring_buffer::{HEAD_POSITION_OFFSET, MPSCConsumer, MPSCProducer, RecordDescriptor, RingBufferError, TAIL_POSITION_OFFSET, TRAILER_LENGTH};
 
     const CAPACITY: usize = 1024usize;
     const BUFFER_SZ: usize = CAPACITY + TRAILER_LENGTH as usize;
@@ -271,6 +285,7 @@ mod tests {
 
     const MSG_TYPE_ID: i32 = 101;
 
+    #[allow(dead_code)]
     struct Test {
         ab: AtomicBuffer,
         src_ab: AtomicBuffer,
@@ -285,11 +300,17 @@ mod tests {
             let ab = AtomicBuffer::from_aligned(&buffer);
 
             let src_buffer = AlignedBuffer::with_capacity(BUFFER_SZ);
-            let srcAb = AtomicBuffer::from_aligned(&src_buffer);
+            let src_ab = AtomicBuffer::from_aligned(&src_buffer);
 
             let prod = MPSCProducer::new(ab);
 
-            Test { ab, src_ab: srcAb, prod, buffer, src_buffer }
+            Test {
+                ab,
+                src_ab,
+                prod,
+                buffer,
+                src_buffer,
+            }
         }
     }
 
@@ -304,7 +325,6 @@ mod tests {
         assert_eq!(p.capacity, cap - TRAILER_LENGTH)
     }
 
-
     #[test]
     fn that_writes_to_empty() {
         let mut test = Test::new();
@@ -315,15 +335,13 @@ mod tests {
     }
 
     #[test]
-    fn should_reject_write_when_insufficient_space()
-    {
+    fn should_reject_write_when_insufficient_space() {
         let mut test = Test::new();
 
         let length: Index = 100;
         let head: Index = 0;
         let tail: Index = head + (CAPACITY as Index - align(length - RecordDescriptor::ALIGNMENT, RecordDescriptor::ALIGNMENT));
-        let srcIndex: Index = 0;
-
+        let _src_index: Index = 0;
 
         test.ab.put(HEAD_COUNTER_INDEX, head);
         test.ab.put(TAIL_COUNTER_INDEX, tail);
@@ -335,7 +353,7 @@ mod tests {
 
     #[test]
     fn should_read_single_message() -> Result<(), RingBufferError> {
-        let mut test = Test::new();
+        let test = Test::new();
 
         let length = 8 as Index;
         let head = 0 as Index;
@@ -352,7 +370,7 @@ mod tests {
         let consumer = MPSCConsumer::new(test.ab);
 
         let mut times_called = 0;
-        let messages_read = consumer.read_all(|cmd, b| {
+        let messages_read = consumer.read_all(|_cmd, _b| {
             times_called += 1;
         });
 
@@ -361,7 +379,13 @@ mod tests {
         assert_eq!(test.ab.get::<i64>(HEAD_COUNTER_INDEX), (head + aligned_record_length).into());
 
         for i in (0..RecordDescriptor::ALIGNMENT).step_by(4) {
-            assert_eq!(test.ab.get::<i32>(i), 0, "buffer has not be zeroed between indexes {} - {}", i, i + 3)
+            assert_eq!(
+                test.ab.get::<i32>(i),
+                0,
+                "buffer has not be zeroed between indexes {} - {}",
+                i,
+                i + 3
+            )
         }
         Ok(())
     }
@@ -370,7 +394,7 @@ mod tests {
     fn can_read_write() {
         let mut test = Test::new();
 
-        let mut consumer = MPSCConsumer::new(test.ab);
+        let consumer = MPSCConsumer::new(test.ab);
         let result = test.prod.write(AeronCommand::UnitTestMessageTypeID, "12345".as_bytes());
 
         assert!(result.is_ok());
@@ -381,9 +405,9 @@ mod tests {
             data.push((cmd, msg));
         });
 
-        assert_eq!(data.len(),1);
-        let (msg,string) = &data[0];
-        assert_eq!(msg,&AeronCommand::UnitTestMessageTypeID);
-        assert_eq!(string,"12345");
+        assert_eq!(data.len(), 1);
+        let (msg, string) = &data[0];
+        assert_eq!(msg, &AeronCommand::UnitTestMessageTypeID);
+        assert_eq!(string, "12345");
     }
 }

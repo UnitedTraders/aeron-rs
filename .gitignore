@@ -6,7 +6,7 @@
 **/*.rs.bk
 
 # IDEA
-/.idea/workspace.xml
+/.idea/*
 
 
 # Created by https://www.gitignore.io/api/vim

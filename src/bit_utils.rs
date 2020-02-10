@@ -7,6 +7,7 @@ pub fn align(value: Index, alignment: Index) -> Index {
     return (value + (alignment - 1)) & !(alignment - 1);
 }
 
+#[allow(dead_code)]
 /// Allocate a buffer aligned on the cache size
 pub fn alloc_buffer_aligned(size: usize) -> *mut u8 {
     unsafe {
@@ -20,10 +21,8 @@ pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: usize) {
     unsafe {
         if cfg!(debug_assertions) {
             // dealloc markers for debug
-            unsafe {
-                for i in 0..len as isize {
-                    *buff_ptr.offset(i) = 0xff
-                }
+            for i in 0..len as isize {
+                *buff_ptr.offset(i) = 0xff;
             }
         }
 
