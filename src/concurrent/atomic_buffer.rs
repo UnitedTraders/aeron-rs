@@ -73,6 +73,11 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    pub fn as_slice<T: Copy>(&self, position: Index) -> &T {
+        unsafe { &*(self.ptr.offset(position as isize) as *const T) }
+    }
+
+    #[inline]
     pub fn set_memory(&self, _position: Index, len: usize, value: u8) {
         unsafe {
             // poor man's memcp
