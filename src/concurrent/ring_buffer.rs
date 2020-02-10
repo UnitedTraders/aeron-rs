@@ -1,10 +1,10 @@
 use cache_line_size::CACHE_LINE_SIZE;
 
-use crate::bit_utils::align;
+use crate::utils::bit_utils::align;
 use crate::commands::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 
-use super::Index;
+use crate::utils::types::Index;
 
 pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 pub const TAIL_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 2;
@@ -269,13 +269,13 @@ impl MPSCConsumer {
 
 #[cfg(test)]
 mod tests {
-    use crate::bit_utils::align;
+    use crate::utils::bit_utils::align;
     use crate::commands::AeronCommand;
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::concurrent::ring_buffer::{
         MPSCConsumer, MPSCProducer, RecordDescriptor, RingBufferError, HEAD_POSITION_OFFSET, TAIL_POSITION_OFFSET, TRAILER_LENGTH,
     };
-    use crate::concurrent::Index;
+    use crate::utils::types::Index;
 
     const CAPACITY: usize = 1024usize;
     const BUFFER_SZ: usize = CAPACITY + TRAILER_LENGTH as usize;
@@ -376,7 +376,7 @@ mod tests {
 
         assert_eq!(messages_read, 1);
         assert_eq!(times_called, 1);
-        assert_eq!(test.ab.get::<i64>(HEAD_COUNTER_INDEX), (head + aligned_record_length).into());
+        assert_eq!(test.ab.get::<i64>(HEAD_COUNTER_INDEX), (head + aligned_record_length) as i64);
 
         for i in (0..RecordDescriptor::ALIGNMENT).step_by(4) {
             assert_eq!(

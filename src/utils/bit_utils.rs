@@ -1,7 +1,7 @@
 use cache_line_size::CACHE_LINE_SIZE;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 
-use crate::concurrent::Index;
+use crate::utils::types::Index;
 
 pub fn align(value: Index, alignment: Index) -> Index {
     return (value + (alignment - 1)) & !(alignment - 1);

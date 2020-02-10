@@ -1,8 +1,9 @@
 use std::intrinsics::atomic_cxchg;
 use std::sync::atomic::{fence, Ordering};
+use std::ffi::{CString, CStr};
 
-use crate::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::concurrent::Index;
+use crate::utils::types::Index;
+use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -62,8 +63,8 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    fn bounds_check(&self, idx: Index) -> () {
-        debug_assert!(idx < self.len)
+    fn bounds_check(&self, idx: Index, len: isize) -> () {
+        debug_assert!((idx + len as Index) < self.len)
     }
 
     #[inline]
@@ -121,12 +122,31 @@ impl AtomicBuffer {
     pub fn as_mutable_slice(&self) -> &mut [u8] {
         unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.len as usize) }
     }
+
+    #[inline]
+    pub fn get_string(&self, offset: Index) -> CString {
+        self.bounds_check(offset, 4);
+
+        // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
+        let length: i32 = self.get::<i32>(offset);
+        self.get_string_without_length(offset + std::mem::size_of::<i32> as isize, length as isize)
+    }
+
+    #[inline]
+    pub fn get_string_without_length(&self, offset: Index, length: isize) -> CString {
+        self.bounds_check(offset, length);
+
+        // Strings in Aeron are zero terminated and are not UTF-8 encoded.
+        // We can't go with Rust UTF strings as Media Driver will not understand us.
+        let ptr = unsafe { *(self.ptr.offset(offset as isize) as *const &[u8]) };
+        CString::from(CStr::from_bytes_with_nul(ptr).expect("Error converting bytes in to CStr"))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-    use crate::concurrent::Index;
+    use crate::utils::types::Index;
 
     #[test]
     fn that_buffer_can_be_created() {

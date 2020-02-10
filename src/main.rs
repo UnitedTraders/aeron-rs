@@ -2,7 +2,7 @@
 
 extern crate cache_line_size;
 
-mod bit_utils;
+mod utils;
 mod commands;
 mod concurrent;
 mod protocol;
