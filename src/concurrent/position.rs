@@ -15,8 +15,8 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
 use crate::concurrent::counters::CountersReader;
+use crate::utils::types::Index;
 
 trait ReadablePosition {
     type P: ReadablePosition;

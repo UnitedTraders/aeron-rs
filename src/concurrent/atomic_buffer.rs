@@ -1,9 +1,9 @@
+use std::ffi::{CStr, CString};
 use std::intrinsics::atomic_cxchg;
 use std::sync::atomic::{fence, Ordering};
-use std::ffi::{CString, CStr};
 
-use crate::utils::types::Index;
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::Index;
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -12,7 +12,6 @@ pub struct AlignedBuffer {
 }
 
 impl AlignedBuffer {
-    #[allow(dead_code)]
     pub(crate) fn with_capacity(len: usize) -> AlignedBuffer {
         AlignedBuffer {
             ptr: alloc_buffer_aligned(len),
@@ -36,7 +35,6 @@ pub struct AtomicBuffer {
 
 // todo: add bounds checks!!!
 // todo: remove unsafe?
-#[allow(dead_code)]
 impl AtomicBuffer {
     pub fn from_aligned(aligned: &AlignedBuffer) -> AtomicBuffer {
         AtomicBuffer {

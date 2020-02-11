@@ -1,11 +1,13 @@
+// TODO: Eliminate later
+#![allow(dead_code)]
 #![feature(core_intrinsics)]
 
 extern crate cache_line_size;
 
-mod utils;
 mod commands;
 mod concurrent;
 mod protocol;
+mod utils;
 
 pub struct Context {}
 

@@ -1,8 +1,8 @@
 use cache_line_size::CACHE_LINE_SIZE;
 
-use crate::utils::bit_utils::align;
 use crate::commands::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::bit_utils::align;
 
 use crate::utils::types::Index;
 
@@ -56,7 +56,6 @@ impl RecordDescriptor {
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn type_offset(record_offset: Index) -> Index {
         record_offset + (::std::mem::size_of::<i32>() as Index)
     }
@@ -90,7 +89,6 @@ pub struct MPSCProducer {
     head_position: Index,
 }
 
-#[allow(dead_code)]
 pub struct MPSCConsumer {
     buffer: AtomicBuffer,
     capacity: Index,
@@ -102,7 +100,6 @@ pub struct MPSCConsumer {
     consumer_heartbeat: Index,
 }
 
-#[allow(dead_code)]
 impl MPSCProducer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let trailer_len = TRAILER_LENGTH;
@@ -193,7 +190,6 @@ impl MPSCProducer {
     }
 }
 
-#[allow(dead_code)]
 impl MPSCConsumer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let capacity = buffer.capacity() - TRAILER_LENGTH;
@@ -269,12 +265,12 @@ impl MPSCConsumer {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::bit_utils::align;
     use crate::commands::AeronCommand;
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::concurrent::ring_buffer::{
         MPSCConsumer, MPSCProducer, RecordDescriptor, RingBufferError, HEAD_POSITION_OFFSET, TAIL_POSITION_OFFSET, TRAILER_LENGTH,
     };
+    use crate::utils::bit_utils::align;
     use crate::utils::types::Index;
 
     const CAPACITY: usize = 1024usize;
@@ -285,7 +281,6 @@ mod tests {
 
     const MSG_TYPE_ID: i32 = 101;
 
-    #[allow(dead_code)]
     struct Test {
         ab: AtomicBuffer,
         src_ab: AtomicBuffer,

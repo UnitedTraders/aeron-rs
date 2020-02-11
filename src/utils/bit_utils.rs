@@ -7,7 +7,6 @@ pub fn align(value: Index, alignment: Index) -> Index {
     return (value + (alignment - 1)) & !(alignment - 1);
 }
 
-#[allow(dead_code)]
 /// Allocate a buffer aligned on the cache size
 pub fn alloc_buffer_aligned(size: usize) -> *mut u8 {
     unsafe {
