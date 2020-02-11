@@ -1,8 +1,5 @@
 // TODO: Eliminate later
 #![allow(dead_code)]
-#![feature(core_intrinsics)]
-
-extern crate cache_line_size;
 
 mod commands;
 mod concurrent;

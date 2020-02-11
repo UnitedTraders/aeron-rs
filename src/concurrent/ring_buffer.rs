@@ -175,7 +175,7 @@ impl MPSCProducer {
                 padding = len_to_buffer_end;
             }
             let t2 = tail + required_capacity as i64 + padding as i64;
-            if self.buffer.compare_and_set(self.tail_position, tail, t2) {
+            if self.buffer.compare_and_set_i64(self.tail_position, tail, t2) {
                 break (padding, tail_index);
             }
         };
