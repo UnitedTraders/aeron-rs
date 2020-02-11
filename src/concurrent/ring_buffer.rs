@@ -42,12 +42,12 @@ impl RecordDescriptor {
 
     #[inline]
     pub fn make_header(len: Index, command: AeronCommand) -> i64 {
-        (((command as i64) & 0xFFFFFFFF) << 32) | ((len as i64) & 0xFFFFFFFF)
+        (((command as i64) & 0xFFFF_FFFF) << 32) | ((len as i64) & 0xFFFF_FFFF)
     }
 
     #[inline]
     pub fn encoded_msg_offset(record_offset: Index) -> Index {
-        return record_offset + RecordDescriptor::HEADER_LENGTH;
+        record_offset + RecordDescriptor::HEADER_LENGTH
     }
 
     #[inline]
@@ -62,7 +62,7 @@ impl RecordDescriptor {
 
     #[inline]
     pub fn record_length(header: i64) -> Index {
-        (header & 0xFFFFFFFF) as Index
+        (header & 0xFFFF_FFFF) as Index
     }
 
     #[inline]
@@ -390,7 +390,7 @@ mod tests {
         let mut test = Test::new();
 
         let consumer = MPSCConsumer::new(test.ab);
-        let result = test.prod.write(AeronCommand::UnitTestMessageTypeID, "12345".as_bytes());
+        let result = test.prod.write(AeronCommand::UnitTestMessageTypeID, b"12345");
 
         assert!(result.is_ok());
 

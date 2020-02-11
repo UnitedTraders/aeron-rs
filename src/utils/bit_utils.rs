@@ -4,7 +4,7 @@ use std::alloc::{alloc_zeroed, dealloc, Layout};
 use crate::utils::types::Index;
 
 pub fn align(value: Index, alignment: Index) -> Index {
-    return (value + (alignment - 1)) & !(alignment - 1);
+    (value + (alignment - 1)) & !(alignment - 1)
 }
 
 /// Allocate a buffer aligned on the cache size

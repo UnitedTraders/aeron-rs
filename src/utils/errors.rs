@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::fmt::Display;
 use std::fmt;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum AeronError {
@@ -25,9 +25,7 @@ pub enum AeronError {
 impl Display for AeronError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AeronError::IllegalArgumentException(msg) => {
-                write!(f, "Illegal argument: {}", msg)
-            }
+            AeronError::IllegalArgumentException(msg) => write!(f, "Illegal argument: {}", msg),
         }
     }
 }

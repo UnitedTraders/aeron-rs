@@ -163,11 +163,11 @@ impl CountersReader {
     }
 
     pub fn values_buffer(&self) -> AtomicBuffer {
-        self.values_buffer.clone()
+        self.values_buffer
     }
 
     pub fn meta_data_buffer(&self) -> AtomicBuffer {
-        self.metadata_buffer.clone()
+        self.metadata_buffer
     }
 
     fn validate_counter_id(&self, counter_id: i32) -> Result<(), AeronError> {
@@ -284,7 +284,7 @@ impl CountersManager {
             .metadata_buffer
             .put_ordered::<i32>(record_offset, RECORD_ALLOCATED);
 
-        return Ok(counter_id);
+        Ok(counter_id)
     }
 
     pub fn free(&mut self, counter_id: i32) {
