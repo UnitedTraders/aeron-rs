@@ -4,3 +4,4 @@ pub mod counters;
 pub mod log_buffer;
 pub mod position;
 pub mod ring_buffer;
+pub mod broadcast;
