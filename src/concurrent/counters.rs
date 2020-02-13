@@ -290,11 +290,12 @@ impl CountersManager {
         self.reader
             .metadata_buffer
             .put_bytes(record_offset + *LABEL_LENGTH_OFFSET, label.as_bytes_with_nul());
+
         self.reader
             .metadata_buffer
             .put_ordered::<i32>(record_offset, RECORD_ALLOCATED);
 
-        return Ok(counter_id);
+        Ok(counter_id)
     }
 
     pub fn free(&mut self, counter_id: i32) {

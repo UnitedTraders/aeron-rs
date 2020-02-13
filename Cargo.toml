@@ -1,7 +1,7 @@
 [package]
 name = "aeron-rs"
 version = "0.1.0"
-authors = ["Denis Komissarov <denisxor@gmail.com>; Florian Doyon <florian.doyon@gmail.com>"]
+authors = ["Denis Komissarov <denisxor@gmail.com>; Kirill Karbushev <kiriosk@yandex.ru>; Florian Doyon <florian.doyon@gmail.com>"]
 edition = "2018"
 
 [dependencies]

@@ -71,7 +71,6 @@ impl AeronCommand {
 }
 
 #[repr(C)]
-#[allow(dead_code)]
 pub enum AeronErrorCode {
     GenericError = 0,
     InvalidChannel = 1,

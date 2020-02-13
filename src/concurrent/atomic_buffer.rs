@@ -1,6 +1,5 @@
 use std::ffi::{CStr, CString};
-use std::intrinsics::atomic_cxchg;
-use std::sync::atomic::{fence, Ordering};
+use std::sync::atomic::{fence, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
 use crate::utils::types::Index;
@@ -12,7 +11,6 @@ pub struct AlignedBuffer {
 }
 
 impl AlignedBuffer {
-    #[allow(dead_code)]
     pub(crate) fn with_capacity(len: usize) -> AlignedBuffer {
         AlignedBuffer {
             ptr: alloc_buffer_aligned(len),
@@ -36,7 +34,6 @@ pub struct AtomicBuffer {
 
 // todo: add bounds checks!!!
 // todo: remove unsafe?
-#[allow(dead_code)]
 impl AtomicBuffer {
     pub fn from_aligned(aligned: &AlignedBuffer) -> AtomicBuffer {
         AtomicBuffer {
@@ -63,7 +60,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    fn bounds_check(&self, idx: Index, len: isize) -> () {
+    fn bounds_check(&self, idx: Index, len: isize) {
         debug_assert!((idx + len as Index) < self.len)
     }
 
@@ -112,11 +109,12 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn compare_and_set<T>(&self, position: Index, expected: T, update: T) -> bool {
+    pub fn compare_and_set_i64(&self, position: Index, expected: i64, update: i64) -> bool {
         unsafe {
-            let ptr = self.ptr.offset(position as isize) as *mut T;
-            let (_, ok) = atomic_cxchg(ptr, expected, update);
-            ok
+            let ptr = self.ptr.offset(position as isize) as *const AtomicI64;
+            (&*ptr)
+                .compare_exchange(expected, update, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
         }
     }
 

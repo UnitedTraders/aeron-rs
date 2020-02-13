@@ -7,7 +7,7 @@ use crate::utils::types::Index;
 pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 
 pub fn align(value: Index, alignment: Index) -> Index {
-    return (value + (alignment - 1)) & !(alignment - 1);
+    (value + (alignment - 1)) & !(alignment - 1)
 }
 
 pub fn is_power_of_two(value: i32) -> bool {

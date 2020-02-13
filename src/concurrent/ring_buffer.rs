@@ -39,12 +39,12 @@ impl RecordDescriptor {
 
     #[inline]
     pub fn make_header(len: Index, command: AeronCommand) -> i64 {
-        (((command as i64) & 0xFFFFFFFF) << 32) | ((len as i64) & 0xFFFFFFFF)
+        (((command as i64) & 0xFFFF_FFFF) << 32) | ((len as i64) & 0xFFFF_FFFF)
     }
 
     #[inline]
     pub fn encoded_msg_offset(record_offset: Index) -> Index {
-        return record_offset + RecordDescriptor::HEADER_LENGTH;
+        record_offset + RecordDescriptor::HEADER_LENGTH
     }
 
     #[inline]
@@ -53,14 +53,13 @@ impl RecordDescriptor {
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn type_offset(record_offset: Index) -> Index {
         record_offset + (::std::mem::size_of::<i32>() as Index)
     }
 
     #[inline]
     pub fn record_length(header: i64) -> Index {
-        (header & 0xFFFFFFFF) as Index
+        (header & 0xFFFF_FFFF) as Index
     }
 
     #[inline]
@@ -87,7 +86,6 @@ pub struct MPSCProducer {
     head_position: Index,
 }
 
-#[allow(dead_code)]
 pub struct MPSCConsumer {
     buffer: AtomicBuffer,
     capacity: Index,
@@ -99,7 +97,6 @@ pub struct MPSCConsumer {
     consumer_heartbeat: Index,
 }
 
-#[allow(dead_code)]
 impl MPSCProducer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let trailer_len = TRAILER_LENGTH;
@@ -175,7 +172,7 @@ impl MPSCProducer {
                 padding = len_to_buffer_end;
             }
             let t2 = tail + required_capacity as i64 + padding as i64;
-            if self.buffer.compare_and_set(self.tail_position, tail, t2) {
+            if self.buffer.compare_and_set_i64(self.tail_position, tail, t2) {
                 break (padding, tail_index);
             }
         };
@@ -190,7 +187,6 @@ impl MPSCProducer {
     }
 }
 
-#[allow(dead_code)]
 impl MPSCConsumer {
     pub fn new(buffer: AtomicBuffer) -> Self {
         let capacity = buffer.capacity() - TRAILER_LENGTH;
@@ -282,7 +278,6 @@ mod tests {
 
     const MSG_TYPE_ID: i32 = 101;
 
-    #[allow(dead_code)]
     struct Test {
         ab: AtomicBuffer,
         src_ab: AtomicBuffer,
@@ -392,7 +387,7 @@ mod tests {
         let mut test = Test::new();
 
         let consumer = MPSCConsumer::new(test.ab);
-        let result = test.prod.write(AeronCommand::UnitTestMessageTypeID, "12345".as_bytes());
+        let result = test.prod.write(AeronCommand::UnitTestMessageTypeID, b"12345");
 
         assert!(result.is_ok());
 

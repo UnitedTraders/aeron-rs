@@ -43,11 +43,10 @@ macro_rules! offset_of {
         fn offset() -> usize {
             let u = core::mem::MaybeUninit::<$Struct>::uninit();
             // Use pattern-matching to avoid accidentally going through Deref.
-            let &$Struct { $field: ref f, .. } = unsafe { &*u.as_ptr() };
-            let o = (f as *const _ as usize).wrapping_sub(&u as *const _ as usize);
-            // Triple check that we are within `u` still.
-            assert!((0..=core::mem::size_of_val(&u)).contains(&o));
-            o
+            unsafe {
+                let &$Struct { $field: ref f, .. } = &*u.as_ptr();
+                (f as *const _ as usize).wrapping_sub(&u as *const _ as usize)
+            }
         }
         offset() as i32
     }};
