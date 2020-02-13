@@ -212,7 +212,7 @@ pub fn set_active_term_count_ordered(log_meta_data_buffer: &AtomicBuffer, active
 }
 
 pub fn cas_active_term_count(log_meta_data_buffer: &AtomicBuffer, expected_term_count: i32, update_term_count: i32) -> bool {
-    log_meta_data_buffer.compare_and_set::<i32>(*LOG_ACTIVE_TERM_COUNT_OFFSET, expected_term_count, update_term_count)
+    log_meta_data_buffer.compare_and_set_i32(*LOG_ACTIVE_TERM_COUNT_OFFSET, expected_term_count, update_term_count)
 }
 
 pub fn next_partition_index(current_index: i32) -> i32 {
@@ -301,7 +301,7 @@ pub fn cas_raw_tail(
     expected_raw_tail: i64,
     update_raw_tail: i64,
 ) -> bool {
-    log_meta_data_buffer.compare_and_set::<i64>(
+    log_meta_data_buffer.compare_and_set_i64(
         *TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64 as i32),
         expected_raw_tail,
         update_raw_tail,
