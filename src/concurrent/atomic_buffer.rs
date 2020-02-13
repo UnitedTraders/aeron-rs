@@ -1,9 +1,9 @@
+use std::ffi::{CStr, CString};
 use std::intrinsics::atomic_cxchg;
 use std::sync::atomic::{fence, Ordering};
-use std::ffi::{CString, CStr};
 
-use crate::utils::types::Index;
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::Index;
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -78,6 +78,11 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    pub fn buffer(&self) -> *mut u8 {
+        self.ptr
+    }
+
+    #[inline]
     pub fn set_memory(&self, _position: Index, len: usize, value: u8) {
         unsafe {
             // poor man's memcp
@@ -134,7 +139,7 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         let length: i32 = self.get::<i32>(offset);
-        self.get_string_without_length(offset + std::mem::size_of::<i32> as isize, length as isize)
+        self.get_string_without_length(offset + std::mem::size_of::<i32> as i32, length as isize)
     }
 
     #[inline]

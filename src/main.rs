@@ -2,10 +2,10 @@
 
 extern crate cache_line_size;
 
-mod utils;
 mod commands;
 mod concurrent;
 mod protocol;
+mod utils;
 
 pub struct Context {}
 

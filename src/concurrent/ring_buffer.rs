@@ -1,12 +1,9 @@
-use cache_line_size::CACHE_LINE_SIZE;
-
-use crate::utils::bit_utils::align;
 use crate::commands::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::bit_utils::{align, CACHE_LINE_LENGTH};
 
 use crate::utils::types::Index;
 
-pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 pub const TAIL_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 2;
 pub const HEAD_CACHE_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 4;
 pub const HEAD_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 6;
@@ -269,12 +266,12 @@ impl MPSCConsumer {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::bit_utils::align;
     use crate::commands::AeronCommand;
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::concurrent::ring_buffer::{
         MPSCConsumer, MPSCProducer, RecordDescriptor, RingBufferError, HEAD_POSITION_OFFSET, TAIL_POSITION_OFFSET, TRAILER_LENGTH,
     };
+    use crate::utils::bit_utils::align;
     use crate::utils::types::Index;
 
     const CAPACITY: usize = 1024usize;

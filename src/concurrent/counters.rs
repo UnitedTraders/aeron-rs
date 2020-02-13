@@ -1,13 +1,30 @@
+/*
+ * Copyright 2020 UT OVERSEAS INC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::ffi::CString;
 use std::time::SystemTime;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::ring_buffer::CACHE_LINE_LENGTH;
 use crate::offset_of;
+use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
-use crate::utils::types::{Index, MAX_MOMENT, Moment};
 use crate::utils::misc::unix_time;
+use crate::utils::types::{Index, Moment, MAX_MOMENT};
 
 /**
  * Reads the counters metadata and values buffers.
@@ -75,23 +92,22 @@ struct CounterValueDefn {
 // This type is needed just to be able get sizeof of this packed array
 // May be its redundant - need to test
 #[repr(C, packed(4))]
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 struct CounterMetaDataKey {
-    key: [i8; (2 * CACHE_LINE_LENGTH) as usize - (2 * std::mem::size_of::<i32>()) - std::mem::size_of::<u64>()]
+    key: [i8; (2 * CACHE_LINE_LENGTH) as usize - (2 * std::mem::size_of::<i32>()) - std::mem::size_of::<u64>()],
 }
 
 // This type is needed just to be able get sizeof of this packed array
 // May be its redundant - need to test
 #[repr(C, packed(4))]
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 struct CounterMetaDataLabel {
-    key: [i8; (6 * CACHE_LINE_LENGTH) as usize - std::mem::size_of::<i32>()]
+    key: [i8; (6 * CACHE_LINE_LENGTH) as usize - std::mem::size_of::<i32>()],
 }
 
 #[repr(C, packed(4))]
-#[derive(Copy,Clone)]
-pub struct CounterMetaDataDefn
-{
+#[derive(Copy, Clone)]
+pub struct CounterMetaDataDefn {
     state: i32,
     type_id: i32,
     free_to_reuse_deadline: Moment,
@@ -100,18 +116,16 @@ pub struct CounterMetaDataDefn
     label: CounterMetaDataLabel,
 }
 
+lazy_static! {
+    pub static ref FREE_TO_REUSE_DEADLINE_OFFSET: i32 = offset_of!(CounterMetaDataDefn, free_to_reuse_deadline) as Index;
+    pub static ref LABEL_LENGTH_OFFSET: i32 = offset_of!(CounterMetaDataDefn, label_length) as Index;
+    pub static ref KEY_OFFSET: i32 = offset_of!(CounterMetaDataDefn, key) as Index;
+}
 
 pub struct CountersReader {
     metadata_buffer: AtomicBuffer,
     values_buffer: AtomicBuffer,
     max_counter_id: i32,
-
-    // It's a shame! But I failed to find working RUST offset_of! macro which works for
-    // constants declared on module level. Therefore these constants live inside CountersReader
-    // as mutable fields!!!
-    FREE_TO_REUSE_DEADLINE_OFFSET: Index,
-    LABEL_LENGTH_OFFSET: Index,
-    KEY_OFFSET: Index,
 }
 
 impl CountersReader {
@@ -120,9 +134,6 @@ impl CountersReader {
             metadata_buffer,
             values_buffer,
             max_counter_id: (values_buffer.capacity() / COUNTER_LENGTH) as i32,
-            FREE_TO_REUSE_DEADLINE_OFFSET: offset_of!(CounterMetaDataDefn, free_to_reuse_deadline) as Index,
-            LABEL_LENGTH_OFFSET: offset_of!(CounterMetaDataDefn, label_length) as Index,
-            KEY_OFFSET: offset_of!(CounterMetaDataDefn, key) as Index,
         }
     }
 
@@ -142,13 +153,17 @@ impl CountersReader {
 
     pub fn get_free_to_reuse_deadline(&self, id: i32) -> Result<u64, AeronError> {
         self.validate_counter_id(id)?;
-        Ok(self.metadata_buffer.get_volatile::<u64>(Self::metadata_offset(id) + self.FREE_TO_REUSE_DEADLINE_OFFSET))
+        Ok(self
+            .metadata_buffer
+            .get_volatile::<u64>(Self::metadata_offset(id) + *FREE_TO_REUSE_DEADLINE_OFFSET))
     }
 
-    pub fn get_counter_label(&self, id: i32) -> Result<CString, AeronError>  {
+    pub fn get_counter_label(&self, id: i32) -> Result<CString, AeronError> {
         self.validate_counter_id(id)?;
 
-        Ok(self.metadata_buffer.get_string(Self::metadata_offset(id) + self.LABEL_LENGTH_OFFSET))
+        Ok(self
+            .metadata_buffer
+            .get_string(Self::metadata_offset(id) + *LABEL_LENGTH_OFFSET))
     }
 
     pub fn counter_offset(id: i32) -> Index {
@@ -160,17 +175,22 @@ impl CountersReader {
     }
 
     pub fn values_buffer(&self) -> AtomicBuffer {
-        self.values_buffer.clone()
+        self.values_buffer
     }
 
     pub fn meta_data_buffer(&self) -> AtomicBuffer {
-        self.metadata_buffer.clone()
+        self.metadata_buffer
     }
 
-    fn validate_counter_id(&self, counter_id: i32) -> Result<(),AeronError> {
+    fn validate_counter_id(&self, counter_id: i32) -> Result<(), AeronError> {
         if counter_id < 0 || counter_id > self.max_counter_id {
-            let err_msg = format!("{}:{}: counter id {} out of range: max_counter_id={}",
-                file!(), line!(), counter_id, self.max_counter_id);
+            let err_msg = format!(
+                "{}:{}: counter id {} out of range: max_counter_id={}",
+                file!(),
+                line!(),
+                counter_id,
+                self.max_counter_id
+            );
             Err(AeronError::IllegalArgumentException(err_msg))
         } else {
             Ok(())
@@ -178,12 +198,8 @@ impl CountersReader {
     }
 
     pub fn iter(&self) -> CountersReaderIter {
-        CountersReaderIter {
-            inner: self,
-            pos: 0,
-        }
+        CountersReaderIter { inner: self, pos: 0 }
     }
-
 }
 
 // This struct is needed to implement iterator for CountersReader
@@ -192,12 +208,9 @@ pub struct CountersReaderIter<'a> {
     pos: usize,
 }
 
-impl <'a> CountersReaderIter <'a> {
+impl<'a> CountersReaderIter<'a> {
     pub fn new(inner: &'a CountersReader) -> Self {
-        Self {
-            inner,
-            pos: 0
-        }
+        Self { inner, pos: 0 }
     }
 }
 
@@ -218,20 +231,17 @@ impl<'a> Iterator for CountersReaderIter<'a> {
         let record_status = self.inner.metadata_buffer.get_volatile::<i32>(next_metadata_pos);
 
         match record_status {
-            RECORD_UNUSED | RECORD_RECLAIMED => {
-                None
-            },
+            RECORD_UNUSED | RECORD_RECLAIMED => None,
             RECORD_ALLOCATED => {
-                let ret =
-                    self.inner.metadata_buffer.as_slice::<CounterMetaDataDefn>(next_metadata_pos);
+                let ret = self.inner.metadata_buffer.as_slice::<CounterMetaDataDefn>(next_metadata_pos);
                 Some(ret)
             }
-            _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status)
+            _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status),
         }
     }
 }
 
-pub (crate) struct CountersManager {
+pub(crate) struct CountersManager {
     reader: CountersReader,
     free_list: VecDeque<i32>,
     clock: SystemTime,
@@ -240,10 +250,12 @@ pub (crate) struct CountersManager {
 }
 
 impl CountersManager {
-    pub fn new(metadata_buffer: AtomicBuffer,
-               values_buffer: AtomicBuffer,
-               clock: SystemTime,
-               free_to_reuse_timeout_ms: u64) -> Self {
+    pub fn new(
+        metadata_buffer: AtomicBuffer,
+        values_buffer: AtomicBuffer,
+        clock: SystemTime,
+        free_to_reuse_timeout_ms: u64,
+    ) -> Self {
         Self {
             reader: CountersReader::new(metadata_buffer, values_buffer),
             free_list: VecDeque::default(),
@@ -274,40 +286,58 @@ impl CountersManager {
             return Err(AeronError::IllegalArgumentException(String::from("allocate: key too long")));
         }
 
-        self.reader.metadata_buffer.put_bytes(record_offset + self.reader.KEY_OFFSET, key);
-        self.reader.metadata_buffer.put_bytes(record_offset + self.reader.LABEL_LENGTH_OFFSET, label.as_bytes_with_nul());
-        self.reader.metadata_buffer.put_ordered::<i32>(record_offset, RECORD_ALLOCATED);
+        self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
+        self.reader
+            .metadata_buffer
+            .put_bytes(record_offset + *LABEL_LENGTH_OFFSET, label.as_bytes_with_nul());
+        self.reader
+            .metadata_buffer
+            .put_ordered::<i32>(record_offset, RECORD_ALLOCATED);
 
         return Ok(counter_id);
     }
 
     pub fn free(&mut self, counter_id: i32) {
         let record_offset = CountersReader::metadata_offset(counter_id);
-        self.reader.metadata_buffer.put::<Moment>(record_offset + self.reader.FREE_TO_REUSE_DEADLINE_OFFSET, unix_time() + self.reader.get_free_to_reuse_deadline(counter_id).expect("Error getting free to reuse deadline"));
-        self.reader.metadata_buffer.put_ordered::<i32>(record_offset, RECORD_RECLAIMED);
+        self.reader.metadata_buffer.put::<Moment>(
+            record_offset + *FREE_TO_REUSE_DEADLINE_OFFSET,
+            unix_time()
+                + self
+                    .reader
+                    .get_free_to_reuse_deadline(counter_id)
+                    .expect("Error getting free to reuse deadline"),
+        );
+        self.reader
+            .metadata_buffer
+            .put_ordered::<i32>(record_offset, RECORD_RECLAIMED);
         self.free_list.push_back(counter_id);
     }
 
     pub fn set_counter_value(&mut self, counter_id: i32, value: u64) {
-        self.reader.values_buffer.put_ordered::<u64>(CountersReader::counter_offset(counter_id), value);
+        self.reader
+            .values_buffer
+            .put_ordered::<u64>(CountersReader::counter_offset(counter_id), value);
     }
 
     fn next_counter_id(&mut self) -> i32 {
-
         let now_ms = unix_time();
 
         // Try to find counter ID which we allowed to reuse (based on reuse deadline)
-        let search_result = self
-            .free_list
-            .iter()
-            .enumerate()
-            .find(|(index, id)| now_ms >= self.reader.metadata_buffer.get_volatile::<u64>(CountersReader::metadata_offset(**id) + self.reader.FREE_TO_REUSE_DEADLINE_OFFSET));
+        let search_result = self.free_list.iter().enumerate().find(|(_index, id)| {
+            now_ms
+                >= self
+                    .reader
+                    .metadata_buffer
+                    .get_volatile::<u64>(CountersReader::metadata_offset(**id) + *FREE_TO_REUSE_DEADLINE_OFFSET)
+        });
 
         if let Some((index, id)) = search_result {
             let counter_id = *id;
             self.free_list.remove(index); // A u sure that we need DQueue here???
 
-            self.reader.values_buffer.put_ordered::<u64>(CountersReader::counter_offset(counter_id), 0);
+            self.reader
+                .values_buffer
+                .put_ordered::<u64>(CountersReader::counter_offset(counter_id), 0);
 
             return counter_id;
         }
@@ -319,7 +349,9 @@ impl CountersManager {
 
     fn check_counters_capacity(&self, counter_id: i32) -> Result<i32, AeronError> {
         if CountersReader::counter_offset(counter_id) + COUNTER_LENGTH > self.reader.values_buffer.capacity() {
-            return Err(AeronError::IllegalArgumentException(String::from("unable to allocated counter, values buffer is full")));
+            return Err(AeronError::IllegalArgumentException(String::from(
+                "unable to allocated counter, values buffer is full",
+            )));
         }
 
         Ok(0)
@@ -327,7 +359,9 @@ impl CountersManager {
 
     fn check_meta_data_capacity(&self, record_offset: Index) -> Result<i32, AeronError> {
         if record_offset + METADATA_LENGTH > self.reader.metadata_buffer.capacity() {
-            return Err(AeronError::IllegalArgumentException(String::from("unable to allocate counter, metadata buffer is full")));
+            return Err(AeronError::IllegalArgumentException(String::from(
+                "unable to allocate counter, metadata buffer is full",
+            )));
         }
 
         Ok(0)

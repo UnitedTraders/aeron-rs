@@ -1,5 +1,5 @@
 /*
- * 2020, United Traders Inc.
+ * Copyright 2020 UT OVERSEAS INC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
 use crate::concurrent::counters::CountersReader;
+use crate::utils::types::Index;
 
 trait ReadablePosition {
     type P: ReadablePosition;

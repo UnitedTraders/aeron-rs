@@ -1,5 +1,5 @@
 /*
- * 2020, United Traders Inc.
+ * Copyright 2020 UT OVERSEAS INC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-use std::fmt::Display;
 use std::fmt;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum AeronError {
     IllegalArgumentException(String),
+    IllegalStateException(String),
 }
 
 impl Display for AeronError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AeronError::IllegalArgumentException(msg) => {
-                write!(f, "Illegal argument: {}", msg)
-            }
+            AeronError::IllegalArgumentException(msg) => write!(f, "Illegal argument: {}", msg),
+            AeronError::IllegalStateException(msg) => write!(f, "Illegal state: {}", msg),
         }
     }
 }
