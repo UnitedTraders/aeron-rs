@@ -128,12 +128,28 @@ impl AtomicBuffer {
         }
     }
 
+    // Put bytes in to this buffer at specified offset
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
         unsafe {
             let ptr = self.ptr.offset(offset as isize);
             let slice = ::std::slice::from_raw_parts_mut(ptr, src.len() as usize);
             slice.copy_from_slice(src)
+        }
+    }
+
+    // Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
+    // offset - offset in current (self) buffer to start coping from
+    // src_buffer - atomic buffer to copy data from
+    // src_offset - offset in src_buffer to start coping from
+    // length - number of bytes to copy
+    #[inline]
+    pub fn copy_from(&self, offset: Index, src_buffer: &AtomicBuffer, src_offset: Index, length: Index) {
+        unsafe {
+            let src_ptr = src_buffer.ptr.offset(src_offset as isize);
+            let dest_ptr = self.ptr.offset(offset as isize);
+            // TODO: check that memory regions are actually not overlapping, otherwise UB!
+            std::ptr::copy_nonoverlapping(src_ptr, dest_ptr, length as usize);
         }
     }
 
