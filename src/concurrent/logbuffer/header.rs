@@ -15,6 +15,7 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header::DataFrameHeaderDefn;
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
 use crate::utils::bit_utils::align;
 use crate::utils::bit_utils::number_of_trailing_zeroes;
@@ -186,5 +187,36 @@ impl Header {
      */
     pub fn context(&self) -> &Context {
         &self.context
+    }
+}
+
+pub struct HeaderWriter {
+    session_id: i32,
+    stream_id: i32,
+}
+
+impl HeaderWriter {
+    pub fn new(default_hdr: AtomicBuffer) -> Self {
+        Self {
+            session_id: default_hdr.get::<i32>(*data_frame_header::SESSION_ID_FIELD_OFFSET),
+            stream_id: default_hdr.get::<i32>(*data_frame_header::STREAM_ID_FIELD_OFFSET),
+        }
+    }
+
+    /**
+     * Write header in LITTLE_ENDIAN order
+     */
+    pub fn write(&self, term_buffer: &AtomicBuffer, offset: Index, length: Index, term_id: i32) {
+        term_buffer.put_ordered::<i32>(offset, -length);
+
+        let mut hdr = term_buffer.get::<DataFrameHeaderDefn>(offset);
+
+        hdr.version = data_frame_header::CURRENT_VERSION;
+        hdr.flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;
+        hdr.frame_type = data_frame_header::HDR_TYPE_DATA;
+        hdr.term_offset = offset;
+        hdr.session_id = self.session_id;
+        hdr.stream_id = self.stream_id;
+        hdr.term_id = term_id;
     }
 }

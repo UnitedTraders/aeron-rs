@@ -1,5 +1,4 @@
 use cache_line_size::CACHE_LINE_SIZE;
-use num_traits::Num;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 
 use crate::utils::types::Index;

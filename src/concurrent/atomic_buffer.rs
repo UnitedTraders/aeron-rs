@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::Index;
+use crate::utils::types::{Index, SZ_I64};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -174,6 +174,21 @@ impl AtomicBuffer {
         // We can't go with Rust UTF strings as Media Driver will not understand us.
         let ptr = unsafe { *(self.ptr.offset(offset as isize) as *const &[u8]) };
         CString::from(CStr::from_bytes_with_nul(ptr).expect("Error converting bytes in to CStr"))
+    }
+
+    /**
+     * Multi threaded increment.
+     *
+     * @param offset in the buffer of the word.
+     * @param delta  for to be applied to the value.
+     * @return the value before applying the delta.
+     */
+    pub fn get_and_add_i64(&self, offset: Index, delta: i64) -> i64 {
+        self.bounds_check(offset, SZ_I64 as isize);
+        unsafe {
+            let atomic_ptr = self.ptr.offset(offset as isize) as *const AtomicI64;
+            (&*atomic_ptr).fetch_add(delta, Ordering::SeqCst)
+        }
     }
 }
 
