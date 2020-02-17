@@ -27,9 +27,8 @@
  *  +---------------------------------------------------------------+
  */
 
-
-use crate::utils::types::Index;
 use crate::concurrent::broadcast::BroadcastTransmitError;
+use crate::utils::types::Index;
 
 pub(crate) const PADDING_MSG_TYPE_ID: i32 = -1;
 
@@ -40,7 +39,7 @@ pub(crate) const HEADER_LENGTH: Index = 8;
 pub(crate) const RECORD_ALIGNMENT: Index = HEADER_LENGTH;
 
 pub fn calculate_max_message_length(capacity: Index) -> i32 {
-    capacity / HEADER_LENGTH
+    capacity / 8
 }
 
 pub fn length_offset(record_offset: Index) -> Index {
@@ -62,4 +61,3 @@ pub fn check_msg_type_id(msg_type_id: i32) -> Result<(), BroadcastTransmitError>
 
     Ok(())
 }
-
