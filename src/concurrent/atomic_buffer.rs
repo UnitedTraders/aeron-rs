@@ -1,8 +1,11 @@
 use std::ffi::{CStr, CString};
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
+use std::fmt::{Debug, Formatter, Error};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
 use crate::utils::types::{Index, SZ_I64};
+use std::io::Read;
+
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -26,10 +29,29 @@ impl Drop for AlignedBuffer {
 }
 
 // Wraps but does not own a region of shared memory
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct AtomicBuffer {
     pub(crate) ptr: *mut u8,
     len: Index,
+}
+
+impl Debug for AtomicBuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let mut slice = self.as_slice();
+        const TAKE_LIMIT: usize = 4;
+        loop {
+            let (mut head, tail) = slice.split_at(TAKE_LIMIT);
+            if tail.len() > TAKE_LIMIT {
+                f.write_fmt(format_args!("{:?}\n", head));
+
+                slice = tail;
+            } else {
+                f.write_fmt(format_args!("{:?}", tail));
+                break;
+            }
+        }
+        Ok(())
+    }
 }
 
 // todo: add bounds checks!!!
@@ -61,7 +83,7 @@ impl AtomicBuffer {
 
     #[inline]
     fn bounds_check(&self, idx: Index, len: isize) {
-        debug_assert!((idx + len as Index) < self.len)
+        debug_assert!((idx + len as Index) <= self.len)
     }
 
     #[inline]
@@ -70,7 +92,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn as_slice<T: Copy>(&self, position: Index) -> &T {
+    pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
         unsafe { &*(self.ptr.offset(position as isize) as *const T) }
     }
 
@@ -131,6 +153,8 @@ impl AtomicBuffer {
     // Put bytes in to this buffer at specified offset
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
+        self.bounds_check(offset, src.len() as isize);
+
         unsafe {
             let ptr = self.ptr.offset(offset as isize);
             let slice = ::std::slice::from_raw_parts_mut(ptr, src.len() as usize);
@@ -153,9 +177,20 @@ impl AtomicBuffer {
         }
     }
 
-    pub fn as_mutable_slice(&self) -> &mut [u8] {
+    pub fn as_mutable_slice(&mut self) -> &mut [u8] {
         unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.len as usize) }
     }
+
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { ::std::slice::from_raw_parts(self.ptr, self.len as usize) }
+    }
+
+    pub fn as_sub_slice(&self, index: Index, len: Index) -> &[u8] {
+        self.bounds_check(index, len as isize);
+        self.view(index,len).as_slice()
+//        unsafe { ::std::slice::from_raw_parts(self.ptr.offset(index as isize), len as usize) }
+    }
+
 
     #[inline]
     pub fn get_string(&self, offset: Index) -> CString {
@@ -205,6 +240,15 @@ mod tests {
     }
 
     #[test]
+    fn test_align_buffer_create() {
+        let src = AlignedBuffer::with_capacity(16);
+        let atomic_buffer = AtomicBuffer::from_aligned(&src);
+
+        //assert zeroed
+        assert_eq!(atomic_buffer.as_slice(), &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ])
+    }
+
+    #[test]
     fn that_buffer_can_write() {
         let src = AlignedBuffer::with_capacity(1024 << 2);
         let buffer = AtomicBuffer::from_aligned(&src);
@@ -215,6 +259,70 @@ mod tests {
         assert_eq!(read, to_write)
     }
 
+
     #[test]
-    fn that_buffer_preserves_from_aligned() {}
+    fn that_buffer_preserves_from_aligned() {
+        let buffer = AlignedBuffer::with_capacity(8);
+        let atomic_buffer = AtomicBuffer::from_aligned(&buffer);
+        assert_eq!(atomic_buffer.as_slice(), buffer.)
+
+    }
+
+    #[test]
+    fn test_put_bytes() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+        let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
+        buffer.put_bytes(4, &[0, 1, 2, 3]);
+
+        assert_eq!(buffer.as_slice(), &[0, 1, 2, 3, 0, 1, 2, 3])
+    }
+
+    #[test]
+    fn test_get_as_slice() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+
+        let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
+        let sub_slice = buffer.as_slice();
+
+        assert_eq!(sub_slice, &[0, 1, 2, 3, 4, 5, 6, 7])
+    }
+
+
+    #[test]
+    fn test_get_as_mut_slice() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+
+        let mut buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
+        let sub_slice = buffer.as_mutable_slice();
+
+        assert_eq!(sub_slice, &[0, 1, 2, 3, 4, 5, 6, 7])
+    }
+
+
+    #[test]
+    fn get_sub_slice() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+        let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
+        let sub_slice = buffer.as_sub_slice(3, 2);
+
+        assert_eq!(sub_slice, &[3, 4])
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_sub_slice_out_of_bounds() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+        let x = AtomicBuffer::new(data.as_mut_ptr(), 8);
+        let sub_slice = x.as_sub_slice(7, 2);
+    }
 }
