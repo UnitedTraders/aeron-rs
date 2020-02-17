@@ -60,7 +60,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    fn bounds_check(&self, idx: Index, len: isize) {
+    pub fn bounds_check(&self, idx: Index, len: isize) {
         debug_assert!((idx + len as Index) < self.len)
     }
 

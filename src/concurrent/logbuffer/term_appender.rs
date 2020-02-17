@@ -32,7 +32,7 @@ use crate::utils::types::{Index, SZ_I32, SZ_I64};
  * @param term_offset of the start of the message
  * @param length of the message in bytes
  */
-type OnReservedValueSupplier = fn(&AtomicBuffer, Index, Index) -> i64;
+pub type OnReservedValueSupplier = fn(&AtomicBuffer, Index, Index) -> i64;
 
 pub const TERM_APPENDER_FAILED: i32 = SZ_I32 as i32 - 2;
 
