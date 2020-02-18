@@ -1,5 +1,4 @@
 use cache_line_size::CACHE_LINE_SIZE;
-use num_traits::Num;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 
 use crate::utils::types::Index;
@@ -49,7 +48,7 @@ pub fn number_of_trailing_zeroes(value: i32) -> i32 {
     }
 
     // Use i64 inside the calculation to handle numbers close to i32::MAX without multiplication overflow
-    let index = ((value as i64 & -value as i64) * 0x04D7651F) as u32;
+    let index = ((value as i64 & -value as i64) * 0x04D7_651F) as u32;
 
     table[(index >> 27) as usize]
 }
@@ -70,7 +69,7 @@ mod tests {
         assert_eq!(number_of_trailing_zeroes(7), 0);
         assert_eq!(number_of_trailing_zeroes(512), 9);
         assert_eq!(number_of_trailing_zeroes(513), 0);
-        assert_eq!(number_of_trailing_zeroes(1073741824), 30);
-        assert_eq!(number_of_trailing_zeroes(1073741825), 0);
+        assert_eq!(number_of_trailing_zeroes(1_073_741_824), 30);
+        assert_eq!(number_of_trailing_zeroes(1_073_741_825), 0);
     }
 }

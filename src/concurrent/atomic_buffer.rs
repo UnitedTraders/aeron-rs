@@ -103,6 +103,7 @@ impl AtomicBuffer {
             *(self.ptr.offset(position as isize) as *mut T) = val
         }
     }
+
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
         unsafe { *(self.ptr.offset(position as isize) as *mut T) = val }
@@ -174,6 +175,13 @@ impl AtomicBuffer {
         // We can't go with Rust UTF strings as Media Driver will not understand us.
         let ptr = unsafe { *(self.ptr.offset(offset as isize) as *const &[u8]) };
         CString::from(CStr::from_bytes_with_nul(ptr).expect("Error converting bytes in to CStr"))
+    }
+
+    #[inline]
+    pub fn get_string_length(&self, offset: Index) -> i32 {
+        self.bounds_check(offset, 4);
+
+        self.get::<i32>(offset)
     }
 }
 

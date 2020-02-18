@@ -290,7 +290,7 @@ pub fn term_id(raw_tail: i64) -> i32 {
 }
 
 pub fn term_offset(raw_tail: i64, term_length: i64) -> i32 {
-    let tail = raw_tail & 0xFFFFFFFF;
+    let tail = raw_tail & 0xFFFF_FFFF;
 
     std::cmp::min(tail, term_length) as i32
 }
