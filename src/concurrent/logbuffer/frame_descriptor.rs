@@ -104,7 +104,7 @@ pub fn term_offset_offset(frame_offset: Index) -> Index {
     frame_offset + *data_frame_header::TERM_OFFSET_FIELD_OFFSET
 }
 
-pub fn frame_type(log_buffer: &AtomicBuffer, frame_offset: Index, frame_type: u16) {
+pub fn set_frame_type(log_buffer: &AtomicBuffer, frame_offset: Index, frame_type: u16) {
     log_buffer.put::<u16>(type_offset(frame_offset), frame_type);
 }
 
@@ -112,11 +112,11 @@ pub fn get_frame_type(log_buffer: &AtomicBuffer, frame_offset: Index) -> u16 {
     log_buffer.get::<u16>(frame_offset)
 }
 
-pub fn frame_flags(log_buffer: &AtomicBuffer, frame_offset: Index, flags: u8) {
+pub fn set_frame_flags(log_buffer: &AtomicBuffer, frame_offset: Index, flags: u8) {
     log_buffer.put::<u8>(flags_offset(frame_offset), flags);
 }
 
-pub fn frame_term_offset(log_buffer: &AtomicBuffer, frame_offset: Index, term_offset: i32) {
+pub fn set_frame_term_offset(log_buffer: &AtomicBuffer, frame_offset: Index, term_offset: i32) {
     log_buffer.put::<i32>(term_offset_offset(frame_offset), term_offset);
 }
 
@@ -128,7 +128,7 @@ pub fn frame_length_volatile(log_buffer: &AtomicBuffer, frame_offset: Index) -> 
     log_buffer.get_volatile::<i32>(length_offset(frame_offset))
 }
 
-pub fn frame_length_ordered(log_buffer: &AtomicBuffer, frame_offset: Index, frame_length: i32) {
+pub fn set_frame_length_ordered(log_buffer: &AtomicBuffer, frame_offset: Index, frame_length: i32) {
     log_buffer.put_ordered::<i32>(length_offset(frame_offset), frame_length);
 }
 

@@ -122,7 +122,7 @@ struct LogMetaDataDefn {
 }
 
 lazy_static! {
-    static ref TERM_TAIL_COUNTER_OFFSET: i32 = offset_of!(LogMetaDataDefn, term_tail_counters);
+    pub static ref TERM_TAIL_COUNTER_OFFSET: i32 = offset_of!(LogMetaDataDefn, term_tail_counters);
     static ref LOG_ACTIVE_TERM_COUNT_OFFSET: i32 = offset_of!(LogMetaDataDefn, active_term_count);
     static ref LOG_END_OF_STREAM_POSITION_OFFSET: i32 = offset_of!(LogMetaDataDefn, end_of_stream_position);
     static ref LOG_IS_CONNECTED_OFFSET: i32 = offset_of!(LogMetaDataDefn, is_connected);

@@ -19,16 +19,17 @@ use crate::offset_of;
 use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
+#[derive(Copy, Clone)]
 pub struct DataFrameHeaderDefn {
-    frame_length: i32,
-    version: u8,
-    flags: u8,
-    frame_type: u16,
-    term_offset: i32,
-    session_id: i32,
-    stream_id: i32,
-    term_id: i32,
-    reserved_value: i64,
+    pub frame_length: i32,
+    pub version: u8,
+    pub flags: u8,
+    pub frame_type: u16,
+    pub term_offset: i32,
+    pub session_id: i32,
+    pub stream_id: i32,
+    pub term_id: i32,
+    pub reserved_value: i64,
 }
 
 lazy_static! {
