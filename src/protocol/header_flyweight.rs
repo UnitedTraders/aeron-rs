@@ -37,7 +37,7 @@ pub(crate) struct HeaderFlyweight {
 }
 
 impl HeaderFlyweight {
-    pub fn new(buffer: AtomicBuffer, offset: i32) -> Self {
+    pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         Self {
             flyweight: Flyweight::new(buffer, offset),
         }
@@ -86,7 +86,7 @@ impl HeaderFlyweight {
     }
 
     #[inline]
-    pub const fn header_length() -> i32 {
+    pub const fn header_length() -> Index {
         HEADER_DEFN_SIZE
     }
 

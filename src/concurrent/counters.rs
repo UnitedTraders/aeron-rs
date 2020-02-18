@@ -24,7 +24,7 @@ use crate::offset_of;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
 use crate::utils::misc::unix_time;
-use crate::utils::types::{Index, Moment, MAX_MOMENT};
+use crate::utils::types::{Index, Moment, MAX_MOMENT, SZ_I32, SZ_I64, SZ_U64};
 
 /**
  * Reads the counters metadata and values buffers.
@@ -86,7 +86,7 @@ const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index
 #[repr(C, packed(4))]
 struct CounterValueDefn {
     counter_value: u64,
-    pad1: [i8; (2 * CACHE_LINE_LENGTH) as usize - std::mem::size_of::<u64>()],
+    pad1: [i8; (2 * CACHE_LINE_LENGTH - SZ_I64) as usize],
 }
 
 // This type is needed just to be able get sizeof of this packed array
@@ -94,7 +94,7 @@ struct CounterValueDefn {
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 struct CounterMetaDataKey {
-    key: [i8; (2 * CACHE_LINE_LENGTH) as usize - (2 * std::mem::size_of::<i32>()) - std::mem::size_of::<u64>()],
+    key: [i8; (2 * CACHE_LINE_LENGTH - 2 * SZ_I32 - SZ_U64) as usize],
 }
 
 // This type is needed just to be able get sizeof of this packed array
@@ -102,7 +102,7 @@ struct CounterMetaDataKey {
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 struct CounterMetaDataLabel {
-    key: [i8; (6 * CACHE_LINE_LENGTH) as usize - std::mem::size_of::<i32>()],
+    key: [i8; (6 * CACHE_LINE_LENGTH - SZ_I32) as usize],
 }
 
 #[repr(C, packed(4))]
@@ -117,9 +117,9 @@ pub struct CounterMetaDataDefn {
 }
 
 lazy_static! {
-    pub static ref FREE_TO_REUSE_DEADLINE_OFFSET: i32 = offset_of!(CounterMetaDataDefn, free_to_reuse_deadline) as Index;
-    pub static ref LABEL_LENGTH_OFFSET: i32 = offset_of!(CounterMetaDataDefn, label_length) as Index;
-    pub static ref KEY_OFFSET: i32 = offset_of!(CounterMetaDataDefn, key) as Index;
+    pub static ref FREE_TO_REUSE_DEADLINE_OFFSET: Index = offset_of!(CounterMetaDataDefn, free_to_reuse_deadline) as Index;
+    pub static ref LABEL_LENGTH_OFFSET: Index = offset_of!(CounterMetaDataDefn, label_length) as Index;
+    pub static ref KEY_OFFSET: Index = offset_of!(CounterMetaDataDefn, key) as Index;
 }
 
 pub struct CountersReader {

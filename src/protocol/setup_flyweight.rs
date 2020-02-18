@@ -46,7 +46,7 @@ struct SetupFlyweight {
 }
 
 impl SetupFlyweight {
-    pub fn new(buffer: AtomicBuffer, offset: i32) -> Self {
+    pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let header_flyweight = HeaderFlyweight::new(buffer, offset);
         let m_struct = header_flyweight.flyweight.get::<SetupDefn>(0);
         Self {
@@ -128,7 +128,7 @@ impl SetupFlyweight {
     }
 
     #[inline]
-    pub const fn header_length() -> i32 {
+    pub const fn header_length() -> Index {
         SETUP_DEFN_SIZE
     }
 }

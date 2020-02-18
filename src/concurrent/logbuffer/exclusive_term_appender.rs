@@ -29,11 +29,11 @@ struct ExclusiveTermAppender<'a> {
 }
 
 impl<'a> ExclusiveTermAppender<'a> {
-    pub fn new(term_buffer: &'a AtomicBuffer, meta_data_buffer: &'a AtomicBuffer, partition_index: usize) -> Self {
+    pub fn new(term_buffer: &'a AtomicBuffer, meta_data_buffer: &'a AtomicBuffer, partition_index: Index) -> Self {
         // This check implemented as assert. Looks like out of bounds here can be reached only
         // due to a bug elsewhere. Therefore don't need more sophisticated error handling.
         meta_data_buffer.bounds_check(
-            *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64) as i32,
+            *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64),
             SZ_I64 as isize,
         );
 
@@ -41,7 +41,7 @@ impl<'a> ExclusiveTermAppender<'a> {
             term_buffer,
             tail_addr: (meta_data_buffer.buffer() as usize
                 + *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET as usize
-                + (partition_index * SZ_I64)) as *const i64,
+                + (partition_index * SZ_I64) as usize) as *const i64,
         }
     }
 
@@ -56,11 +56,11 @@ impl<'a> ExclusiveTermAppender<'a> {
     pub fn claim(
         &mut self,
         term_id: i32,
-        term_offset: i32,
+        term_offset: Index,
         header: &HeaderWriter,
         length: Index,
         buffer_claim: &mut BufferClaim,
-    ) -> i32 {
+    ) -> Index {
         let frame_length = length + data_frame_header::LENGTH;
         let aligned_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
@@ -81,13 +81,13 @@ impl<'a> ExclusiveTermAppender<'a> {
     pub fn append_unfragmented_message(
         &mut self,
         term_id: i32,
-        term_offset: i32,
+        term_offset: Index,
         header: &HeaderWriter,
         src_buffer: &AtomicBuffer,
         src_offset: Index,
         length: Index,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> i32 {
+    ) -> Index {
         let frame_length = length + data_frame_header::LENGTH;
         let aligned_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
@@ -159,14 +159,14 @@ impl<'a> ExclusiveTermAppender<'a> {
     pub fn append_fragmented_message(
         &mut self,
         term_id: i32,
-        term_offset: i32,
+        term_offset: Index,
         header: &HeaderWriter,
         src_buffer: &AtomicBuffer,
         src_offset: Index,
         length: Index,
         max_payload_length: Index,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> i32 {
+    ) -> Index {
         let num_max_payloads = length / max_payload_length;
         let remaining_payload = length % max_payload_length;
         let last_frame_length = if remaining_payload > 0 {
@@ -318,10 +318,10 @@ impl<'a> ExclusiveTermAppender<'a> {
     fn handle_end_of_log_condition(
         term_buffer: &AtomicBuffer,
         term_id: i32,
-        term_offset: i32,
+        term_offset: Index,
         header: &HeaderWriter,
         term_length: Index,
-    ) -> i32 {
+    ) -> Index {
         if term_offset < term_length {
             let padding_length = term_length - term_offset;
             header.write(term_buffer, term_offset, padding_length, term_id);
@@ -332,7 +332,7 @@ impl<'a> ExclusiveTermAppender<'a> {
         TERM_APPENDER_FAILED
     }
 
-    fn put_raw_tail_ordered(&mut self, term_id: i64, term_offset: i32) {
+    fn put_raw_tail_ordered(&mut self, term_id: i64, term_offset: Index) {
         unsafe {
             fence(Ordering::Release);
             *(self.tail_addr as *mut i64) = term_id * (1_i64 << 32) | term_offset as i64;

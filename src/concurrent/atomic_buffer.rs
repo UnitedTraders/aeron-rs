@@ -2,16 +2,16 @@ use std::ffi::{CStr, CString};
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::{Index, SZ_I64};
+use crate::utils::types::{Index, SZ_I32, SZ_I64};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
     pub ptr: *mut u8,
-    pub len: usize,
+    pub len: Index,
 }
 
 impl AlignedBuffer {
-    pub(crate) fn with_capacity(len: usize) -> AlignedBuffer {
+    pub(crate) fn with_capacity(len: Index) -> AlignedBuffer {
         AlignedBuffer {
             ptr: alloc_buffer_aligned(len),
             len,
@@ -164,7 +164,7 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         let length: i32 = self.get::<i32>(offset);
-        self.get_string_without_length(offset + std::mem::size_of::<i32> as i32, length as isize)
+        self.get_string_without_length(offset + SZ_I32, length as isize)
     }
 
     #[inline]
@@ -178,10 +178,10 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn get_string_length(&self, offset: Index) -> i32 {
+    pub fn get_string_length(&self, offset: Index) -> Index {
         self.bounds_check(offset, 4);
 
-        self.get::<i32>(offset)
+        self.get::<i32>(offset) as Index
     }
 
     /**

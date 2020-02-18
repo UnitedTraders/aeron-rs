@@ -30,7 +30,7 @@ use crate::utils::types::Index;
  */
 pub type BlockHandler = fn(&AtomicBuffer, Index, Index, i32, i32);
 
-pub fn scan(term_buffer: &AtomicBuffer, term_offset: i32, limit_offset: i32) -> i32 {
+pub fn scan(term_buffer: &AtomicBuffer, term_offset: Index, limit_offset: Index) -> Index {
     let mut offset = term_offset;
 
     while offset < limit_offset {
@@ -39,7 +39,7 @@ pub fn scan(term_buffer: &AtomicBuffer, term_offset: i32, limit_offset: i32) -> 
             break;
         }
 
-        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let aligned_frame_length = bit_utils::align(frame_length as Index, frame_descriptor::FRAME_ALIGNMENT);
 
         if frame_descriptor::is_padding_frame(term_buffer, offset) {
             if term_offset == offset {
@@ -59,22 +59,22 @@ pub fn scan(term_buffer: &AtomicBuffer, term_offset: i32, limit_offset: i32) -> 
     offset
 }
 
-pub type GapHandler = fn(i32, &AtomicBuffer, i32, i32);
+pub type GapHandler = fn(i32, &AtomicBuffer, Index, Index);
 
 pub fn scan_for_gap(
     term_buffer: &AtomicBuffer,
     term_id: i32,
     mut rebuild_offset: Index,
-    hwm_offset: i32,
+    hwm_offset: Index,
     handler: GapHandler,
-) -> i32 {
+) -> Index {
     loop {
         let frame_length = frame_descriptor::frame_length_volatile(term_buffer, rebuild_offset);
         if frame_length <= 0 {
             break;
         }
 
-        rebuild_offset += bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        rebuild_offset += bit_utils::align(frame_length as Index, frame_descriptor::FRAME_ALIGNMENT);
 
         if rebuild_offset >= hwm_offset {
             break;
@@ -101,7 +101,7 @@ pub fn scan_for_gap(
     gap_begin_offset
 }
 
-pub fn scan_outcome(padding: i32, available: i32) -> i64 {
+pub fn scan_outcome(padding: Index, available: Index) -> i64 {
     (padding as i64) << 32 | available as i64
 }
 
@@ -113,10 +113,10 @@ pub fn padding(scan_outcome: i64) -> i32 {
     (scan_outcome >> 32) as i32
 }
 
-pub fn scan_for_availability(term_buffer: &AtomicBuffer, offset: i32, max_length: i32) -> i64 {
+pub fn scan_for_availability(term_buffer: &AtomicBuffer, offset: Index, max_length: Index) -> i64 {
     let max_length = std::cmp::min(max_length, term_buffer.capacity() - offset);
-    let mut available = 0_i32;
-    let mut padding = 0_i32;
+    let mut available: Index = 0;
+    let mut padding: Index = 0;
 
     loop {
         let frame_offset = offset + available;
@@ -126,7 +126,7 @@ pub fn scan_for_availability(term_buffer: &AtomicBuffer, offset: i32, max_length
             break;
         }
 
-        let mut aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let mut aligned_frame_length = bit_utils::align(frame_length as Index, frame_descriptor::FRAME_ALIGNMENT);
 
         if frame_descriptor::is_padding_frame(term_buffer, frame_offset) {
             padding = aligned_frame_length - data_frame_header::LENGTH;

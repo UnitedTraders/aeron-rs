@@ -270,8 +270,8 @@ mod tests {
     use crate::utils::bit_utils::align;
     use crate::utils::types::Index;
 
-    const CAPACITY: usize = 1024usize;
-    const BUFFER_SZ: usize = CAPACITY + TRAILER_LENGTH as usize;
+    const CAPACITY: Index = 1024;
+    const BUFFER_SZ: Index = CAPACITY + TRAILER_LENGTH;
 
     const HEAD_COUNTER_INDEX: Index = 1024 + HEAD_POSITION_OFFSET;
     const TAIL_COUNTER_INDEX: Index = 1024 + TAIL_POSITION_OFFSET;

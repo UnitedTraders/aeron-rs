@@ -64,7 +64,7 @@ struct StatusMessageFlyweight {
 }
 
 impl StatusMessageFlyweight {
-    pub fn new(buffer: AtomicBuffer, offset: i32) -> Self {
+    pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let header_flyweight = HeaderFlyweight::new(buffer, offset);
         let m_struct = header_flyweight.flyweight.get::<StatusMessageDefn>(0);
         Self {
@@ -126,7 +126,7 @@ impl StatusMessageFlyweight {
     }
 
     #[inline]
-    pub const fn header_length() -> i32 {
+    pub const fn header_length() -> Index {
         STATUS_MESSAGE_DEFN_SIZE
     }
 }

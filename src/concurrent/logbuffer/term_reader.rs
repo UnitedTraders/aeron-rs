@@ -49,7 +49,7 @@ pub struct ReadOutcome {
 pub fn read(
     outcome: &mut ReadOutcome,
     term_buffer: AtomicBuffer,
-    mut term_offset: i32,
+    mut term_offset: Index,
     handler: FragmentHandler,
     fragments_limit: i32,
     header: &mut Header,
@@ -66,7 +66,7 @@ pub fn read(
         }
 
         let fragment_offset = term_offset;
-        term_offset += bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        term_offset += bit_utils::align(frame_length as Index, frame_descriptor::FRAME_ALIGNMENT);
 
         if !frame_descriptor::is_padding_frame(&term_buffer, fragment_offset) {
             header.set_buffer(term_buffer);
@@ -75,7 +75,7 @@ pub fn read(
             if let Err(error) = handler(
                 &term_buffer,
                 fragment_offset + data_frame_header::LENGTH,
-                frame_length - data_frame_header::LENGTH,
+                frame_length as Index - data_frame_header::LENGTH,
                 header,
             ) {
                 exception_handler(error);

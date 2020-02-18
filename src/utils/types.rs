@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-// These are types not used inside "raw bytes packed" buffers and thus their definitions
-// and size could be changed
-pub type Index = i32; // As in C++ and Java implementations
+// Index type is used to express offset and size dimensions of data in buffers.
+// Originally it was i32 but it'c more handy (less type casts) to have it as isize.
+// We don't use usize as there are places where special "inverted" values with
+// minus sign added are used.
+// Also there is at least one place where Index is cased down to i32 to be written
+// in to pack(4) structure.
+pub type Index = isize;
 
 // These are types USED inside "raw bytes packed" buffers and thus their size can't be changed
 pub type Moment = u64;
@@ -30,10 +34,10 @@ pub fn clamp_to_index(sz: usize) -> Index {
 
 // Define commonly used sizeoffs to shorten main code. i32 type is most commonly used in calculations
 // with sizeof.
-pub const SZ_I32: usize = std::mem::size_of::<i32>();
-pub const SZ_U32: usize = std::mem::size_of::<u32>();
-pub const SZ_I64: usize = std::mem::size_of::<i64>();
-pub const SZ_U64: usize = std::mem::size_of::<u64>();
+pub const SZ_I32: isize = std::mem::size_of::<i32>() as isize;
+pub const SZ_U32: isize = std::mem::size_of::<u32>() as isize;
+pub const SZ_I64: isize = std::mem::size_of::<i64>() as isize;
+pub const SZ_U64: isize = std::mem::size_of::<u64>() as isize;
 
 #[macro_export]
 macro_rules! offset_of {
@@ -48,12 +52,14 @@ macro_rules! offset_of {
                 (f as *const _ as usize).wrapping_sub(&u as *const _ as usize)
             }
         }
-        offset() as i32
+        offset() as Index
     }};
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[repr(C, packed(4))]
     struct Foo {
         a: u8,
