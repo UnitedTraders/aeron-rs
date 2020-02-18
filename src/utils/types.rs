@@ -34,10 +34,10 @@ pub fn clamp_to_index(sz: usize) -> Index {
 
 // Define commonly used sizeoffs to shorten main code. i32 type is most commonly used in calculations
 // with sizeof.
-pub const SZ_I32: isize = std::mem::size_of::<i32>() as isize;
-pub const SZ_U32: isize = std::mem::size_of::<u32>() as isize;
-pub const SZ_I64: isize = std::mem::size_of::<i64>() as isize;
-pub const SZ_U64: isize = std::mem::size_of::<u64>() as isize;
+pub const SZ_I32: Index = std::mem::size_of::<i32>() as Index;
+pub const SZ_U32: Index = std::mem::size_of::<u32>() as Index;
+pub const SZ_I64: Index = std::mem::size_of::<i64>() as Index;
+pub const SZ_U64: Index = std::mem::size_of::<u64>() as Index;
 
 #[macro_export]
 macro_rules! offset_of {
