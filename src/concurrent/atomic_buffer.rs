@@ -46,12 +46,15 @@ impl AtomicBuffer {
         AtomicBuffer { ptr, len }
     }
 
-    // Create a view on the contents of the buffer
+    // Create a view on the contents of the buffer starting from offset and spanning len bytes.
+    // Sets length of the "view" buffer to "len"
     #[inline]
     pub fn view(&self, offset: Index, len: Index) -> Self {
+        self.bounds_check(offset, len);
+
         AtomicBuffer {
             ptr: unsafe { self.ptr.offset(offset as isize) },
-            len: self.len - len - offset,
+            len,
         }
     }
 
@@ -80,10 +83,10 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn set_memory(&self, _position: Index, len: usize, value: u8) {
+    pub fn set_memory(&self, _position: Index, len: Index, value: u8) {
         unsafe {
             // poor man's memcp
-            for i in ::std::slice::from_raw_parts_mut(self.ptr, len) {
+            for i in ::std::slice::from_raw_parts_mut(self.ptr, len as usize) {
                 *i = value
             }
         }

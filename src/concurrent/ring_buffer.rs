@@ -247,7 +247,7 @@ impl MPSCConsumer {
         // todo: move to a guard, or prevent corruption on panic
         if bytes_read != 0 {
             // zero-out memory and advance the reader
-            self.buffer.set_memory(head_index, bytes_read as usize, 0);
+            self.buffer.set_memory(head_index, bytes_read, 0);
             self.buffer.put_ordered::<i64>(self.head_position, head + bytes_read as i64)
         }
         msg_read
