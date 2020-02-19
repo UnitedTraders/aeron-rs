@@ -1,3 +1,19 @@
+/*
+ * Copyright 2020 UT OVERSEAS INC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use cache_line_size::CACHE_LINE_SIZE;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 
@@ -40,7 +56,10 @@ pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
 // Returns number of trailing bits which are set to 0
 pub fn number_of_trailing_zeroes(value: i32) -> i32 {
     let table = [
-        0, 1, 2, 24, 3, 19, 6, 25, 22, 4, 20, 10, 16, 7, 12, 26, 31, 23, 18, 5, 21, 9, 15, 11, 30, 17, 8, 14, 29, 13, 28, 27,
+        0, 1, 2, 24, 3, 19, 6, 25,
+        22, 4, 20, 10, 16, 7, 12, 26,
+        31, 23, 18, 5, 21, 9, 15, 11,
+        30, 17, 8, 14, 29, 13, 28, 27,
     ];
 
     if value == 0 {
