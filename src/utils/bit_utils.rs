@@ -25,21 +25,21 @@ pub fn align(value: Index, alignment: Index) -> Index {
     (value + (alignment - 1)) & !(alignment - 1)
 }
 
-pub fn is_power_of_two(value: i32) -> bool {
+pub fn is_power_of_two(value: Index) -> bool {
     value > 0 && ((value & (!value + 1)) == value)
 }
 
 #[allow(dead_code)]
 /// Allocate a buffer aligned on the cache size
-pub fn alloc_buffer_aligned(size: usize) -> *mut u8 {
+pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
     unsafe {
-        let layout = Layout::from_size_align_unchecked(size, CACHE_LINE_SIZE);
+        let layout = Layout::from_size_align_unchecked(size as usize, CACHE_LINE_SIZE);
         alloc_zeroed(layout)
     }
 }
 
 /// Deallocate a buffer aligned on a cache size
-pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: usize) {
+pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
     unsafe {
         if cfg!(debug_assertions) {
             // dealloc markers for debug
@@ -48,7 +48,7 @@ pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: usize) {
             }
         }
 
-        let layout = Layout::from_size_align_unchecked(len, CACHE_LINE_SIZE);
+        let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
         dealloc(buff_ptr, layout)
     }
 }
@@ -88,7 +88,7 @@ mod tests {
         assert_eq!(number_of_trailing_zeroes(7), 0);
         assert_eq!(number_of_trailing_zeroes(512), 9);
         assert_eq!(number_of_trailing_zeroes(513), 0);
-        assert_eq!(number_of_trailing_zeroes(1073741824), 30);
-        assert_eq!(number_of_trailing_zeroes(1073741825), 0);
+        assert_eq!(number_of_trailing_zeroes(1_073_741_824), 30);
+        assert_eq!(number_of_trailing_zeroes(1_073_741_825), 0);
     }
 }

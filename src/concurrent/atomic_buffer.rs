@@ -9,11 +9,11 @@ use std::io::Read;
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
     pub ptr: *mut u8,
-    pub len: usize,
+    pub len: Index,
 }
 
 impl AlignedBuffer {
-    pub(crate) fn with_capacity(len: usize) -> AlignedBuffer {
+    pub(crate) fn with_capacity(len: Index) -> AlignedBuffer {
         AlignedBuffer {
             ptr: alloc_buffer_aligned(len),
             len,
@@ -124,6 +124,7 @@ impl AtomicBuffer {
             *(self.ptr.offset(position as isize) as *mut T) = val
         }
     }
+
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
         unsafe { *(self.ptr.offset(position as isize) as *mut T) = val }
@@ -196,7 +197,7 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         let length: i32 = self.get::<i32>(offset);
-        self.get_string_without_length(offset + std::mem::size_of::<i32> as i32, length as isize)
+        self.get_string_without_length(offset + SZ_I32, length as isize)
     }
 
     #[inline]
@@ -207,6 +208,13 @@ impl AtomicBuffer {
         // We can't go with Rust UTF strings as Media Driver will not understand us.
         let ptr = unsafe { *(self.ptr.offset(offset as isize) as *const &[u8]) };
         CString::from(CStr::from_bytes_with_nul(ptr).expect("Error converting bytes in to CStr"))
+    }
+
+    #[inline]
+    pub fn get_string_length(&self, offset: Index) -> Index {
+        self.bounds_check(offset, 4);
+
+        self.get::<i32>(offset) as Index
     }
 
     /**

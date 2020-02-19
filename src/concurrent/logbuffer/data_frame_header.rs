@@ -33,15 +33,15 @@ pub struct DataFrameHeaderDefn {
 }
 
 lazy_static! {
-    pub static ref FRAME_LENGTH_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, frame_length);
-    pub static ref VERSION_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, version);
-    pub static ref FLAGS_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, flags);
-    pub static ref TYPE_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, frame_type);
-    pub static ref TERM_OFFSET_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, term_offset);
-    pub static ref SESSION_ID_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, session_id);
-    pub static ref STREAM_ID_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, stream_id);
-    pub static ref TERM_ID_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, term_id);
-    pub static ref RESERVED_VALUE_FIELD_OFFSET: i32 = offset_of!(DataFrameHeaderDefn, reserved_value);
+    pub static ref FRAME_LENGTH_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_length);
+    pub static ref VERSION_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, version);
+    pub static ref FLAGS_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, flags);
+    pub static ref TYPE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_type);
+    pub static ref TERM_OFFSET_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_offset);
+    pub static ref SESSION_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, session_id);
+    pub static ref STREAM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, stream_id);
+    pub static ref TERM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_id);
+    pub static ref RESERVED_VALUE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, reserved_value);
 }
 
 pub const DATA_OFFSET: Index = std::mem::size_of::<DataFrameHeaderDefn>() as Index;

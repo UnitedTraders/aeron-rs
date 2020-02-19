@@ -128,8 +128,8 @@ pub fn frame_length_volatile(log_buffer: &AtomicBuffer, frame_offset: Index) -> 
     log_buffer.get_volatile::<i32>(length_offset(frame_offset))
 }
 
-pub fn set_frame_length_ordered(log_buffer: &AtomicBuffer, frame_offset: Index, frame_length: i32) {
-    log_buffer.put_ordered::<i32>(length_offset(frame_offset), frame_length);
+pub fn set_frame_length_ordered(log_buffer: &AtomicBuffer, frame_offset: Index, frame_length: Index) {
+    log_buffer.put_ordered::<i32>(length_offset(frame_offset), frame_length as i32);
 }
 
 pub fn frame_version(log_buffer: &AtomicBuffer, frame_offset: Index) -> u8 {
