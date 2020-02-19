@@ -15,5 +15,5 @@ pub enum BroadcastTransmitError {
     NotPowerOfTwo(Index),
     MessageIdShouldBeGreaterThenZero(i32),
     UnableToKeepUpWithBroadcastBuffer,
-    BufferTooSmall { need: i32, capacity: i32 },
+    BufferTooSmall { need: isize, capacity: isize },
 }

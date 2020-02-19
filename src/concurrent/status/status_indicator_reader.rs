@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(reader.id(), NO_ID_ALLOCATED);
         assert_eq!(reader.offset, 0);
         assert_eq!(reader.volatile(), reader.buffer.get_volatile::<i64>(CountersReader::counter_offset(239)));
-        assert_eq!(reader.buffer.as_slice::<&[u8]>(0), &[]);
+        assert_eq!(reader.buffer.as_slice(), &[]);
         assert_eq!(reader.static_buffer, Some([1, 0, 0, 0, 0, 0, 0, 0]));
     }
 }

@@ -3,7 +3,7 @@ use std::fmt::{Debug, Error, Formatter};
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::{Index, SZ_I64};
+use crate::utils::types::{Index, SZ_I64, SZ_I32};
 use std::io::Read;
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
@@ -99,7 +99,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    fn bounds_check(&self, idx: Index, len: isize) {
+    pub fn bounds_check(&self, idx: Index, len: isize) {
         assert!((idx + len as Index) <= self.len)
     }
 

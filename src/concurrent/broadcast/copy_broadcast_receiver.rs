@@ -44,7 +44,7 @@ impl CopyBroadcastReceiver {
     }
 
     pub fn receive<F>(&mut self, handler: F) -> Result<usize, BroadcastTransmitError>
-        where F: Fn(i32, &AtomicBuffer, Index, Index) {
+        where F: Fn(isize, &AtomicBuffer, Index, Index) {
         let mut messages_received: usize = 0;
         let last_seen_lapped_count = self.receiver.lapped_count();
 
