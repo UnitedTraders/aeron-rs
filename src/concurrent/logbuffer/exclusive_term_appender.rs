@@ -335,7 +335,7 @@ impl<'a> ExclusiveTermAppender<'a> {
     fn put_raw_tail_ordered(&mut self, term_id: i64, term_offset: Index) {
         unsafe {
             fence(Ordering::Release);
-            *(self.tail_addr as *mut i64) = term_id * (1_i64 << 32) | term_offset as i64;
+            *(self.tail_addr as *mut i64) = (term_id * (1_i64 << 32)) | term_offset as i64;
         }
     }
 }

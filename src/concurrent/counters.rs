@@ -233,7 +233,7 @@ impl<'a> Iterator for CountersReaderIter<'a> {
         match record_status {
             RECORD_UNUSED | RECORD_RECLAIMED => None,
             RECORD_ALLOCATED => {
-                let ret = self.inner.metadata_buffer.as_slice::<CounterMetaDataDefn>(next_metadata_pos);
+                let ret = self.inner.metadata_buffer.as_ref::<CounterMetaDataDefn>(next_metadata_pos);
                 Some(ret)
             }
             _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status),

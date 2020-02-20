@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::concurrent::broadcast::BroadcastTransmitError;
 use crate::utils::bit_utils::is_power_of_two;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::types::Index;
@@ -24,11 +25,10 @@ pub const TAIL_COUNTER_OFFSET: Index = TAIL_INTENT_COUNTER_OFFSET + I64_SIZE as 
 pub const LATEST_COUNTER_OFFSET: Index = TAIL_COUNTER_OFFSET + I64_SIZE as Index;
 pub const TRAILER_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 
-pub fn check_capacity(capacity: Index) {
+pub fn check_capacity(capacity: Index) -> Result<(), BroadcastTransmitError> {
     if !is_power_of_two(capacity) {
-        panic!(
-            "capacity must be a positive power of 2 + TRAILER_LENGTH: capacity={}",
-            capacity
-        );
+        Err(BroadcastTransmitError::NotPowerOfTwo(capacity))
+    } else {
+        Ok(())
     }
 }
