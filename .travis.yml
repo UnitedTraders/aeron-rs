@@ -1,0 +1,26 @@
+language: rust
+rust:
+  - 1.39.0  # minimal supported version
+  - stable
+  - beta
+  - nightly
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+cache:
+  - cargo
+
+before_script:
+  - rustup component add rustfmt
+  - rustup component add clippy
+  - cargo install --force cargo-audit
+  - cargo generate-lockfile
+
+script:
+  - cargo fmt -- --check
+  - cargo clippy --verbose --all-targets --all-features --all -- -Dwarnings
+  - cargo test --all-features --verbose --all
+  - cargo audit
