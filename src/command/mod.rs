@@ -1,1 +1,18 @@
+mod client_timeout_flyweight;
+mod control_protocol_events;
+mod correlated_message_flyweight;
+mod counter_message_flyweight;
+mod counter_update_flyweight;
+mod destination_message_flyweight;
+mod error_response_flyweight;
+mod image_buffers_ready_flyweight;
+mod image_message_flyweight;
+mod operation_succeeded_flyweight;
+mod publication_buffers_ready_flyweight;
+mod publication_message_flyweight;
+mod remove_message_flyweight;
+mod subscription_message_flyweight;
+mod subscription_ready_flyweight;
+mod terminate_driver_flyweight;
+
 pub mod flyweight;

@@ -45,7 +45,7 @@ impl<T: Copy> Flyweight<T> {
     }
 
     #[inline]
-    pub fn string_put(&mut self) {
+    pub fn string_put(&mut self, _offset: Index, _value: String) {
         unimplemented!()
     }
 
@@ -65,7 +65,7 @@ impl<T: Copy> Flyweight<T> {
     }
 
     #[inline]
-    pub fn get_bytes(&self, _position: Index, _val: T) {
+    pub fn get_bytes(&self, _position: Index, _dest: *mut i8, _length: Index) {
         unimplemented!()
     }
 

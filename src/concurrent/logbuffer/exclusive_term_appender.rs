@@ -20,7 +20,7 @@ use crate::concurrent::logbuffer::header::HeaderWriter;
 use crate::concurrent::logbuffer::term_appender::{OnReservedValueSupplier, TERM_APPENDER_FAILED};
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
 use crate::utils::bit_utils;
-use crate::utils::types::{Index, SZ_I64};
+use crate::utils::types::{Index, I64_SIZE};
 use std::sync::atomic::{fence, Ordering};
 
 struct ExclusiveTermAppender<'a> {
@@ -33,15 +33,15 @@ impl<'a> ExclusiveTermAppender<'a> {
         // This check implemented as assert. Looks like out of bounds here can be reached only
         // due to a bug elsewhere. Therefore don't need more sophisticated error handling.
         meta_data_buffer.bounds_check(
-            *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64),
-            SZ_I64 as isize,
+            *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE),
+            I64_SIZE as isize,
         );
 
         Self {
             term_buffer,
             tail_addr: (meta_data_buffer.buffer() as usize
                 + *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET as usize
-                + (partition_index * SZ_I64) as usize) as *const i64,
+                + (partition_index * I64_SIZE) as usize) as *const i64,
         }
     }
 

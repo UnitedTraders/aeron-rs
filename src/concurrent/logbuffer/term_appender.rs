@@ -19,7 +19,7 @@ use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor};
 use crate::utils::bit_utils;
 use crate::utils::errors::AeronError;
-use crate::utils::types::{Index, SZ_I32, SZ_I64};
+use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 
 /**
  * Supplies the reserved value field for a data frame header. The returned value will be set in the header as
@@ -34,7 +34,7 @@ use crate::utils::types::{Index, SZ_I32, SZ_I64};
  */
 pub type OnReservedValueSupplier = fn(&AtomicBuffer, Index, Index) -> i64;
 
-pub const TERM_APPENDER_FAILED: Index = SZ_I32 - 2;
+pub const TERM_APPENDER_FAILED: Index = I32_SIZE - 2;
 
 fn default_reserved_value_supplier(_term_buffer: AtomicBuffer, _term_offset: Index, _length: Index) -> i64 {
     0
@@ -56,7 +56,7 @@ impl<'a> TermAppender<'a> {
         Self {
             term_buffer,
             tail_buffer: meta_data_buffer,
-            tail_offset: *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64 as Index),
+            tail_offset: *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE as Index),
         }
     }
 
@@ -323,7 +323,7 @@ mod tests {
     const RESERVED_VALUE: i64 = 777;
     const PARTITION_INDEX: Index = 1;
     lazy_static! {
-        pub static ref TERM_TAIL_OFFSET: Index = *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + PARTITION_INDEX * SZ_I64;
+        pub static ref TERM_TAIL_OFFSET: Index = *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + PARTITION_INDEX * I64_SIZE;
     }
 
     #[macro_export]
@@ -377,6 +377,6 @@ mod tests {
 
         let msg: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
-        ta0.claim(&hw, msg.len() as Index, &mut buffer_claim, 0);
+        ta0.claim(&hw, msg.len() as Index, &mut buffer_claim, 0).ok();
     }
 }

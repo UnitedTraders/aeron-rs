@@ -21,8 +21,8 @@ use crate::offset_of;
 use crate::utils::bit_utils::is_power_of_two;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::AeronError;
-use crate::utils::types::SZ_I64;
-use crate::utils::types::{Index, SZ_I32};
+use crate::utils::types::I64_SIZE;
+use crate::utils::types::{Index, I32_SIZE};
 
 pub(crate) const TERM_MIN_LENGTH: Index = 64 * 1024;
 const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
@@ -107,18 +107,18 @@ const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 struct LogMetaDataDefn {
     term_tail_counters: [i64; PARTITION_COUNT as usize],
     active_term_count: i32,
-    pad1: [u8; ((2 * CACHE_LINE_LENGTH) - ((PARTITION_COUNT * SZ_I64) + SZ_I32)) as usize],
+    pad1: [u8; ((2 * CACHE_LINE_LENGTH) - ((PARTITION_COUNT * I64_SIZE) + I32_SIZE)) as usize],
     end_of_stream_position: i64,
     is_connected: i32,
     active_transport_count: i32,
-    pad2: [u8; ((2 * CACHE_LINE_LENGTH) - (SZ_I64 + (2 * SZ_I32))) as usize],
+    pad2: [u8; ((2 * CACHE_LINE_LENGTH) - (I64_SIZE + (2 * I32_SIZE))) as usize],
     correlation_id: i64,
     initial_term_id: i32,
     default_frame_header_length: i32,
     mtu_length: i32,
     term_length: i32,
     page_size: i32,
-    pad3: [u8; (CACHE_LINE_LENGTH - (7 * SZ_I32)) as usize],
+    pad3: [u8; (CACHE_LINE_LENGTH - (7 * I32_SIZE)) as usize],
 }
 
 lazy_static! {
@@ -273,16 +273,16 @@ pub fn compute_term_begin_position(active_term_id: i32, position_bits_to_shift: 
 
 pub fn raw_tail_volatile(log_meta_data_buffer: &AtomicBuffer) -> i64 {
     let partition_index = index_by_term_count(active_term_count(log_meta_data_buffer) as i64);
-    log_meta_data_buffer.get_volatile::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64))
+    log_meta_data_buffer.get_volatile::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE))
 }
 
 pub fn raw_tail(log_meta_data_buffer: &AtomicBuffer) -> i64 {
     let partition_index = index_by_term_count(active_term_count(log_meta_data_buffer) as i64);
-    log_meta_data_buffer.get::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64))
+    log_meta_data_buffer.get::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE))
 }
 
 pub fn raw_tail_by_partition_index(log_meta_data_buffer: &AtomicBuffer, partition_index: Index) -> i64 {
-    log_meta_data_buffer.get::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64))
+    log_meta_data_buffer.get::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE))
 }
 
 pub fn term_id(raw_tail: i64) -> i32 {
@@ -302,7 +302,7 @@ pub fn cas_raw_tail(
     update_raw_tail: i64,
 ) -> bool {
     log_meta_data_buffer.compare_and_set_i64(
-        *TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64),
+        *TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE),
         expected_raw_tail,
         update_raw_tail,
     )
@@ -335,5 +335,5 @@ pub fn rotate_log(log_meta_data_buffer: &AtomicBuffer, current_term_count: i32, 
 
 pub fn initialize_tail_with_term_id(log_meta_data_buffer: &AtomicBuffer, partition_index: Index, term_id: i32) {
     let raw_tail: i64 = term_id as i64 * (1_i64 << 32);
-    log_meta_data_buffer.put::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * SZ_I64), raw_tail);
+    log_meta_data_buffer.put::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE), raw_tail);
 }

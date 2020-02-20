@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::{Index, SZ_I32, SZ_I64};
+use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -164,7 +164,7 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         let length: i32 = self.get::<i32>(offset);
-        self.get_string_without_length(offset + SZ_I32, length as isize)
+        self.get_string_without_length(offset + I32_SIZE, length as isize)
     }
 
     #[inline]
@@ -192,7 +192,7 @@ impl AtomicBuffer {
      * @return the value before applying the delta.
      */
     pub fn get_and_add_i64(&self, offset: Index, delta: i64) -> i64 {
-        self.bounds_check(offset, SZ_I64 as isize);
+        self.bounds_check(offset, I64_SIZE as isize);
         unsafe {
             let atomic_ptr = self.ptr.offset(offset as isize) as *const AtomicI64;
             (&*atomic_ptr).fetch_add(delta, Ordering::SeqCst)
