@@ -333,7 +333,6 @@ mod tests {
     // The macro creates two sets of buffer to support a-la Mock logic.
     // Buffers listed in macro arguments should be filled by these tests while
     // not visible from inside buffers will be used for TermAppender and HeaderWriter
-    #[macro_export]
     macro_rules! gen_test_data {
         ($metadata_buffer:ident, $term_buffer:ident, $hdr:ident, $msg_body:ident, $term_appender:ident, $header_writer:ident, $hidden_metadata_buffer:ident) => {
             let m_buff = AlignedBuffer::with_capacity(META_DATA_BUFFER_CAPACITY);

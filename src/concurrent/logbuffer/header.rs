@@ -22,6 +22,7 @@ use crate::utils::bit_utils::number_of_trailing_zeroes;
 use crate::utils::types::Index;
 
 // FIXME: this is temporary stub
+#[derive(Default)]
 pub struct Context {}
 
 /**

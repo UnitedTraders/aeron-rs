@@ -22,39 +22,36 @@ use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 
 /**
-* Callback for handling fragments of data being read from a log.
-*
-* Handler for reading data that is coming from a log buffer. The frame will either contain a whole message
-* or a fragment of a message to be reassembled. Messages are fragmented if greater than the frame for MTU in length.
-
-* @param buffer containing the data.
-* @param offset at which the data begins.
-* @param length of the data in bytes.
-* @param header representing the meta data for the data.
-*/
-pub type FragmentHandler = fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>;
-
-/**
- * Callback to indicate an exception has occurred.
+ * Fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>;
+ * Callback for handling fragments of data being read from a log.
  *
- * @param exception that has occurred.
+ * Handler for reading data that is coming from a log buffer. The frame will either contain a whole message
+ * or a fragment of a message to be reassembled. Messages are fragmented if greater than the frame for MTU in length.
+ * @param buffer containing the data.
+ * @param offset at which the data begins.
+ * @param length of the data in bytes.
+ * @param header representing the meta data for the data.
+ *
+ * Fn(AeronError)
+ * Callback to indicate an exception has occurred.
+ * @param error that has occurred.
  */
-pub type ExceptionHandler = fn(AeronError);
 
+#[derive(Default)]
 pub struct ReadOutcome {
-    offset: Index,
-    fragments_read: i32,
+    pub offset: Index,
+    pub fragments_read: i32,
 }
 
 pub fn read(
-    outcome: &mut ReadOutcome,
     term_buffer: AtomicBuffer,
     mut term_offset: Index,
-    handler: FragmentHandler,
+    data_handler: impl Fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>,
     fragments_limit: i32,
     header: &mut Header,
-    exception_handler: ExceptionHandler,
-) {
+    exception_handler: impl Fn(AeronError),
+) -> ReadOutcome {
+    let mut outcome = ReadOutcome::default();
     outcome.fragments_read = 0;
     outcome.offset = term_offset;
     let capacity = term_buffer.capacity();
@@ -72,7 +69,7 @@ pub fn read(
             header.set_buffer(term_buffer);
             header.set_offset(fragment_offset);
 
-            if let Err(error) = handler(
+            if let Err(error) = data_handler(
                 &term_buffer,
                 fragment_offset + data_frame_header::LENGTH,
                 frame_length as Index - data_frame_header::LENGTH,
@@ -87,4 +84,151 @@ pub fn read(
     }
 
     outcome.offset = term_offset;
+
+    outcome
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::logbuffer::{log_buffer_descriptor, term_reader};
+    use crate::concurrent::logbuffer::header::Context;
+
+    const LOG_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
+    const META_DATA_BUFFER_CAPACITY: Index = log_buffer_descriptor::LOG_META_DATA_LENGTH;
+    const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH + frame_descriptor::FRAME_ALIGNMENT - 1;
+    const HDR_LENGTH: Index = data_frame_header::LENGTH;
+    const INITIAL_TERM_ID: i32 = 7;
+    const INT_MAX: i32 = std::i32::MAX;
+
+    macro_rules! gen_test_data {
+        ($log_buffer:ident, $fragment_header:ident) => {
+            let l_buff = AlignedBuffer::with_capacity(LOG_BUFFER_CAPACITY);
+            let $log_buffer = AtomicBuffer::from_aligned(&l_buff);
+            $log_buffer.set_memory(0, $log_buffer.capacity(), 0);
+            let mut $fragment_header = Header::new(INITIAL_TERM_ID, LOG_BUFFER_CAPACITY, Context::default());
+        };
+    }
+
+    fn error_handler(error: AeronError) {
+        println!("Error in term reader test: {:?}", error);
+    }
+
+    fn data_handler(_buf: &AtomicBuffer, offset: Index, length: Index, _header: &Header) -> Result<(), AeronError> {
+        println!("Data of length={} received at offset={}", length, offset);
+        Ok(())
+    }
+    
+    #[test]
+    fn test_term_reader_read_first_message() {
+        gen_test_data!(log, fragment_header);
+
+        let msg_length = 1;
+        let frame_length = data_frame_header::LENGTH + msg_length;
+        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let term_offset = 0;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(0), frame_length as i32);
+        log.put::<u16>(frame_descriptor::type_offset(0),data_frame_header::HDR_TYPE_DATA);
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length), 0);
+        
+        let read_outcome = term_reader::read(log, term_offset, data_handler, INT_MAX, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, aligned_frame_length);
+        assert_eq!(read_outcome.fragments_read, 1);
+    }
+    
+    #[test]
+    fn test_term_reader_not_read_past_tail() {
+        gen_test_data!(log, fragment_header);
+
+        let term_offset = 0;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(0),0);
+
+        let read_outcome = term_reader::read(log, term_offset, data_handler, INT_MAX, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, term_offset);
+        assert_eq!(read_outcome.fragments_read, 0);
+    }
+    
+    #[test]
+    fn test_term_reader_read_one_limited_message() {
+        gen_test_data!(log, fragment_header);
+
+        let msg_length = 1;
+        let frame_length = data_frame_header::LENGTH + msg_length;
+        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let term_offset = 0;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(0), frame_length as i32);
+
+        log.put::<u16>(frame_descriptor::type_offset(0),data_frame_header::HDR_TYPE_DATA);
+
+        let read_outcome = term_reader::read(log, term_offset, data_handler, 1, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, aligned_frame_length);
+        assert_eq!(read_outcome.fragments_read, 1);
+    }
+    
+    #[test]
+    fn test_term_reader_read_multiple_messages() {
+        gen_test_data!(log, fragment_header);
+
+        let msg_length = 1;
+        let frame_length = data_frame_header::LENGTH + msg_length;
+        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let term_offset = 0;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(0), frame_length as i32);
+        log.put::<u16>(frame_descriptor::type_offset(0), data_frame_header::HDR_TYPE_DATA);
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length), frame_length as i32);
+        log. put::<u16>(frame_descriptor::type_offset(aligned_frame_length), data_frame_header::HDR_TYPE_DATA);
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length * 2),0);
+
+        let read_outcome = term_reader::read(log, term_offset, data_handler, INT_MAX, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, aligned_frame_length * 2);
+        assert_eq!(read_outcome.fragments_read, 2);
+    }
+
+    #[test]
+    fn test_term_reader_read_last_message() {
+        gen_test_data!(log, fragment_header);
+
+        let msg_length = 1;
+        let frame_length = data_frame_header::LENGTH + msg_length;
+        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let start_of_message = LOG_BUFFER_CAPACITY - aligned_frame_length;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(start_of_message),frame_length as i32);
+        log. put::<u16>(frame_descriptor::type_offset(start_of_message),data_frame_header::HDR_TYPE_DATA);
+
+        let read_outcome = term_reader::read( log, start_of_message, data_handler, INT_MAX, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, LOG_BUFFER_CAPACITY);
+        assert_eq!(read_outcome.fragments_read, 1);
+    }
+
+    #[test]
+    fn test_term_reader_not_read_last_message_when_padding() {
+        gen_test_data!(log, fragment_header);
+
+        let msg_length = 1;
+        let frame_length = data_frame_header::LENGTH + msg_length;
+        let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+        let start_of_message = LOG_BUFFER_CAPACITY - aligned_frame_length;
+
+        log.put_ordered::<i32>(frame_descriptor::length_offset(start_of_message), frame_length as i32);
+        log.put::<u16>(frame_descriptor::type_offset(start_of_message),data_frame_header::HDR_TYPE_PAD);
+
+        let read_outcome = term_reader::read(log, start_of_message, data_handler, INT_MAX, &mut fragment_header, error_handler);
+
+        assert_eq!(read_outcome.offset, LOG_BUFFER_CAPACITY);
+        assert_eq!(read_outcome.fragments_read, 0);
+    }
 }
