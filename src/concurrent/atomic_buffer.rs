@@ -35,6 +35,7 @@ pub struct AtomicBuffer {
 // todo: add bounds checks!!!
 // todo: remove unsafe?
 impl AtomicBuffer {
+    #[cfg(test)]
     pub fn from_aligned(aligned: &AlignedBuffer) -> AtomicBuffer {
         AtomicBuffer {
             ptr: aligned.ptr,
