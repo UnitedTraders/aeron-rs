@@ -24,7 +24,7 @@ use crate::offset_of;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
 use crate::utils::misc::unix_time;
-use crate::utils::types::{Index, Moment, MAX_MOMENT, SZ_I32, SZ_I64, SZ_U64};
+use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
 
 /**
  * Reads the counters metadata and values buffers.
@@ -86,7 +86,7 @@ const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index
 #[repr(C, packed(4))]
 struct CounterValueDefn {
     counter_value: u64,
-    pad1: [i8; (2 * CACHE_LINE_LENGTH - SZ_I64) as usize],
+    pad1: [i8; (2 * CACHE_LINE_LENGTH - I64_SIZE) as usize],
 }
 
 // This type is needed just to be able get sizeof of this packed array
@@ -94,7 +94,7 @@ struct CounterValueDefn {
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 struct CounterMetaDataKey {
-    key: [i8; (2 * CACHE_LINE_LENGTH - 2 * SZ_I32 - SZ_U64) as usize],
+    key: [i8; (2 * CACHE_LINE_LENGTH - 2 * I32_SIZE - U64_SIZE) as usize],
 }
 
 // This type is needed just to be able get sizeof of this packed array
@@ -102,7 +102,7 @@ struct CounterMetaDataKey {
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 struct CounterMetaDataLabel {
-    key: [i8; (6 * CACHE_LINE_LENGTH - SZ_I32) as usize],
+    key: [i8; (6 * CACHE_LINE_LENGTH - I32_SIZE) as usize],
 }
 
 #[repr(C, packed(4))]
@@ -233,7 +233,7 @@ impl<'a> Iterator for CountersReaderIter<'a> {
         match record_status {
             RECORD_UNUSED | RECORD_RECLAIMED => None,
             RECORD_ALLOCATED => {
-                let ret = self.inner.metadata_buffer.as_slice::<CounterMetaDataDefn>(next_metadata_pos);
+                let ret = self.inner.metadata_buffer.as_ref::<CounterMetaDataDefn>(next_metadata_pos);
                 Some(ret)
             }
             _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status),
