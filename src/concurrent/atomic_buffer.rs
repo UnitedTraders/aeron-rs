@@ -105,11 +105,13 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn get<T: Copy>(&self, position: Index) -> T {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
         unsafe { *(self.ptr.offset(position as isize) as *mut T) }
     }
 
     #[inline]
     pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
         unsafe { &*(self.ptr.offset(position as isize) as *const T) }
     }
 
@@ -119,10 +121,11 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn set_memory(&self, _position: Index, len: Index, value: u8) {
+    pub fn set_memory(&self, position: Index, len: Index, value: u8) {
+        self.bounds_check(position, len);
         unsafe {
             // poor man's memcp
-            for i in ::std::slice::from_raw_parts_mut(self.ptr, len as usize) {
+            for i in ::std::slice::from_raw_parts_mut(self.ptr.offset(position), len as usize) {
                 *i = value
             }
         }
@@ -130,6 +133,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn get_volatile<T: Copy>(&self, position: Index) -> T {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
         let read = unsafe { *(self.ptr.offset(position as isize) as *mut T) };
         fence(Ordering::Acquire);
         read
@@ -137,6 +141,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn put_ordered<T>(&self, position: Index, val: T) {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
         unsafe {
             fence(Ordering::Release);
             *(self.ptr.offset(position as isize) as *mut T) = val
@@ -145,11 +150,13 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
         unsafe { *(self.ptr.offset(position as isize) as *mut T) = val }
     }
 
     #[inline]
     pub fn compare_and_set_i32(&self, position: Index, expected: i32, update: i32) -> bool {
+        self.bounds_check(position, I32_SIZE);
         unsafe {
             let ptr = self.ptr.offset(position as isize) as *const AtomicI32;
             (&*ptr)
@@ -160,6 +167,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn compare_and_set_i64(&self, position: Index, expected: i64, update: i64) -> bool {
+        self.bounds_check(position, std::mem::size_of::<i64>() as isize);
         unsafe {
             let ptr = self.ptr.offset(position as isize) as *const AtomicI64;
             (&*ptr)
@@ -187,6 +195,8 @@ impl AtomicBuffer {
     // length - number of bytes to copy
     #[inline]
     pub fn copy_from(&self, offset: Index, src_buffer: &AtomicBuffer, src_offset: Index, length: Index) {
+        self.bounds_check(offset, length);
+        src_buffer.bounds_check(src_offset, length);
         unsafe {
             let src_ptr = src_buffer.ptr.offset(src_offset as isize);
             let dest_ptr = self.ptr.offset(offset as isize);
@@ -224,8 +234,10 @@ impl AtomicBuffer {
 
         // Strings in Aeron are zero terminated and are not UTF-8 encoded.
         // We can't go with Rust UTF strings as Media Driver will not understand us.
-        let ptr = unsafe { *(self.ptr.offset(offset as isize) as *const &[u8]) };
-        CString::from(CStr::from_bytes_with_nul(ptr).expect("Error converting bytes in to CStr"))
+        unsafe {
+            let ptr = (self.ptr.offset(offset as isize) as *const i8);
+            CString::from(CStr::from_ptr(ptr))
+        }
     }
 
     #[inline]
@@ -233,6 +245,15 @@ impl AtomicBuffer {
         self.bounds_check(offset, 4);
 
         self.get::<i32>(offset) as Index
+    }
+
+    #[inline]
+    pub fn put_string(&self, offset: Index, string: &[u8]) {
+        self.bounds_check(offset, string.len() as isize + I32_SIZE);
+
+        // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
+        self.put::<i32>(offset, string.len() as i32);
+        self.put_bytes(offset + I32_SIZE, string);
     }
 
     /**
@@ -342,5 +363,19 @@ mod tests {
 
         let x = AtomicBuffer::new(data.as_mut_ptr(), 8);
         let _sub_slice = x.as_sub_slice(7, 2);
+    }
+
+    #[test]
+    fn test_put_and_get_string() {
+        let src = AlignedBuffer::with_capacity(16);
+        let atomic_buffer = AtomicBuffer::from_aligned(&src);
+
+        let test_string = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]; // zero terminated C-style
+
+        atomic_buffer.put_string(2, &test_string);
+        let read_str = atomic_buffer.get_string(2);
+
+        assert_eq!(read_str.as_bytes().len(), 9);
+        assert_eq!(read_str.as_bytes_with_nul(), test_string);
     }
 }
