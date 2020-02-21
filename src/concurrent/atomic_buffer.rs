@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::fmt::{Debug, Error, Formatter};
+use std::slice;
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
 use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
@@ -40,11 +41,10 @@ impl Debug for AtomicBuffer {
         loop {
             let (head, tail) = slice.split_at(TAKE_LIMIT);
             if tail.len() > TAKE_LIMIT {
-                f.write_fmt(format_args!("{:?}\n", head)).ok();
-
+                writeln!(f, "{:?}", head)?;
                 slice = tail;
             } else {
-                f.write_fmt(format_args!("{:?}", tail)).ok();
+                write!(f, "{:?}", tail)?;
                 break;
             }
         }
@@ -82,6 +82,11 @@ impl AtomicBuffer {
         AtomicBuffer { ptr, len }
     }
 
+    #[inline]
+    unsafe fn at(&self, offset: Index) -> *mut u8 {
+        self.ptr.offset(offset as isize)
+    }
+
     // Create a view on the contents of the buffer starting from offset and spanning len bytes.
     // Sets length of the "view" buffer to "len"
     #[inline]
@@ -89,7 +94,7 @@ impl AtomicBuffer {
         self.bounds_check(offset, len);
 
         AtomicBuffer {
-            ptr: unsafe { self.ptr.offset(offset as isize) },
+            ptr: unsafe { self.at(offset) },
             len,
         }
     }
@@ -106,13 +111,13 @@ impl AtomicBuffer {
     #[inline]
     pub fn get<T: Copy>(&self, position: Index) -> T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        unsafe { *(self.ptr.offset(position as isize) as *mut T) }
+        unsafe { *(self.at(position) as *mut T) }
     }
 
     #[inline]
     pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        unsafe { &*(self.ptr.offset(position as isize) as *const T) }
+        unsafe { &*(self.at(position) as *const T) }
     }
 
     #[inline]
@@ -123,18 +128,18 @@ impl AtomicBuffer {
     #[inline]
     pub fn set_memory(&self, position: Index, len: Index, value: u8) {
         self.bounds_check(position, len);
-        unsafe {
-            // poor man's memcp
-            for i in ::std::slice::from_raw_parts_mut(self.ptr.offset(position), len as usize) {
-                *i = value
-            }
+        let s = unsafe { slice::from_raw_parts_mut(self.ptr, len as usize) };
+
+        // poor man's memcp
+        for i in s {
+            *i = value
         }
     }
 
     #[inline]
     pub fn get_volatile<T: Copy>(&self, position: Index) -> T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        let read = unsafe { *(self.ptr.offset(position as isize) as *mut T) };
+        let read = self.get(position);
         fence(Ordering::Acquire);
         read
     }
@@ -142,24 +147,22 @@ impl AtomicBuffer {
     #[inline]
     pub fn put_ordered<T>(&self, position: Index, val: T) {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        unsafe {
-            fence(Ordering::Release);
-            *(self.ptr.offset(position as isize) as *mut T) = val
-        }
+        fence(Ordering::Release);
+        self.put(position, val);
     }
 
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        unsafe { *(self.ptr.offset(position as isize) as *mut T) = val }
+        unsafe { *(self.at(position) as *mut T) = val }
     }
 
     #[inline]
     pub fn compare_and_set_i32(&self, position: Index, expected: i32, update: i32) -> bool {
         self.bounds_check(position, I32_SIZE);
         unsafe {
-            let ptr = self.ptr.offset(position as isize) as *const AtomicI32;
-            (&*ptr)
+            let ptr = self.at(position) as *const AtomicI32;
+            (*ptr)
                 .compare_exchange(expected, update, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
         }
@@ -169,8 +172,8 @@ impl AtomicBuffer {
     pub fn compare_and_set_i64(&self, position: Index, expected: i64, update: i64) -> bool {
         self.bounds_check(position, std::mem::size_of::<i64>() as isize);
         unsafe {
-            let ptr = self.ptr.offset(position as isize) as *const AtomicI64;
-            (&*ptr)
+            let ptr = self.at(position) as *const AtomicI64;
+            (*ptr)
                 .compare_exchange(expected, update, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
         }
@@ -181,11 +184,11 @@ impl AtomicBuffer {
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
         self.bounds_check(offset, src.len() as isize);
 
-        unsafe {
-            let ptr = self.ptr.offset(offset as isize);
-            let slice = ::std::slice::from_raw_parts_mut(ptr, src.len() as usize);
-            slice.copy_from_slice(src)
-        }
+        let slice = unsafe {
+            let ptr = self.at(offset);
+            slice::from_raw_parts_mut(ptr, src.len() as usize)
+        };
+        slice.copy_from_slice(src)
     }
 
     // Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
@@ -198,25 +201,25 @@ impl AtomicBuffer {
         self.bounds_check(offset, length);
         src_buffer.bounds_check(src_offset, length);
         unsafe {
-            let src_ptr = src_buffer.ptr.offset(src_offset as isize);
-            let dest_ptr = self.ptr.offset(offset as isize);
+            let src_ptr = src_buffer.at(src_offset);
+            let dest_ptr = self.at(offset);
             // TODO: check that memory regions are actually not overlapping, otherwise UB!
             std::ptr::copy_nonoverlapping(src_ptr, dest_ptr, length as usize);
         }
     }
 
     pub fn as_mutable_slice(&mut self) -> &mut [u8] {
-        unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.len as usize) }
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.len as usize) }
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.ptr, self.len as usize) }
+        unsafe { slice::from_raw_parts(self.ptr, self.len as usize) }
     }
 
     pub fn as_sub_slice(&self, index: Index, len: Index) -> &[u8] {
         self.bounds_check(index, len as isize);
         // self.view(index, len).as_slice()
-        unsafe { ::std::slice::from_raw_parts(self.ptr.offset(index as isize), len as usize) }
+        unsafe { slice::from_raw_parts(self.at(index), len as usize) }
     }
 
     #[inline]
@@ -234,10 +237,12 @@ impl AtomicBuffer {
 
         // Strings in Aeron are zero terminated and are not UTF-8 encoded.
         // We can't go with Rust UTF strings as Media Driver will not understand us.
-        unsafe {
-            let ptr = (self.ptr.offset(offset as isize) as *const i8);
-            CString::from(CStr::from_ptr(ptr))
-        }
+        let c_str = unsafe {
+            let ptr = self.at(offset) as *const i8;
+            CStr::from_ptr(ptr)
+        };
+
+        CString::from(c_str)
     }
 
     #[inline]
@@ -266,8 +271,8 @@ impl AtomicBuffer {
     pub fn get_and_add_i64(&self, offset: Index, delta: i64) -> i64 {
         self.bounds_check(offset, I64_SIZE as isize);
         unsafe {
-            let atomic_ptr = self.ptr.offset(offset as isize) as *const AtomicI64;
-            (&*atomic_ptr).fetch_add(delta, Ordering::SeqCst)
+            let atomic_ptr = self.at(offset) as *const AtomicI64;
+            (*atomic_ptr).fetch_add(delta, Ordering::SeqCst)
         }
     }
 }
