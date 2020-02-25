@@ -235,7 +235,7 @@ impl AtomicBuffer {
         // Strings in Aeron are zero terminated and are not UTF-8 encoded.
         // We can't go with Rust UTF strings as Media Driver will not understand us.
         unsafe {
-            let ptr = (self.ptr.offset(offset as isize) as *const i8);
+            let ptr = self.ptr.offset(offset as isize) as *const i8;
             CString::from(CStr::from_ptr(ptr))
         }
     }

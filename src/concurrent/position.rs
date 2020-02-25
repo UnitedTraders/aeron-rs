@@ -18,7 +18,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::counters::CountersReader;
 use crate::utils::types::Index;
 
-trait ReadablePosition {
+pub trait ReadablePosition {
     type P: ReadablePosition;
 
     fn wrap(&mut self, position: &Self::P);
@@ -26,10 +26,10 @@ trait ReadablePosition {
     fn get(&self) -> i64;
     fn get_volatile(&self) -> i64;
     fn set(&self, value: i64);
-    fn set_volatile(&self, value: i64);
+    fn set_ordered(&self, value: i64);
 }
 
-struct UnsafeBufferPosition {
+pub(crate) struct UnsafeBufferPosition {
     buffer: AtomicBuffer,
     id: i32,
     offset: Index,
@@ -69,7 +69,7 @@ impl ReadablePosition for UnsafeBufferPosition {
         self.buffer.put_ordered::<i64>(self.offset, value)
     }
 
-    fn set_volatile(&self, value: i64) {
+    fn set_ordered(&self, value: i64) {
         self.buffer.put_ordered::<i64>(self.offset, value)
     }
 }
