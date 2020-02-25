@@ -43,7 +43,7 @@ impl CopyBroadcastReceiver {
 
     pub fn receive<F>(&mut self, handler: F) -> Result<usize, BroadcastTransmitError>
     where
-        F: Fn(isize, &AtomicBuffer, Index, Index),
+        F: Fn(i32, &AtomicBuffer, Index, Index),
     {
         let mut messages_received: usize = 0;
         let last_seen_lapped_count = self.receiver.lapped_count();
@@ -53,10 +53,10 @@ impl CopyBroadcastReceiver {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);
             }
 
-            let length = self.receiver.length();
+            let length = self.receiver.length() as Index;
             if length > self.scratch_buffer.capacity() {
                 return Err(BroadcastTransmitError::BufferTooSmall {
-                    need: length,
+                    need: length as isize,
                     capacity: self.scratch_buffer.capacity(),
                 });
             }

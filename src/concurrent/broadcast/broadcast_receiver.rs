@@ -69,16 +69,16 @@ impl BroadcastReceiver {
         self.lapped_count.load(Ordering::SeqCst)
     }
 
-    pub fn type_id(&self) -> Index {
-        self.buffer.get::<isize>(record_descriptor::type_offset(self.record_offset))
+    pub fn type_id(&self) -> i32 {
+        self.buffer.get::<i32>(record_descriptor::type_offset(self.record_offset))
     }
 
     pub fn offset(&self) -> Index {
         record_descriptor::msg_offset(self.record_offset)
     }
 
-    pub fn length(&self) -> isize {
-        self.buffer.get::<isize>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH
+    pub fn length(&self) -> i32 {
+        self.buffer.get::<i32>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH as i32
     }
 
     pub fn buffer(&self) -> &AtomicBuffer {
