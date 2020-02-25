@@ -141,7 +141,7 @@ mod tests {
     const SRC_BUFFER_SIZE: i32 = (1024);
     const MSG_TYPE_ID: i32 = (7);
     const TAIL_INTENT_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET);
-    const TAIL_COUNTER_INDEX: Index= (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
+    const TAIL_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
     const LATEST_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::LATEST_COUNTER_OFFSET);
 
     struct BroadcastTransmitterTest {
