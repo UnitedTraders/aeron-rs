@@ -22,7 +22,7 @@ pub trait ReadablePosition {
     type P: ReadablePosition;
 
     fn wrap(&mut self, position: &Self::P);
-    fn id(&self) -> i32;
+    fn id(&self) -> Index;
     fn get(&self) -> i64;
     fn get_volatile(&self) -> i64;
     fn set(&self, value: i64);
@@ -31,12 +31,12 @@ pub trait ReadablePosition {
 
 pub(crate) struct UnsafeBufferPosition {
     buffer: AtomicBuffer,
-    id: i32,
+    id: Index,
     offset: Index,
 }
 
 impl UnsafeBufferPosition {
-    pub fn new(buffer: AtomicBuffer, id: i32) -> Self {
+    pub fn new(buffer: AtomicBuffer, id: Index) -> Self {
         Self {
             buffer,
             id,
@@ -53,7 +53,7 @@ impl ReadablePosition for UnsafeBufferPosition {
         self.offset = position.offset;
     }
 
-    fn id(&self) -> i32 {
+    fn id(&self) -> Index {
         self.id
     }
 

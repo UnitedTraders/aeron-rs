@@ -95,7 +95,7 @@ impl Header {
      * @return the total length of the frame including the header.
      */
     pub fn frame_length(&self) -> Index {
-        self.buffer.expect("Buffer not set").get::<i32>(self.offset) as Index
+        self.buffer.expect("Buffer not set").get::<Index>(self.offset) as Index
     }
 
     /**
@@ -103,10 +103,10 @@ impl Header {
      *
      * @return the session ID to which the frame belongs.
      */
-    pub fn session_id(&self) -> i32 {
+    pub fn session_id(&self) -> Index {
         self.buffer
             .expect("Buffer not set")
-            .get::<i32>(self.offset + *data_frame_header::SESSION_ID_FIELD_OFFSET)
+            .get::<Index>(self.offset + *data_frame_header::SESSION_ID_FIELD_OFFSET)
     }
 
     /**
@@ -114,10 +114,10 @@ impl Header {
      *
      * @return the stream ID to which the frame belongs.
      */
-    pub fn stream_id(&self) -> i32 {
+    pub fn stream_id(&self) -> Index {
         self.buffer
             .expect("Buffer not set")
-            .get::<i32>(self.offset + *data_frame_header::STREAM_ID_FIELD_OFFSET)
+            .get::<Index>(self.offset + *data_frame_header::STREAM_ID_FIELD_OFFSET)
     }
 
     /**
@@ -218,7 +218,7 @@ impl HeaderWriter {
      * Write header in LITTLE_ENDIAN order
      */
     pub fn write(&self, term_buffer: &AtomicBuffer, offset: Index, length: Index, term_id: i32) {
-        term_buffer.put_ordered::<i32>(offset, -(length as i32));
+        term_buffer.put_ordered::<i32>(offset, -length as i32);
 
         let mut hdr = term_buffer.get::<DataFrameHeaderDefn>(offset);
 

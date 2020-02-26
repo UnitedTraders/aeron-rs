@@ -20,7 +20,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
 pub struct Flyweight<T> {
-    pub m_struct: T,
+    pub m_struct: *mut T,
     buffer: AtomicBuffer,
     base_offset: Index,
 }
@@ -28,7 +28,7 @@ pub struct Flyweight<T> {
 impl<T: Copy> Flyweight<T> {
     pub fn new(buffer: AtomicBuffer, base_offset: Index) -> Self {
         Self {
-            m_struct: buffer.get::<T>(base_offset),
+            m_struct: buffer.overlay_struct::<T>(base_offset),
             buffer,
             base_offset,
         }
@@ -45,28 +45,33 @@ impl<T: Copy> Flyweight<T> {
     }
 
     #[inline]
-    pub fn string_put(&mut self, _offset: Index, _value: String) {
-        unimplemented!()
+    pub fn string_put(&mut self, offset: Index, value: &[u8]) {
+        self.buffer.put_string(offset, value);
     }
 
     #[inline]
-    pub fn string_put_without_length(&mut self) {
-        unimplemented!()
+    pub fn string_put_without_length(&mut self, offset: Index, value: &[u8]) -> Index {
+        self.buffer.put_string_without_length(offset, value)
     }
 
     #[inline]
-    pub fn string_get_without_length(&self) {
-        unimplemented!()
+    pub fn string_get_without_length(&self, offset: Index, length: Index) -> CString {
+        self.buffer.get_string_without_length(offset, length)
+    }
+
+    #[inline]
+    pub fn bytes_at(&self, offset: Index) -> *mut u8 {
+        unsafe { self.buffer.buffer().offset(self.base_offset + offset) }
     }
 
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
-        self.buffer.put_bytes(self.base_offset + offset, src)
+        unsafe { self.buffer.put_bytes(self.base_offset + offset, src) }
     }
 
     #[inline]
-    pub fn get_bytes(&self, _position: Index, _dest: *mut i8, _length: Index) {
-        unimplemented!()
+    pub unsafe fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
+        self.buffer.get_bytes(self.base_offset + offset, dest, length);
     }
 
     #[inline]

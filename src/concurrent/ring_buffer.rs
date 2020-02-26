@@ -68,7 +68,7 @@ mod record_descriptor {
 
     pub const HEADER_LENGTH: Index = I32_SIZE * 2;
     pub const ALIGNMENT: Index = HEADER_LENGTH;
-    pub const PADDING_MSG_TYPE_ID: i32 = -1;
+    pub const PADDING_MSG_TYPE_ID: Index = -1;
 
     #[inline]
     pub fn length_offset(record_offset: Index) -> Index {
@@ -193,8 +193,10 @@ impl ManyToOneRingBuffer {
 
         self.buffer
             .put_ordered(record_index, record_descriptor::make_header(-record_len, cmd));
-        self.buffer
-            .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
+        unsafe {
+            self.buffer
+                .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
+        }
         self.buffer
             .put_ordered(record_descriptor::length_offset(record_index), record_len);
 
@@ -289,7 +291,7 @@ impl ManyToOneRingBuffer {
     }
 
     #[inline]
-    pub fn size(&self) -> i32 {
+    pub fn size(&self) -> Index {
         let mut tail: i64;
         let mut head_after = self.consumer_position();
 
@@ -299,11 +301,12 @@ impl ManyToOneRingBuffer {
             head_after = self.consumer_position();
 
             if head_after == head_before {
-                return (tail - head_after) as i32;
+                return (tail - head_after) as Index;
             }
         }
     }
 
+    #[allow(clippy::comparison_chain)]
     pub fn unblock(&self) -> bool {
         let head_position = self.consumer_position();
         let tail_position = self.producer_position();
@@ -414,7 +417,7 @@ impl ManyToOneRingBuffer {
         let mut i = from - record_descriptor::ALIGNMENT;
 
         while i >= limit {
-            if self.buffer.get_volatile::<i32>(i) != 0 {
+            if self.buffer.get_volatile::<Index>(i) != 0 {
                 return false;
             }
 

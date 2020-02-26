@@ -45,7 +45,7 @@ use crate::utils::types::Index;
 struct ErrorResponseDefn {
     offending_command_correlation_id: i64,
     error_code: i32,
-    error_message_length: Index,
+    error_message_length: i32,
     error_message_data: *mut i8,
 }
 
@@ -73,13 +73,13 @@ impl ErrorResponseFlyweight {
     }
 
     #[inline]
-    pub fn offending_command_correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.offending_command_correlation_id
+    pub unsafe fn offending_command_correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).offending_command_correlation_id
     }
 
     #[inline]
-    pub fn error_code(&self) -> i32 {
-        self.flyweight.m_struct.error_code
+    pub unsafe fn error_code(&self) -> i32 {
+        (*self.flyweight.m_struct).error_code
     }
 
     #[inline]
@@ -88,7 +88,7 @@ impl ErrorResponseFlyweight {
     }
 
     #[inline]
-    pub fn length(&self) -> Index {
-        offset_of!(ErrorResponseDefn, error_message_data) + self.flyweight.m_struct.error_message_length
+    pub unsafe fn length(&self) -> Index {
+        offset_of!(ErrorResponseDefn, error_message_data) + (*self.flyweight.m_struct).error_message_length as Index
     }
 }

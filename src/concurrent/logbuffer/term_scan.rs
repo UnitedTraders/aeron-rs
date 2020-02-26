@@ -28,7 +28,7 @@ use crate::utils::types::Index;
  * @param sessionId of the stream containing this block of message fragments.
  * @param term_id    of the stream containing this block of message fragments.
  */
-pub type BlockHandler = fn(&AtomicBuffer, Index, Index, i32, i32);
+pub type BlockHandler = fn(&AtomicBuffer, Index, Index, Index, Index);
 
 pub fn scan(term_buffer: &AtomicBuffer, term_offset: Index, limit_offset: Index) -> Index {
     let mut offset = term_offset;
@@ -65,14 +65,14 @@ pub fn scan(term_buffer: &AtomicBuffer, term_offset: Index, limit_offset: Index)
 // 2. &AtomicBuffer - term (log) buffer we are scanning
 // 3. Index - offset in the buffer where gap begins
 // 4. Index - gap length
-pub type GapHandler = fn(i32, &AtomicBuffer, Index, Index);
+pub type GapHandler = fn(Index, &AtomicBuffer, Index, Index);
 
 pub fn scan_for_gap(
     term_buffer: &AtomicBuffer,
-    term_id: i32,
+    term_id: Index,
     mut rebuild_offset: Index,
     hwm_offset: Index,
-    mut handler: impl FnMut(i32, &AtomicBuffer, Index, Index),
+    mut handler: impl FnMut(Index, &AtomicBuffer, Index, Index),
 ) -> Index {
     loop {
         let frame_length = frame_descriptor::frame_length_volatile(term_buffer, rebuild_offset);
@@ -94,7 +94,7 @@ pub fn scan_for_gap(
         while rebuild_offset < limit {
             rebuild_offset += frame_descriptor::FRAME_ALIGNMENT;
 
-            if term_buffer.get_volatile::<i32>(rebuild_offset) != 0 {
+            if term_buffer.get_volatile::<Index>(rebuild_offset) != 0 {
                 rebuild_offset -= frame_descriptor::ALIGNED_HEADER_LENGTH;
                 break;
             }
@@ -111,12 +111,12 @@ pub fn scan_outcome(padding: Index, available: Index) -> i64 {
     (padding as i64) << 32 | available as i64
 }
 
-pub fn available(scan_outcome: i64) -> i32 {
-    scan_outcome as i32
+pub fn available(scan_outcome: i64) -> Index {
+    scan_outcome as Index
 }
 
-pub fn padding(scan_outcome: i64) -> i32 {
-    (scan_outcome >> 32) as i32
+pub fn padding(scan_outcome: i64) -> Index {
+    (scan_outcome >> 32) as Index
 }
 
 pub fn scan_for_availability(term_buffer: &AtomicBuffer, offset: Index, max_length: Index) -> i64 {
@@ -162,7 +162,7 @@ mod tests {
     use crate::concurrent::logbuffer::{log_buffer_descriptor, term_scan};
 
     const LOG_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
-    const TERM_ID: i32 = 1;
+    const TERM_ID: Index = 1;
     const MTU_LENGTH: Index = 1024;
 
     // Term scanner tests
@@ -191,13 +191,13 @@ mod tests {
         let aligned_message_length = bit_utils::align(message_length, frame_descriptor::FRAME_ALIGNMENT);
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
 
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
 
         // Write next message length as 0 in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length), 0);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(aligned_message_length), 0);
 
         let new_offset = term_scan::scan(&log, offset, limit_offset);
 
@@ -214,18 +214,21 @@ mod tests {
         let aligned_message_length = bit_utils::align(message_length, frame_descriptor::FRAME_ALIGNMENT);
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
         // Write next message length
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length), message_length as i32);
+        log.put_ordered::<Index>(
+            frame_descriptor::length_offset(aligned_message_length),
+            message_length as Index,
+        );
         // Set type
         log.put::<u16>(
             frame_descriptor::type_offset(aligned_message_length),
             data_frame_header::HDR_TYPE_DATA,
         );
         // Write next message length as 0 in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length * 2), 0);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(aligned_message_length * 2), 0);
 
         let new_offset = term_scan::scan(&log, offset, limit_offset);
 
@@ -244,20 +247,23 @@ mod tests {
         let third_message_length = limit_offset - (2 * aligned_message_length);
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
         // Write next message length
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length), message_length as i32);
+        log.put_ordered::<Index>(
+            frame_descriptor::length_offset(aligned_message_length),
+            message_length as Index,
+        );
         // Set type for second msg
         log.put::<u16>(
             frame_descriptor::type_offset(aligned_message_length),
             data_frame_header::HDR_TYPE_DATA,
         );
         // Write next message length
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(
             frame_descriptor::length_offset(aligned_message_length * 2),
-            third_message_length as i32,
+            third_message_length as Index,
         );
         // Set type for third msg
         log.put::<u16>(
@@ -281,20 +287,23 @@ mod tests {
         let limit_offset = (2 * aligned_message_length) + 1;
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
         // Write next message length as 0 in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length), message_length as i32);
+        log.put_ordered::<Index>(
+            frame_descriptor::length_offset(aligned_message_length),
+            message_length as Index,
+        );
         // Set type for second msg
         log.put::<u16>(
             frame_descriptor::type_offset(aligned_message_length),
             data_frame_header::HDR_TYPE_DATA,
         );
         // Write next message length as 0 in to log
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(
             frame_descriptor::length_offset(aligned_message_length * 2),
-            message_length as i32,
+            message_length as Index,
         );
         // Set type for second msg
         log.put::<u16>(
@@ -318,7 +327,7 @@ mod tests {
         let limit_offset = aligned_message_length - 1;
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
 
@@ -338,7 +347,7 @@ mod tests {
         let limit_offset = aligned_message_length;
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
 
@@ -358,11 +367,14 @@ mod tests {
         let limit_offset = log.capacity();
 
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(offset), message_length as i32);
+        log.put_ordered::<Index>(frame_descriptor::length_offset(offset), message_length as Index);
         // Set type
         log.put::<u16>(frame_descriptor::type_offset(offset), data_frame_header::HDR_TYPE_DATA);
         // Write message length in to log
-        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length), message_length as i32);
+        log.put_ordered::<Index>(
+            frame_descriptor::length_offset(aligned_message_length),
+            message_length as Index,
+        );
         // Set type
         log.put::<u16>(
             frame_descriptor::type_offset(aligned_message_length),
@@ -388,9 +400,9 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(frame_offset, data_frame_header::LENGTH as i32);
+        log.put_ordered::<Index>(frame_offset, data_frame_header::LENGTH as Index);
 
-        let handler = |term_id: i32, _buffer: &AtomicBuffer, offset: Index, length: Index| {
+        let handler = |term_id: Index, _buffer: &AtomicBuffer, offset: Index, length: Index| {
             assert_eq!(TERM_ID, term_id);
             assert_eq!(0, offset);
             assert_eq!(frame_offset, length);
@@ -413,17 +425,17 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(
             tail - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH as i32,
+            data_frame_header::LENGTH as Index,
         );
-        log.put_ordered::<i32>(tail, 0);
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(tail, 0);
+        log.put_ordered::<Index>(
             high_water_mark - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH as i32,
+            data_frame_header::LENGTH as Index,
         );
 
-        let handler = |term_id: i32, _buffer: &AtomicBuffer, offset: Index, length: Index| {
+        let handler = |term_id: Index, _buffer: &AtomicBuffer, offset: Index, length: Index| {
             assert_eq!(TERM_ID, term_id);
             assert_eq!(tail, offset);
             assert_eq!(frame_descriptor::ALIGNED_HEADER_LENGTH, length);
@@ -446,17 +458,17 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(
             tail - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH as i32,
+            data_frame_header::LENGTH as Index,
         );
-        log.put_ordered::<i32>(tail, 0);
-        log.put_ordered::<i32>(
+        log.put_ordered::<Index>(tail, 0);
+        log.put_ordered::<Index>(
             high_water_mark - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH as i32,
+            data_frame_header::LENGTH as Index,
         );
 
-        let handler = |term_id: i32, _buffer: &AtomicBuffer, offset: Index, length: Index| {
+        let handler = |term_id: Index, _buffer: &AtomicBuffer, offset: Index, length: Index| {
             assert_eq!(TERM_ID, term_id);
             assert_eq!(tail, offset);
             assert_eq!(frame_descriptor::ALIGNED_HEADER_LENGTH, length);
@@ -480,10 +492,10 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(tail, padding_length as i32);
-        log.put_ordered::<i32>(tail + data_frame_header::LENGTH, 0);
+        log.put_ordered::<Index>(tail, padding_length as Index);
+        log.put_ordered::<Index>(tail + data_frame_header::LENGTH, 0);
 
-        let handler = |_term_id: i32, _buffer: &AtomicBuffer, _offset: Index, _length: Index| {
+        let handler = |_term_id: Index, _buffer: &AtomicBuffer, _offset: Index, _length: Index| {
             called = true;
         };
 
@@ -502,8 +514,8 @@ mod tests {
 
         let scan_outcome = term_scan::scan_outcome(padding, available);
 
-        assert_eq!(padding as i32, term_scan::padding(scan_outcome));
-        assert_eq!(available as i32, term_scan::available(scan_outcome));
+        assert_eq!(padding as Index, term_scan::padding(scan_outcome));
+        assert_eq!(available as Index, term_scan::available(scan_outcome));
     }
 
     #[test]
@@ -516,13 +528,13 @@ mod tests {
         let aligned_frame_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
         let frame_offset = 0;
 
-        log.put_ordered::<i32>(frame_offset, frame_length as i32);
+        log.put_ordered::<Index>(frame_offset, frame_length as Index);
         log.put::<u16>(frame_descriptor::type_offset(frame_offset), data_frame_header::HDR_TYPE_DATA);
-        log.put_ordered::<i32>(aligned_frame_length, 0);
+        log.put_ordered::<Index>(aligned_frame_length, 0);
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, MTU_LENGTH);
 
-        assert_eq!(aligned_frame_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(aligned_frame_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 
@@ -537,7 +549,7 @@ mod tests {
         let max_length = aligned_frame_length - 1;
         let frame_offset = 0;
 
-        log.put_ordered::<i32>(frame_offset, frame_length as i32);
+        log.put_ordered::<Index>(frame_offset, frame_length as Index);
         log.put::<u16>(frame_descriptor::type_offset(frame_offset), data_frame_header::HDR_TYPE_DATA);
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, max_length);
@@ -557,16 +569,16 @@ mod tests {
         let aligned_length_one = bit_utils::align(frame_length_one, frame_descriptor::FRAME_ALIGNMENT);
         let aligned_length_two = bit_utils::align(frame_length_two, frame_descriptor::FRAME_ALIGNMENT);
 
-        buffer.put_ordered::<i32>(frame_offset, aligned_length_one as i32);
+        buffer.put_ordered::<Index>(frame_offset, aligned_length_one as Index);
         buffer.put::<u16>(frame_descriptor::type_offset(frame_offset), frame_type_one);
 
-        buffer.put_ordered::<i32>(frame_offset + aligned_length_one, frame_length_two as i32);
+        buffer.put_ordered::<Index>(frame_offset + aligned_length_one, frame_length_two as Index);
         buffer.put::<u16>(
             frame_descriptor::type_offset(frame_offset + aligned_length_one),
             frame_type_two,
         );
 
-        return aligned_length_one + aligned_length_two;
+        aligned_length_one + aligned_length_two
     }
 
     #[test]
@@ -585,11 +597,11 @@ mod tests {
             data_frame_header::HDR_TYPE_DATA,
             data_frame_header::HDR_TYPE_DATA,
         );
-        log.put_ordered::<i32>(total_length, 0);
+        log.put_ordered::<Index>(total_length, 0);
 
         let scan_outcome = term_scan::scan_for_availability(&log, 0, MTU_LENGTH);
 
-        assert_eq!(total_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(total_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 
@@ -613,7 +625,7 @@ mod tests {
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, MTU_LENGTH);
 
-        assert_eq!(total_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(total_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 
@@ -637,7 +649,7 @@ mod tests {
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, MTU_LENGTH);
 
-        assert_eq!(frame_one_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(frame_one_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 
@@ -649,12 +661,12 @@ mod tests {
         let aligned_frame_length = bit_utils::align(data_frame_header::LENGTH * 2, frame_descriptor::FRAME_ALIGNMENT);
         let frame_offset = LOG_BUFFER_CAPACITY - aligned_frame_length;
 
-        log.put_ordered::<i32>(frame_offset, aligned_frame_length as i32);
+        log.put_ordered::<Index>(frame_offset, aligned_frame_length as Index);
         log.put::<u16>(frame_descriptor::type_offset(frame_offset), data_frame_header::HDR_TYPE_DATA);
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, MTU_LENGTH);
 
-        assert_eq!(aligned_frame_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(aligned_frame_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 
@@ -709,7 +721,7 @@ mod tests {
 
         let scan_outcome = term_scan::scan_for_availability(&log, frame_offset, mtu);
 
-        assert_eq!(aligned_frame_length as i32, term_scan::available(scan_outcome));
+        assert_eq!(aligned_frame_length as Index, term_scan::available(scan_outcome));
         assert_eq!(0, term_scan::padding(scan_outcome));
     }
 }

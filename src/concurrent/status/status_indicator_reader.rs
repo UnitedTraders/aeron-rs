@@ -23,17 +23,17 @@ const CHANNEL_ENDPOINT_ERRORED: i64 = -1;
 const CHANNEL_ENDPOINT_ACTIVE: i64 = 1;
 const CHANNEL_ENDPOINT_CLOSING: i64 = 2;
 
-const NO_ID_ALLOCATED: i32 = -1;
+const NO_ID_ALLOCATED: Index = -1;
 
 struct StatusIndicatorReader {
     buffer: AtomicBuffer,
-    id: i32,
+    id: Index,
     offset: Index,
     static_buffer: Option<[u8; 8]>,
 }
 
 impl StatusIndicatorReader {
-    pub fn new(input_buffer: AtomicBuffer, id: i32) -> Self {
+    pub fn new(input_buffer: AtomicBuffer, id: Index) -> Self {
         if NO_ID_ALLOCATED == id {
             let mut static_buffer: [u8; 8] = [0; 8];
             let buffer = AtomicBuffer::wrap_slice(&mut static_buffer);
@@ -90,7 +90,7 @@ impl StatusIndicatorReader {
     // return *this;
     // }
 
-    pub fn id(&self) -> i32 {
+    pub fn id(&self) -> Index {
         self.id
     }
 

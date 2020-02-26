@@ -116,20 +116,20 @@ pub fn set_frame_flags(log_buffer: &AtomicBuffer, frame_offset: Index, flags: u8
     log_buffer.put::<u8>(flags_offset(frame_offset), flags);
 }
 
-pub fn set_frame_term_offset(log_buffer: &AtomicBuffer, frame_offset: Index, term_offset: i32) {
-    log_buffer.put::<i32>(term_offset_offset(frame_offset), term_offset);
+pub fn set_frame_term_offset(log_buffer: &AtomicBuffer, frame_offset: Index, term_offset: Index) {
+    log_buffer.put::<Index>(term_offset_offset(frame_offset), term_offset);
 }
 
 pub fn is_padding_frame(log_buffer: &AtomicBuffer, frame_offset: Index) -> bool {
     log_buffer.get::<u16>(type_offset(frame_offset)) == data_frame_header::HDR_TYPE_PAD
 }
 
-pub fn frame_length_volatile(log_buffer: &AtomicBuffer, frame_offset: Index) -> i32 {
-    log_buffer.get_volatile::<i32>(length_offset(frame_offset))
+pub fn frame_length_volatile(log_buffer: &AtomicBuffer, frame_offset: Index) -> Index {
+    log_buffer.get_volatile::<Index>(length_offset(frame_offset))
 }
 
 pub fn set_frame_length_ordered(log_buffer: &AtomicBuffer, frame_offset: Index, frame_length: Index) {
-    log_buffer.put_ordered::<i32>(length_offset(frame_offset), frame_length as i32);
+    log_buffer.put_ordered::<Index>(length_offset(frame_offset), frame_length as Index);
 }
 
 pub fn frame_version(log_buffer: &AtomicBuffer, frame_offset: Index) -> u8 {

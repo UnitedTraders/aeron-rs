@@ -30,7 +30,7 @@
 use crate::concurrent::broadcast::BroadcastTransmitError;
 use crate::utils::types::Index;
 
-pub(crate) const PADDING_MSG_TYPE_ID: i32 = -1;
+pub(crate) const PADDING_MSG_TYPE_ID: Index = -1;
 
 const LENGTH_OFFSET: Index = 0;
 const TYPE_OFFSET: Index = 4;

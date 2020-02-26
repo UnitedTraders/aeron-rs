@@ -49,12 +49,12 @@ impl OperationSucceededFlyweight {
     }
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 }

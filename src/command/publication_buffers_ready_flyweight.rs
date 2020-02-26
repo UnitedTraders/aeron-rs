@@ -59,7 +59,7 @@ struct PublicationBuffersReadyDefn {
     stream_id: i32,
     position_limit_counter_id: i32,
     channel_status_indicator_id: i32,
-    log_file_length: Index,
+    log_file_length: i32,
     log_file_data: *mut i8,
 }
 
@@ -68,74 +68,74 @@ struct PublicationBuffersReadyFlyweight {
 }
 
 impl PublicationBuffersReadyFlyweight {
-    pub fn new(buffer: AtomicBuffer, offeset: Index) -> Self {
+    pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         Self {
-            flyweight: Flyweight::new(buffer, offeset),
+            flyweight: Flyweight::new(buffer, offset),
         }
     }
 
     // Getters
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     #[inline]
-    pub fn registration_id(&self) -> i64 {
-        self.flyweight.m_struct.registration_id
+    pub unsafe fn registration_id(&self) -> i64 {
+        (*self.flyweight.m_struct).registration_id
     }
 
     #[inline]
-    pub fn session_id(&self) -> i32 {
-        self.flyweight.m_struct.session_id
+    pub unsafe fn session_id(&self) -> i32 {
+        (*self.flyweight.m_struct).session_id
     }
 
     #[inline]
-    pub fn stream_id(&self) -> i32 {
-        self.flyweight.m_struct.stream_id
+    pub unsafe fn stream_id(&self) -> i32 {
+        (*self.flyweight.m_struct).stream_id
     }
 
     #[inline]
-    pub fn position_limit_counter_id(&self) -> i32 {
-        self.flyweight.m_struct.position_limit_counter_id
+    pub unsafe fn position_limit_counter_id(&self) -> i32 {
+        (*self.flyweight.m_struct).position_limit_counter_id
     }
 
     #[inline]
-    pub fn channel_status_indicator_id(&self) -> i32 {
-        self.flyweight.m_struct.channel_status_indicator_id
+    pub unsafe fn channel_status_indicator_id(&self) -> i32 {
+        (*self.flyweight.m_struct).channel_status_indicator_id
     }
 
     // Setters
 
     #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 
     #[inline]
-    pub fn set_registration_id(&mut self, value: i64) {
-        self.flyweight.m_struct.registration_id = value;
+    pub unsafe fn set_registration_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).registration_id = value;
     }
 
     #[inline]
-    pub fn set_session_id(&mut self, value: i32) {
-        self.flyweight.m_struct.session_id = value;
+    pub unsafe fn set_session_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).session_id = value;
     }
 
     #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        self.flyweight.m_struct.stream_id = value;
+    pub unsafe fn set_stream_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).stream_id = value;
     }
 
     #[inline]
-    pub fn set_position_limit_counter_id(&mut self, value: i32) {
-        self.flyweight.m_struct.position_limit_counter_id = value;
+    pub unsafe fn set_position_limit_counter_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).position_limit_counter_id = value;
     }
 
     #[inline]
-    pub fn set_channel_status_indicator_id(&mut self, value: i32) {
-        self.flyweight.m_struct.channel_status_indicator_id = value;
+    pub unsafe fn set_channel_status_indicator_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).channel_status_indicator_id = value;
     }
 
     // Interaction with Flyweight methods
@@ -147,13 +147,13 @@ impl PublicationBuffersReadyFlyweight {
     }
 
     #[inline]
-    pub fn set_log_file_name(&mut self, value: String) {
+    pub fn set_log_file_name(&mut self, value: &[u8]) {
         self.flyweight
             .string_put(offset_of!(PublicationBuffersReadyDefn, log_file_length), value);
     }
 
     #[inline]
-    pub fn length(&self) -> Index {
-        offset_of!(PublicationBuffersReadyDefn, log_file_data) + self.flyweight.m_struct.log_file_length
+    pub unsafe fn length(&self) -> Index {
+        offset_of!(PublicationBuffersReadyDefn, log_file_data) + (*self.flyweight.m_struct).log_file_length as Index
     }
 }

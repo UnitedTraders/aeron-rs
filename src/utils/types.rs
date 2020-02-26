@@ -58,7 +58,7 @@ macro_rules! offset_of {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::utils::types::Index;
 
     #[repr(C, packed(4))]
     struct Foo {

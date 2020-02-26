@@ -1,5 +1,7 @@
 // TODO: Eliminate later
 #![allow(dead_code)]
+#![allow(clippy::cast_ptr_alignment)]
+#![allow(clippy::too_many_arguments)]
 
 extern crate cache_line_size;
 mod commands;
