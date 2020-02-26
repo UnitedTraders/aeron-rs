@@ -59,11 +59,11 @@ struct PublicationBuffersReadyDefn {
     stream_id: i32,
     position_limit_counter_id: i32,
     channel_status_indicator_id: i32,
-    log_file_length: Index,
+    log_file_length: i32,
     log_file_data: *mut i8,
 }
 
-struct PublicationBuffersReadyFlyweight {
+pub(crate) struct PublicationBuffersReadyFlyweight {
     flyweight: Flyweight<PublicationBuffersReadyDefn>,
 }
 
@@ -154,6 +154,6 @@ impl PublicationBuffersReadyFlyweight {
 
     #[inline]
     pub fn length(&self) -> Index {
-        offset_of!(PublicationBuffersReadyDefn, log_file_data) + self.flyweight.m_struct.log_file_length
+        offset_of!(PublicationBuffersReadyDefn, log_file_data) + self.flyweight.m_struct.log_file_length as Index
     }
 }

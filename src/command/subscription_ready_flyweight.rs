@@ -40,11 +40,11 @@ struct SubscriptionReadyDefn {
 
 const SUBSCRIPTION_READY_LENGTH: Index = std::mem::size_of::<SubscriptionReadyDefn>() as Index;
 
-struct ImageMessageFlyweight {
+pub(crate) struct SubscriptionReadyFlyweight {
     flyweight: Flyweight<SubscriptionReadyDefn>,
 }
 
-impl ImageMessageFlyweight {
+impl SubscriptionReadyFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         Self {
             flyweight: Flyweight::new(buffer, offset),

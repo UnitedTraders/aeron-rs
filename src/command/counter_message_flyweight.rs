@@ -55,7 +55,7 @@ struct CounterMessageDefn {
 
 const COUNTER_MESSAGE_LENGTH: Index = std::mem::size_of::<CounterMessageDefn>() as Index;
 
-struct CounterMessageFlyweight {
+pub(crate) struct CounterMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: CounterMessageDefn,
 }

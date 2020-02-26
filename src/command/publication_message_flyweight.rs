@@ -53,7 +53,7 @@ struct PublicationMessageDefn {
     channel_data: *mut i8,
 }
 
-struct PublicationMessageFlyweight {
+pub(crate) struct PublicationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: PublicationMessageDefn,
 }

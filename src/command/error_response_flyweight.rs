@@ -49,19 +49,19 @@ struct ErrorResponseDefn {
     error_message_data: *mut i8,
 }
 
-const ERROR_CODE_UNKNOWN_CODE_VALUE: i32 = -1;
+pub(crate) const ERROR_CODE_UNKNOWN_CODE_VALUE: i32 = -1;
 
-const ERROR_CODE_GENERIC_ERROR: i32 = 0;
-const ERROR_CODE_INVALID_CHANNEL: i32 = 1;
-const ERROR_CODE_UNKNOWN_SUBSCRIPTION: i32 = 2;
-const ERROR_CODE_UNKNOWN_PUBLICATION: i32 = 3;
-const ERROR_CODE_CHANNEL_ENDPOINT_ERROR: i32 = 4;
-const ERROR_CODE_UNKNOWN_COUNTER: i32 = 5;
-const ERROR_CODE_UNKNOWN_COMMAND_TYPE_ID: i32 = 6;
-const ERROR_CODE_MALFORMED_COMMAND: i32 = 7;
-const ERROR_CODE_NOT_SUPPORTED: i32 = 8;
+pub(crate) const ERROR_CODE_GENERIC_ERROR: i32 = 0;
+pub(crate) const ERROR_CODE_INVALID_CHANNEL: i32 = 1;
+pub(crate) const ERROR_CODE_UNKNOWN_SUBSCRIPTION: i32 = 2;
+pub(crate) const ERROR_CODE_UNKNOWN_PUBLICATION: i32 = 3;
+pub(crate) const ERROR_CODE_CHANNEL_ENDPOINT_ERROR: i32 = 4;
+pub(crate) const ERROR_CODE_UNKNOWN_COUNTER: i32 = 5;
+pub(crate) const ERROR_CODE_UNKNOWN_COMMAND_TYPE_ID: i32 = 6;
+pub(crate) const ERROR_CODE_MALFORMED_COMMAND: i32 = 7;
+pub(crate) const ERROR_CODE_NOT_SUPPORTED: i32 = 8;
 
-struct ErrorResponseFlyweight {
+pub(crate) struct ErrorResponseFlyweight {
     flyweight: Flyweight<ErrorResponseDefn>,
 }
 

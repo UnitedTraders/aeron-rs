@@ -19,7 +19,7 @@ use std::ffi::CString;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
-pub struct Flyweight<T> {
+pub(crate) struct Flyweight<T> {
     pub m_struct: T,
     buffer: AtomicBuffer,
     base_offset: Index,

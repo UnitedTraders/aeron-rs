@@ -115,6 +115,12 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
+        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        unsafe { self.at(position) as *mut T }
+    }
+
+    #[inline]
     pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
         unsafe { &*(self.at(position) as *const T) }

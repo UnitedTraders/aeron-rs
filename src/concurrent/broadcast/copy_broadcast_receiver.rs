@@ -20,7 +20,7 @@
 //typedef std::function<void(std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)> handler_t;
 
 trait Handler {
-    fn handle(message_type_id: i32, buffer: &AtomicBuffer, i1: Index, i2: Index);
+    fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);
 }
 
 use super::broadcast_receiver::BroadcastReceiver;
@@ -28,7 +28,7 @@ use super::BroadcastTransmitError;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
-struct CopyBroadcastReceiver {
+pub struct CopyBroadcastReceiver {
     receiver: BroadcastReceiver,
     scratch_buffer: AtomicBuffer,
 }
@@ -43,7 +43,7 @@ impl CopyBroadcastReceiver {
 
     pub fn receive<F>(&mut self, handler: F) -> Result<usize, BroadcastTransmitError>
     where
-        F: Fn(i32, &AtomicBuffer, Index, Index),
+        F: Fn(i32, AtomicBuffer, Index, Index),
     {
         let mut messages_received: usize = 0;
         let last_seen_lapped_count = self.receiver.lapped_count();
@@ -68,7 +68,7 @@ impl CopyBroadcastReceiver {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);
             }
 
-            handler(msg_type_id, &self.scratch_buffer, 0, length);
+            handler(msg_type_id, self.scratch_buffer, 0, length);
 
             messages_received = 1;
         }
