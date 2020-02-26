@@ -118,7 +118,7 @@ impl AtomicBuffer {
     #[inline]
     pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
-        unsafe { (self.ptr.offset(position as isize) as *mut T) }
+        unsafe { self.at(position) as *mut T }
     }
 
     #[inline]
@@ -248,7 +248,7 @@ impl AtomicBuffer {
         self.bounds_check(offset, 4);
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
-        let length: Index = self.get::<Index>(offset);
+        let length: i32 = self.get::<i32>(offset);
         self.get_string_without_length(offset + I32_SIZE, length as isize)
     }
 
@@ -271,7 +271,7 @@ impl AtomicBuffer {
     pub fn get_string_length(&self, offset: Index) -> Index {
         self.bounds_check(offset, 4);
 
-        self.get::<Index>(offset) as Index
+        self.get::<i32>(offset) as Index
     }
 
     #[inline]
@@ -279,7 +279,7 @@ impl AtomicBuffer {
         self.bounds_check(offset, string.len() as isize + I32_SIZE);
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
-        self.put::<Index>(offset, string.len() as Index);
+        self.put::<i32>(offset, string.len() as i32);
         unsafe {
             self.put_bytes(offset + I32_SIZE, string);
         }
@@ -338,7 +338,7 @@ mod tests {
         let buffer = AtomicBuffer::from_aligned(&src);
         let to_write = 1;
         buffer.put(0, to_write);
-        let read: Index = buffer.get(0);
+        let read: i32 = buffer.get(0);
 
         assert_eq!(read, to_write)
     }

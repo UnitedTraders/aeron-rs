@@ -4,6 +4,7 @@
 #![allow(clippy::too_many_arguments)]
 
 extern crate cache_line_size;
+mod command;
 mod commands;
 mod concurrent;
 mod protocol;

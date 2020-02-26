@@ -46,7 +46,7 @@ struct TerminateDriverDefn {
 
 const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
 
-struct PublicationMessageFlyweight {
+pub(crate) struct PublicationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: TerminateDriverDefn,
 }

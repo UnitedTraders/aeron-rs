@@ -29,7 +29,7 @@ const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
 const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
 const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
-const PARTITION_COUNT: i32 = 3;
+const PARTITION_COUNT: Index = 3;
 
 /*
  * Layout description for log buffers which contains partitions of terms with associated term meta data,
@@ -48,7 +48,7 @@ const PARTITION_COUNT: i32 = 3;
  * </pre>
  */
 
-const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT as Index;
+const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
 
 /**
  * <pre>
@@ -107,7 +107,7 @@ const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 struct LogMetaDataDefn {
     term_tail_counters: [i64; PARTITION_COUNT as usize],
     active_term_count: i32,
-    pad1: [u8; ((2 * CACHE_LINE_LENGTH) - ((PARTITION_COUNT * I64_SIZE as i32) + I32_SIZE as i32) as Index) as usize],
+    pad1: [u8; ((2 * CACHE_LINE_LENGTH) - ((PARTITION_COUNT * I64_SIZE) + I32_SIZE)) as usize],
     end_of_stream_position: i64,
     is_connected: i32,
     active_transport_count: i32,
@@ -187,56 +187,56 @@ pub fn check_page_size(page_size: Index) -> Result<(), AeronError> {
     Ok(())
 }
 
-pub fn initial_term_id(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get::<Index>(*LOG_INITIAL_TERM_ID_OFFSET)
+pub fn initial_term_id(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get::<i32>(*LOG_INITIAL_TERM_ID_OFFSET)
 }
 
-pub fn mtu_length(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get::<Index>(*LOG_MTU_LENGTH_OFFSET)
+pub fn mtu_length(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get::<i32>(*LOG_MTU_LENGTH_OFFSET)
 }
 
-pub fn term_length(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get::<Index>(*LOG_TERM_LENGTH_OFFSET)
+pub fn term_length(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get::<i32>(*LOG_TERM_LENGTH_OFFSET)
 }
 
-pub fn page_size(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get::<Index>(*LOG_PAGE_SIZE_OFFSET)
+pub fn page_size(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get::<i32>(*LOG_PAGE_SIZE_OFFSET)
 }
 
-pub fn active_term_count(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get_volatile::<Index>(*LOG_ACTIVE_TERM_COUNT_OFFSET)
+pub fn active_term_count(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get_volatile::<i32>(*LOG_ACTIVE_TERM_COUNT_OFFSET)
 }
 
-pub fn set_active_term_count_ordered(log_meta_data_buffer: &AtomicBuffer, active_term_id: Index) {
-    log_meta_data_buffer.put_ordered::<Index>(*LOG_ACTIVE_TERM_COUNT_OFFSET, active_term_id);
+pub fn set_active_term_count_ordered(log_meta_data_buffer: &AtomicBuffer, active_term_id: i32) {
+    log_meta_data_buffer.put_ordered::<i32>(*LOG_ACTIVE_TERM_COUNT_OFFSET, active_term_id);
 }
 
 pub fn cas_active_term_count(log_meta_data_buffer: &AtomicBuffer, expected_term_count: i32, update_term_count: i32) -> bool {
     log_meta_data_buffer.compare_and_set_i32(*LOG_ACTIVE_TERM_COUNT_OFFSET, expected_term_count, update_term_count)
 }
 
-pub fn next_partition_index(current_index: i32) -> i32 {
+pub fn next_partition_index(current_index: Index) -> Index {
     (current_index + 1) % PARTITION_COUNT
 }
 
-pub fn previous_partition_index(current_index: i32) -> i32 {
+pub fn previous_partition_index(current_index: Index) -> Index {
     (current_index + (PARTITION_COUNT - 1)) % PARTITION_COUNT
 }
 
 pub fn is_connected(log_meta_data_buffer: &AtomicBuffer) -> bool {
-    log_meta_data_buffer.get_volatile::<Index>(*LOG_IS_CONNECTED_OFFSET) == 1
+    log_meta_data_buffer.get_volatile::<i32>(*LOG_IS_CONNECTED_OFFSET) == 1
 }
 
 pub fn set_is_connected(log_meta_data_buffer: &AtomicBuffer, is_connected: bool) {
-    log_meta_data_buffer.put_ordered::<Index>(*LOG_IS_CONNECTED_OFFSET, is_connected as Index)
+    log_meta_data_buffer.put_ordered::<i32>(*LOG_IS_CONNECTED_OFFSET, is_connected as i32)
 }
 
-pub fn active_transport_count(log_meta_data_buffer: &AtomicBuffer) -> Index {
-    log_meta_data_buffer.get_volatile::<Index>(*LOG_ACTIVE_TRANSPORT_COUNT)
+pub fn active_transport_count(log_meta_data_buffer: &AtomicBuffer) -> i32 {
+    log_meta_data_buffer.get_volatile::<i32>(*LOG_ACTIVE_TRANSPORT_COUNT)
 }
 
-pub fn set_active_transport_count(log_meta_data_buffer: &AtomicBuffer, number_of_active_transports: Index) {
-    log_meta_data_buffer.put_ordered::<Index>(*LOG_ACTIVE_TRANSPORT_COUNT, number_of_active_transports);
+pub fn set_active_transport_count(log_meta_data_buffer: &AtomicBuffer, number_of_active_transports: i32) {
+    log_meta_data_buffer.put_ordered::<i32>(*LOG_ACTIVE_TRANSPORT_COUNT, number_of_active_transports);
 }
 
 pub fn end_of_stream_position(log_meta_data_buffer: &AtomicBuffer) -> i64 {
@@ -247,8 +247,8 @@ pub fn set_end_of_stream_position(log_meta_data_buffer: &AtomicBuffer, position:
     log_meta_data_buffer.put_ordered::<i64>(*LOG_END_OF_STREAM_POSITION_OFFSET, position);
 }
 
-pub fn index_by_term(initial_term_id: i32, active_term_id: i32) -> i32 {
-    (active_term_id - initial_term_id) % PARTITION_COUNT
+pub fn index_by_term(initial_term_id: i32, active_term_id: i32) -> Index {
+    (active_term_id - initial_term_id) as Index % PARTITION_COUNT
 }
 
 pub fn index_by_term_count(term_count: i64) -> Index {
@@ -289,10 +289,10 @@ pub fn term_id(raw_tail: i64) -> i32 {
     (raw_tail >> 32) as i32
 }
 
-pub fn term_offset(raw_tail: i64, term_length: i64) -> Index {
+pub fn term_offset(raw_tail: i64, term_length: i64) -> i32 {
     let tail = raw_tail & 0xFFFF_FFFF;
 
-    std::cmp::min(tail, term_length) as Index
+    std::cmp::min(tail, term_length) as i32
 }
 
 pub fn cas_raw_tail(
@@ -317,7 +317,7 @@ pub fn rotate_log(log_meta_data_buffer: &AtomicBuffer, current_term_count: i32, 
     let next_term_id = current_term_id + 1;
     let next_term_count = current_term_count + 1;
     let next_index = index_by_term_count(next_term_count as i64);
-    let expected_term_id = next_term_id - PARTITION_COUNT;
+    let expected_term_id = next_term_id - PARTITION_COUNT as i32;
     let new_raw_tail: i64 = next_term_id as i64 * (1_i64 << 32);
 
     let mut raw_tail: i64;
@@ -333,7 +333,7 @@ pub fn rotate_log(log_meta_data_buffer: &AtomicBuffer, current_term_count: i32, 
     cas_active_term_count(log_meta_data_buffer, current_term_count, next_term_count);
 }
 
-pub fn initialize_tail_with_term_id(log_meta_data_buffer: &AtomicBuffer, partition_index: Index, term_id: Index) {
+pub fn initialize_tail_with_term_id(log_meta_data_buffer: &AtomicBuffer, partition_index: Index, term_id: i32) {
     let raw_tail: i64 = term_id as i64 * (1_i64 << 32);
     log_meta_data_buffer.put::<i64>(*TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE), raw_tail);
 }

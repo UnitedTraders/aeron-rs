@@ -67,7 +67,7 @@ struct ImageBuffersReadyDefn {
 
 const IMAGE_BUFFERS_READY_LENGTH: Index = std::mem::size_of::<ImageBuffersReadyDefn>() as Index;
 
-struct ImageBuffersReadyFlyweight {
+pub(crate) struct ImageBuffersReadyFlyweight {
     flyweight: Flyweight<ImageBuffersReadyDefn>,
 }
 

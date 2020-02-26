@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use aeron_rs::command::flyweight::Flyweight;
-use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
-use aeron_rs::utils::types::Index;
+use crate::command::flyweight::Flyweight;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::types::Index;
 
 const HEADER_DEFN_SIZE: Index = std::mem::size_of::<HeaderDefn>() as Index;
 

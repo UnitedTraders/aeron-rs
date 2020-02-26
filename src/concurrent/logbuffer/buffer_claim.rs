@@ -143,7 +143,7 @@ impl BufferClaim {
     pub fn commit(&mut self) {
         self.buffer
             .expect("No buffer")
-            .put_ordered::<Index>(0, self.buffer.expect("No buffer").capacity() as Index);
+            .put_ordered::<i32>(0, self.buffer.expect("No buffer").capacity() as i32);
     }
 
     /**
@@ -155,6 +155,6 @@ impl BufferClaim {
             .put::<u16>(*data_frame_header::TYPE_FIELD_OFFSET, data_frame_header::HDR_TYPE_PAD);
         self.buffer
             .expect("No buffer")
-            .put_ordered::<Index>(0, self.buffer.expect("No buffer").capacity() as Index);
+            .put_ordered::<i32>(0, self.buffer.expect("No buffer").capacity() as i32);
     }
 }

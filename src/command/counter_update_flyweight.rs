@@ -40,7 +40,7 @@ struct CounterUpdateDefn {
 
 const COUNTER_READY_LENGTH: Index = std::mem::size_of::<CounterUpdateDefn>() as Index;
 
-struct CounterUpdateFlyweight {
+pub(crate) struct CounterUpdateFlyweight {
     flyweight: Flyweight<CounterUpdateDefn>,
 }
 

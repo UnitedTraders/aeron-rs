@@ -40,7 +40,7 @@ struct SubscriptionReadyDefn {
 
 const SUBSCRIPTION_READY_LENGTH: Index = std::mem::size_of::<SubscriptionReadyDefn>() as Index;
 
-struct SubscriptionReadyFlyweight {
+pub(crate) struct SubscriptionReadyFlyweight {
     flyweight: Flyweight<SubscriptionReadyDefn>,
 }
 

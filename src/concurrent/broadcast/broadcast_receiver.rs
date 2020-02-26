@@ -69,16 +69,16 @@ impl BroadcastReceiver {
         self.lapped_count.load(Ordering::SeqCst)
     }
 
-    pub fn type_id(&self) -> Index {
-        self.buffer.get::<Index>(record_descriptor::type_offset(self.record_offset))
+    pub fn type_id(&self) -> i32 {
+        self.buffer.get::<i32>(record_descriptor::type_offset(self.record_offset))
     }
 
     pub fn offset(&self) -> Index {
         record_descriptor::msg_offset(self.record_offset)
     }
 
-    pub fn length(&self) -> Index {
-        self.buffer.get::<Index>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH as Index
+    pub fn length(&self) -> i32 {
+        self.buffer.get::<i32>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH as i32
     }
 
     pub fn buffer(&self) -> &AtomicBuffer {
@@ -103,15 +103,15 @@ impl BroadcastReceiver {
             self.cursor = cursor;
             self.next_record = cursor
                 + align(
-                    self.buffer.get::<Index>(record_descriptor::length_offset(record_offset)) as isize,
+                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as isize,
                     record_descriptor::RECORD_ALIGNMENT,
                 ) as i64;
 
-            if record_descriptor::PADDING_MSG_TYPE_ID == self.buffer.get::<Index>(record_descriptor::type_offset(record_offset)) {
+            if record_descriptor::PADDING_MSG_TYPE_ID == self.buffer.get::<i32>(record_descriptor::type_offset(record_offset)) {
                 record_offset = 0;
                 self.cursor = self.next_record;
                 self.next_record += align(
-                    self.buffer.get::<Index>(record_descriptor::length_offset(record_offset)) as isize,
+                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as isize,
                     record_descriptor::RECORD_ALIGNMENT,
                 ) as i64;
             }

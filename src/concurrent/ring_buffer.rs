@@ -68,7 +68,7 @@ mod record_descriptor {
 
     pub const HEADER_LENGTH: Index = I32_SIZE * 2;
     pub const ALIGNMENT: Index = HEADER_LENGTH;
-    pub const PADDING_MSG_TYPE_ID: Index = -1;
+    pub const PADDING_MSG_TYPE_ID: i32 = -1;
 
     #[inline]
     pub fn length_offset(record_offset: Index) -> Index {
@@ -291,7 +291,7 @@ impl ManyToOneRingBuffer {
     }
 
     #[inline]
-    pub fn size(&self) -> Index {
+    pub fn size(&self) -> i32 {
         let mut tail: i64;
         let mut head_after = self.consumer_position();
 
@@ -301,7 +301,7 @@ impl ManyToOneRingBuffer {
             head_after = self.consumer_position();
 
             if head_after == head_before {
-                return (tail - head_after) as Index;
+                return (tail - head_after) as i32;
             }
         }
     }
@@ -417,7 +417,7 @@ impl ManyToOneRingBuffer {
         let mut i = from - record_descriptor::ALIGNMENT;
 
         while i >= limit {
-            if self.buffer.get_volatile::<Index>(i) != 0 {
+            if self.buffer.get_volatile::<i32>(i) != 0 {
                 return false;
             }
 

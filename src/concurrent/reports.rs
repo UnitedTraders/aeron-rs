@@ -69,8 +69,8 @@ mod loss_report_descriptor {
         total_bytes_lost: i64,
         first_observation_timestamp: i64,
         last_observation_timestamp: i64,
-        session_id: Index,
-        stream_id: Index,
+        session_id: i32,
+        stream_id: i32,
     }
 
     pub(crate) const CHANNEL_OFFSET: Index = std::mem::size_of::<LossReportEntryDefn>() as Index;

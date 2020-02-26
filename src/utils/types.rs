@@ -18,8 +18,7 @@
 // Originally it was i32 but it'c more handy (less type casts) to have it as isize.
 // We don't use usize as there are places where special "inverted" values with
 // minus sign added are used.
-// Also there is at least one place where Index is cased down to i32 to be written
-// in to pack(4) structure.
+// DON'T USE THIS TYPE INSIDE PACKED STRUCTS AS ITS SIZE MAY CHANGE!!!
 pub type Index = isize;
 
 // These are types USED inside "raw bytes packed" buffers and thus their size can't be changed

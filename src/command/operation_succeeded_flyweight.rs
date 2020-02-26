@@ -37,7 +37,7 @@ struct OperationSucceededDefn {
 
 const OPERATION_SUCCEEDED_LENGTH: Index = std::mem::size_of::<OperationSucceededDefn>() as Index;
 
-struct OperationSucceededFlyweight {
+pub(crate) struct OperationSucceededFlyweight {
     flyweight: Flyweight<OperationSucceededDefn>,
 }
 

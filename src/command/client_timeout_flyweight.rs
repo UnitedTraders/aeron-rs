@@ -37,9 +37,10 @@ struct ClientTimeoutDefn {
 
 const CLIENT_TIMEOUT_LENGTH: Index = std::mem::size_of::<ClientTimeoutDefn>() as Index;
 
-struct ClientTimeoutFlyweight {
+pub(crate) struct ClientTimeoutFlyweight {
     flyweight: Flyweight<ClientTimeoutDefn>,
 }
+
 impl ClientTimeoutFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         Self {

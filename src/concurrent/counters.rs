@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::ffi::CString;
+use std::fmt;
+
+use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
 use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
-use std::fmt;
 
 /**
  * Reads the counters metadata and values buffers.
@@ -70,10 +71,10 @@ use std::fmt;
  *  +---------------------------------------------------------------+
  */
 
-const NULL_COUNTER_ID: Index = -1;
-const RECORD_UNUSED: Index = 0;
-const RECORD_ALLOCATED: Index = 1;
-const RECORD_RECLAIMED: Index = -1;
+const NULL_COUNTER_ID: i32 = -1;
+const RECORD_UNUSED: i32 = 0;
+const RECORD_ALLOCATED: i32 = 1;
+const RECORD_RECLAIMED: i32 = -1;
 const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
 
 const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
@@ -107,11 +108,11 @@ pub struct CounterMetaDataLabel {
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 pub struct CounterMetaDataDefn {
-    pub state: Index,
-    pub type_id: Index,
+    pub state: i32,
+    pub type_id: i32,
     pub free_to_reuse_deadline: Moment,
     pub key: CounterMetaDataKey,
-    pub label_length: Index,
+    pub label_length: i32,
     pub label: CounterMetaDataLabel,
 }
 
@@ -152,7 +153,7 @@ lazy_static! {
 pub struct CountersReader {
     metadata_buffer: AtomicBuffer,
     values_buffer: AtomicBuffer,
-    max_counter_id: Index,
+    max_counter_id: i32,
 }
 
 impl CountersReader {
@@ -160,32 +161,32 @@ impl CountersReader {
         Self {
             metadata_buffer,
             values_buffer,
-            max_counter_id: (values_buffer.capacity() / COUNTER_LENGTH) as Index,
+            max_counter_id: (values_buffer.capacity() / COUNTER_LENGTH) as i32,
         }
     }
 
-    pub fn max_counter_id(&self) -> Index {
+    pub fn max_counter_id(&self) -> i32 {
         self.max_counter_id
     }
 
-    pub fn counter_value(&self, id: Index) -> Result<u64, AeronError> {
+    pub fn counter_value(&self, id: i32) -> Result<u64, AeronError> {
         self.validate_counter_id(id)?;
         Ok(self.values_buffer.get_volatile::<u64>(Self::counter_offset(id)))
     }
 
-    pub fn counter_state(&self, id: Index) -> Result<Index, AeronError> {
+    pub fn counter_state(&self, id: i32) -> Result<i32, AeronError> {
         self.validate_counter_id(id)?;
-        Ok(self.metadata_buffer.get_volatile::<Index>(Self::metadata_offset(id)))
+        Ok(self.metadata_buffer.get_volatile::<i32>(Self::metadata_offset(id)))
     }
 
-    pub fn free_to_reuse_deadline(&self, id: Index) -> Result<u64, AeronError> {
+    pub fn free_to_reuse_deadline(&self, id: i32) -> Result<u64, AeronError> {
         self.validate_counter_id(id)?;
         Ok(self
             .metadata_buffer
             .get_volatile::<u64>(Self::metadata_offset(id) + *FREE_TO_REUSE_DEADLINE_OFFSET))
     }
 
-    pub fn counter_label(&self, id: Index) -> Result<CString, AeronError> {
+    pub fn counter_label(&self, id: i32) -> Result<CString, AeronError> {
         self.validate_counter_id(id)?;
 
         Ok(self
@@ -193,11 +194,11 @@ impl CountersReader {
             .get_string(Self::metadata_offset(id) + *LABEL_LENGTH_OFFSET))
     }
 
-    pub fn counter_offset(id: Index) -> Index {
+    pub fn counter_offset(id: i32) -> Index {
         id as Index * COUNTER_LENGTH
     }
 
-    pub fn metadata_offset(id: Index) -> Index {
+    pub fn metadata_offset(id: i32) -> Index {
         id as Index * METADATA_LENGTH
     }
 
@@ -209,7 +210,7 @@ impl CountersReader {
         self.metadata_buffer
     }
 
-    fn validate_counter_id(&self, counter_id: Index) -> Result<(), AeronError> {
+    fn validate_counter_id(&self, counter_id: i32) -> Result<(), AeronError> {
         if counter_id < 0 || counter_id > self.max_counter_id {
             let err_msg = format!(
                 "{}:{}: counter id {} out of range: max_counter_id={}",
@@ -255,7 +256,7 @@ impl<'a> Iterator for CountersReaderIter<'a> {
 
         self.pos += 1;
 
-        let record_status = self.inner.metadata_buffer.get_volatile::<Index>(next_metadata_pos);
+        let record_status = self.inner.metadata_buffer.get_volatile::<i32>(next_metadata_pos);
 
         match record_status {
             RECORD_UNUSED | RECORD_RECLAIMED => None,
@@ -277,7 +278,7 @@ pub fn default_sys_time_provider() -> u64 {
 
 pub(crate) struct CountersManager {
     reader: CountersReader,
-    free_list: VecDeque<Index>,
+    free_list: VecDeque<i32>,
     clock: SysTimeProvider,
     free_to_reuse_timeout_ms: u64,
     high_water_mark: Index,
@@ -322,11 +323,11 @@ impl CountersManager {
     // If both key_opt and key_func are specified then AeronError is returned.
     pub fn allocate_opt(
         &mut self,
-        type_id: Index,
+        type_id: i32,
         key_opt: Option<&[u8]>,
         key_func: Option<impl Fn(&mut AtomicBuffer)>,
         label_rs: &str,
-    ) -> Result<Index, AeronError> {
+    ) -> Result<i32, AeronError> {
         let counter_id = self.next_counter_id();
 
         // Try to convert Rust str in to C compatible string
@@ -384,16 +385,16 @@ impl CountersManager {
 
         self.reader
             .metadata_buffer
-            .put_ordered::<Index>(record_offset, RECORD_ALLOCATED);
+            .put_ordered::<i32>(record_offset, RECORD_ALLOCATED);
 
         Ok(counter_id)
     }
 
-    pub fn allocate(&mut self, label: &str) -> Result<Index, AeronError> {
+    pub fn allocate(&mut self, label: &str) -> Result<i32, AeronError> {
         self.allocate_opt(0, None, Option::<fn(&mut AtomicBuffer)>::None, label)
     }
 
-    pub fn free(&mut self, counter_id: Index) {
+    pub fn free(&mut self, counter_id: i32) {
         let record_offset = CountersReader::metadata_offset(counter_id);
         self.reader.metadata_buffer.put::<Moment>(
             record_offset + *FREE_TO_REUSE_DEADLINE_OFFSET,
@@ -401,21 +402,21 @@ impl CountersManager {
         );
         self.reader
             .metadata_buffer
-            .put_ordered::<Index>(record_offset, RECORD_RECLAIMED);
+            .put_ordered::<i32>(record_offset, RECORD_RECLAIMED);
         self.free_list.push_back(counter_id);
     }
 
-    pub fn set_counter_value(&mut self, counter_id: Index, value: u64) {
+    pub fn set_counter_value(&mut self, counter_id: i32, value: u64) {
         self.reader
             .values_buffer
             .put_ordered::<u64>(CountersReader::counter_offset(counter_id), value);
     }
 
-    pub fn counter_value(&self, id: Index) -> Result<u64, AeronError> {
+    pub fn counter_value(&self, id: i32) -> Result<u64, AeronError> {
         self.reader.counter_value(id)
     }
 
-    fn next_counter_id(&mut self) -> Index {
+    fn next_counter_id(&mut self) -> i32 {
         let now_ms = (self.clock)();
 
         // Try to find counter ID which we allowed to reuse (based on reuse deadline)
@@ -441,10 +442,10 @@ impl CountersManager {
         let ret_id = self.high_water_mark;
         self.high_water_mark += 1;
 
-        ret_id as Index
+        ret_id as i32
     }
 
-    fn check_counters_capacity(&self, counter_id: Index) -> Result<Index, AeronError> {
+    fn check_counters_capacity(&self, counter_id: i32) -> Result<i32, AeronError> {
         if CountersReader::counter_offset(counter_id) + COUNTER_LENGTH > self.reader.values_buffer.capacity() {
             return Err(AeronError::IllegalArgumentException(String::from(
                 "unable to allocate counter, values buffer is full",
@@ -454,7 +455,7 @@ impl CountersManager {
         Ok(0)
     }
 
-    fn check_meta_data_capacity(&self, record_offset: Index) -> Result<Index, AeronError> {
+    fn check_meta_data_capacity(&self, record_offset: Index) -> Result<i32, AeronError> {
         if record_offset + METADATA_LENGTH > self.reader.metadata_buffer.capacity() {
             return Err(AeronError::IllegalArgumentException(String::from(
                 "unable to allocate counter, metadata buffer is full",
@@ -563,7 +564,7 @@ mod tests {
 
         let labels = vec!["lab0", "lab1", "lab2", "lab3", "lab4"];
 
-        let mut alloc_result: Result<Index, AeronError> = Ok(0);
+        let mut alloc_result: Result<i32, AeronError> = Ok(0);
 
         for label in labels {
             alloc_result = counters_manager.allocate(label);
@@ -583,7 +584,7 @@ mod tests {
         gen_counters_manager!(counters_manager);
 
         let labels = vec!["lab0", "lab1", "lab2", "lab3"];
-        let mut allocated: HashMap<Index, String> = HashMap::new();
+        let mut allocated: HashMap<i32, String> = HashMap::new();
 
         // Allocate 4 counters
         for label in labels {
@@ -600,9 +601,9 @@ mod tests {
         for (id, counter) in counters_manager.iter().enumerate() {
             assert_eq!(
                 &utils::misc::aeron_str_no_len_to_rust(&counter.label.val[0] as *const u8),
-                allocated.get(&(id as Index)).unwrap()
+                allocated.get(&(id as i32)).unwrap()
             );
-            allocated.remove(&(id as Index));
+            allocated.remove(&(id as i32));
         }
 
         assert_eq!(allocated.len(), 0);

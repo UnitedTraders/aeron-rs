@@ -125,8 +125,8 @@ impl BroadcastTransmitter {
 
     fn insert_padding_record(&mut self, record_offset: Index, length: Index) {
         self.buffer
-            .put::<Index>(record_descriptor::length_offset(record_offset), length as Index);
-        self.buffer.put::<Index>(
+            .put::<i32>(record_descriptor::length_offset(record_offset), length as i32);
+        self.buffer.put::<i32>(
             record_descriptor::type_offset(record_offset),
             record_descriptor::PADDING_MSG_TYPE_ID,
         );
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn should_transmit_into_empty_buffer() {
         const TAIL: i64 = 0;
-        const RECORD_OFFSET: Index = TAIL as Index;
+        const RECORD_OFFSET: i32 = TAIL as i32;
         const LENGTH: Index = 8;
         const RECORD_LENGTH: Index = LENGTH + record_descriptor::HEADER_LENGTH;
         let _aligned_record_length: Index = align(RECORD_LENGTH, record_descriptor::RECORD_ALIGNMENT);
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn should_transmit_into_used_buffer() {
         const TAIL: i64 = (record_descriptor::RECORD_ALIGNMENT * 3) as i64;
-        const RECORD_OFFSET: Index = TAIL as Index;
+        const RECORD_OFFSET: i32 = TAIL as i32;
         const LENGTH: Index = 8;
         const RECORD_LENGTH: Index = LENGTH + record_descriptor::HEADER_LENGTH;
         let _aligned_record_length: Index = align(RECORD_LENGTH, record_descriptor::RECORD_ALIGNMENT);
