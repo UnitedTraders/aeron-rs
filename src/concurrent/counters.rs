@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-use lazy_static::lazy_static;
 use std::collections::VecDeque;
 use std::ffi::CString;
+use std::fmt;
+
+use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
 use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
-use std::fmt;
 
 /**
  * Reads the counters metadata and values buffers.
@@ -332,7 +333,7 @@ impl CountersManager {
         // Try to convert Rust str in to C compatible string
         let conv_result = CString::new(label_rs);
 
-        if let Err(_) = conv_result {
+        if conv_result.is_err() {
             return Err(AeronError::IllegalArgumentException(String::from(
                 "allocate: label can't be converted",
             )));
@@ -368,7 +369,9 @@ impl CountersManager {
                 return Err(AeronError::IllegalArgumentException(String::from("allocate: key too long")));
             }
 
-            self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
+            unsafe {
+                self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
+            }
         }
 
         if let Some(key_fn) = key_func {
@@ -585,7 +588,7 @@ mod tests {
 
         // Allocate 4 counters
         for label in labels {
-            let alloc_result = counters_manager.allocate(label.clone());
+            let alloc_result = counters_manager.allocate(label);
 
             if let Err(err) = alloc_result {
                 panic!("Counter {:?} alloc failed: {:?}", label, err);
@@ -616,7 +619,7 @@ mod tests {
 
         // Allocate 4 counters
         for label in labels {
-            let alloc_result = counters_manager.allocate(label.clone());
+            let alloc_result = counters_manager.allocate(label);
 
             if let Err(err) = alloc_result {
                 panic!("Counter {:?} alloc failed: {:?}", label, err);
@@ -703,7 +706,7 @@ mod tests {
         let reader = UnsafeBufferPosition::new(reader_buffer, counter_id);
         let writer = UnsafeBufferPosition::new(writer_buffer, counter_id);
 
-        let expected_value = 0xFFFFFFFFF;
+        let expected_value = 0xFFFF_FFFFF;
 
         writer.set_ordered(expected_value);
         assert_eq!(reader.get_volatile(), expected_value);

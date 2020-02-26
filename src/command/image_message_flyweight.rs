@@ -49,7 +49,7 @@ struct ImageMessageDefn {
     correlation_id: i64,
     subscription_registration_id: i64,
     stream_id: i32,
-    channel_length: Index,
+    channel_length: i32,
     channel_data: *mut i8,
 }
 
@@ -67,18 +67,18 @@ impl ImageMessageFlyweight {
     // Getters
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     #[inline]
-    pub fn subscription_registration_id(&self) -> i64 {
-        self.flyweight.m_struct.subscription_registration_id
+    pub unsafe fn subscription_registration_id(&self) -> i64 {
+        (*self.flyweight.m_struct).subscription_registration_id
     }
 
     #[inline]
-    pub fn stream_id(&self) -> i32 {
-        self.flyweight.m_struct.stream_id
+    pub unsafe fn stream_id(&self) -> i32 {
+        (*self.flyweight.m_struct).stream_id
     }
 
     #[inline]
@@ -87,29 +87,29 @@ impl ImageMessageFlyweight {
     }
 
     #[inline]
-    pub fn length(&self) -> Index {
-        offset_of!(ImageMessageDefn, channel_data) + self.flyweight.m_struct.channel_length
+    pub unsafe fn length(&self) -> Index {
+        offset_of!(ImageMessageDefn, channel_data) + (*self.flyweight.m_struct).channel_length as Index
     }
 
     // Setters
 
     #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 
     #[inline]
-    pub fn set_subscription_registration_id(&mut self, value: i64) {
-        self.flyweight.m_struct.subscription_registration_id = value;
+    pub unsafe fn set_subscription_registration_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).subscription_registration_id = value;
     }
 
     #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        self.flyweight.m_struct.stream_id = value;
+    pub unsafe fn set_stream_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).stream_id = value;
     }
 
     #[inline]
-    pub fn set_channel(&mut self, value: String) {
+    pub fn set_channel(&mut self, value: &[u8]) {
         self.flyweight.string_put(offset_of!(ImageMessageDefn, channel_length), value);
     }
 }

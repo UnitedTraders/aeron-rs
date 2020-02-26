@@ -53,23 +53,23 @@ impl CorrelatedMessageFlyweight {
     // Getters
 
     #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.flyweight.m_struct.client_id
+    pub unsafe fn client_id(&self) -> i64 {
+        (*self.flyweight.m_struct).client_id
     }
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     // Setters
 
     #[inline]
-    pub fn set_client_id(&mut self, value: i64) {
-        self.flyweight.m_struct.client_id = value;
+    pub unsafe fn set_client_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).client_id = value;
     }
 
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 }

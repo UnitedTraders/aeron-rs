@@ -566,7 +566,7 @@ mod tests {
             frame_type_two,
         );
 
-        return aligned_length_one + aligned_length_two;
+        aligned_length_one + aligned_length_two
     }
 
     #[test]

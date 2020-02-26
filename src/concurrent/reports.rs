@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
+use std::ffi::CString;
+
+use lazy_static::lazy_static;
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::reports::loss_report_descriptor::LossReportEntryDefn;
 use crate::offset_of;
 use crate::utils::bit_utils;
 use crate::utils::bit_utils::CACHE_LINE_LENGTH;
 use crate::utils::types::{Index, I32_SIZE};
-use lazy_static::lazy_static;
-use std::ffi::CString;
 
 /**
  * A report of loss events on a message stream.
@@ -116,8 +118,7 @@ fn read(buffer: &AtomicBuffer, consumer: LossConsumerHandler) -> i32 {
 
         let channel = buffer.get_string(offset + loss_report_descriptor::CHANNEL_OFFSET);
         let channel_length = channel.as_bytes().len() as Index;
-        let source = buffer
-            .get_string(offset + loss_report_descriptor::CHANNEL_OFFSET + std::mem::size_of::<i32>() as Index + channel_length);
+        let source = buffer.get_string(offset + loss_report_descriptor::CHANNEL_OFFSET + I32_SIZE + channel_length);
         let source_length = source.as_bytes().len() as Index;
 
         let record = buffer.get::<loss_report_descriptor::LossReportEntryDefn>(offset);
@@ -129,5 +130,5 @@ fn read(buffer: &AtomicBuffer, consumer: LossConsumerHandler) -> i32 {
         offset += bit_utils::align(record_length, *ENTRY_ALIGNMENT);
     }
 
-    return records_read;
+    records_read
 }

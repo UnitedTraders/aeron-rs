@@ -92,10 +92,12 @@ impl BroadcastTransmitter {
         self.buffer
             .put::<i32>(record_descriptor::type_offset(record_offset), msg_type_id);
 
-        self.buffer.put_bytes(
-            record_descriptor::msg_offset(record_offset),
-            src_buffer.as_sub_slice(src_index, length),
-        );
+        unsafe {
+            self.buffer.put_bytes(
+                record_descriptor::msg_offset(record_offset),
+                src_buffer.as_sub_slice(src_index, length),
+            );
+        }
 
         self.buffer.put::<i64>(self.latest_counter_index, current_tail);
         self.buffer
@@ -253,7 +255,9 @@ mod tests {
         let mut test = BroadcastTransmitterTest::new(64);
         let mut transmitter = test.create_transmitter();
         let src_buffer = test.create_message_buffer(LENGTH as Index);
-        src_buffer.put_bytes(0, &[0, 1, 2, 3, 4, 5, 6, 7]);
+        unsafe {
+            src_buffer.put_bytes(0, &[0, 1, 2, 3, 4, 5, 6, 7]);
+        }
 
         //act
         transmitter.transmit(MSG_TYPE_ID, &src_buffer, SRC_INDEX, LENGTH).unwrap();
@@ -279,7 +283,9 @@ mod tests {
         let mut test = BroadcastTransmitterTest::new(64);
         let mut transmitter = test.create_transmitter();
         let src_buffer = test.create_message_buffer(16);
-        src_buffer.put_bytes(0, &[0, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0]);
+        unsafe {
+            src_buffer.put_bytes(0, &[0, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0]);
+        }
 
         //act
         transmitter.transmit(7, &src_buffer, SRC_INDEX, LENGTH).unwrap();
@@ -322,20 +328,24 @@ mod tests {
         let tail = (CAPACITY - aligned_record_length) as i64;
 
         //    const std::int32_t recordOffset = (std::int32_t)tail;
-        let _record_offset = tail as i32;
+        let _record_offset = tail as Index;
 
         //    const util::index_t srcIndex = 0;
         const SRC_INDEX: Index = 0;
 
         //    m_broadcastTransmitter.transmit(MSG_TYPE_ID, srcBuffer, srcIndex, length);
         let mut transmitter = test.create_transmitter();
-        src_buffer.put_bytes(0, &vec![42; LENGTH as usize]);
+        unsafe {
+            src_buffer.put_bytes(0, &vec![42; LENGTH as usize]);
+        }
         for i in 0..8 {
             let index = i * 120;
             transmitter.transmit(MSG_TYPE_ID, &src_buffer, index, 120).unwrap();
         }
 
-        src_buffer.put_bytes(LENGTH, &vec![1; 20]);
+        unsafe {
+            src_buffer.put_bytes(LENGTH, &[1; 20]);
+        }
         transmitter.transmit(MSG_TYPE_ID, &src_buffer, LENGTH, 16).unwrap();
         dbg!(test.buffer);
     }

@@ -81,55 +81,55 @@ impl ImageBuffersReadyFlyweight {
     // Getters
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     #[inline]
-    pub fn session_id(&self) -> i32 {
-        self.flyweight.m_struct.session_id
+    pub unsafe fn session_id(&self) -> i32 {
+        (*self.flyweight.m_struct).session_id
     }
 
     #[inline]
-    pub fn stream_id(&self) -> i32 {
-        self.flyweight.m_struct.stream_id
+    pub unsafe fn stream_id(&self) -> i32 {
+        (*self.flyweight.m_struct).stream_id
     }
 
     #[inline]
-    pub fn subscription_registration_id(&self) -> i64 {
-        self.flyweight.m_struct.subscription_registration_id
+    pub unsafe fn subscription_registration_id(&self) -> i64 {
+        (*self.flyweight.m_struct).subscription_registration_id
     }
 
     #[inline]
-    pub fn subscriber_position_id(&self) -> i32 {
-        self.flyweight.m_struct.subscriber_position_id
+    pub unsafe fn subscriber_position_id(&self) -> i32 {
+        (*self.flyweight.m_struct).subscriber_position_id
     }
 
     // Setters
 
     #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 
     #[inline]
-    pub fn set_session_id(&mut self, value: i32) {
-        self.flyweight.m_struct.session_id = value;
+    pub unsafe fn set_session_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).session_id = value;
     }
 
     #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        self.flyweight.m_struct.stream_id = value;
+    pub unsafe fn set_stream_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).stream_id = value;
     }
 
     #[inline]
-    pub fn set_subscription_registration_id(&mut self, value: i64) {
-        self.flyweight.m_struct.subscription_registration_id = value;
+    pub unsafe fn set_subscription_registration_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).subscription_registration_id = value;
     }
 
     #[inline]
-    pub fn set_subscriber_position_id(&mut self, value: i32) {
-        self.flyweight.m_struct.subscriber_position_id = value;
+    pub unsafe fn set_subscriber_position_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).subscriber_position_id = value;
     }
 
     // Interaction with Flyweight methods
@@ -140,7 +140,7 @@ impl ImageBuffersReadyFlyweight {
     }
 
     #[inline]
-    pub fn set_log_file_name(&mut self, value: String) {
+    pub fn set_log_file_name(&mut self, value: &[u8]) {
         self.flyweight.string_put(self.log_file_name_offset(), value);
     }
 
@@ -150,7 +150,7 @@ impl ImageBuffersReadyFlyweight {
     }
 
     #[inline]
-    pub fn set_source_identity(&mut self, value: String) {
+    pub fn set_source_identity(&mut self, value: &[u8]) {
         self.flyweight.string_put(self.source_identity_offset(), value);
     }
 

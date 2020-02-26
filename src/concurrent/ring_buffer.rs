@@ -193,8 +193,10 @@ impl ManyToOneRingBuffer {
 
         self.buffer
             .put_ordered(record_index, record_descriptor::make_header(-record_len, cmd));
-        self.buffer
-            .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
+        unsafe {
+            self.buffer
+                .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
+        }
         self.buffer
             .put_ordered(record_descriptor::length_offset(record_index), record_len);
 
@@ -304,6 +306,7 @@ impl ManyToOneRingBuffer {
         }
     }
 
+    #[allow(clippy::comparison_chain)]
     pub fn unblock(&self) -> bool {
         let head_position = self.consumer_position();
         let tail_position = self.producer_position();

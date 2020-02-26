@@ -91,13 +91,14 @@ impl BroadcastReceiver {
         let mut cursor = self.next_record;
 
         if tail > cursor {
-            let mut record_offset: Index = (cursor & self.mask as i64) as isize;
+            // let mut record_offset: Index = (cursor & self.mask as i64) as isize;
 
             if !self.do_validate(cursor as isize) {
                 //                self.m_lappedCount += 1;
                 cursor = self.buffer.get::<i64>(self.latest_counter_index);
-                record_offset = (cursor & self.mask as i64) as isize;
-            }
+            };
+
+            let mut record_offset: Index = (cursor & self.mask as i64) as isize;
 
             self.cursor = cursor;
             self.next_record = cursor

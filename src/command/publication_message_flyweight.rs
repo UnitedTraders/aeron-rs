@@ -49,7 +49,7 @@ use crate::utils::types::Index;
 struct PublicationMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     stream_id: i32,
-    channel_length: Index,
+    channel_length: i32,
     channel_data: *mut i8,
 }
 
@@ -86,7 +86,7 @@ impl PublicationMessageFlyweight {
     }
 
     #[inline]
-    pub fn set_channel(&mut self, value: String) {
+    pub fn set_channel(&mut self, value: &[u8]) {
         self.correlated_message_flyweight
             .flyweight
             .string_put(offset_of!(PublicationMessageDefn, channel_length), value);
@@ -94,6 +94,6 @@ impl PublicationMessageFlyweight {
 
     #[inline]
     pub fn length(&self) -> Index {
-        offset_of!(PublicationMessageDefn, channel_data) + self.m_struct.channel_length
+        offset_of!(PublicationMessageDefn, channel_data) + self.m_struct.channel_length as Index
     }
 }

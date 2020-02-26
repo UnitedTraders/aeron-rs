@@ -40,18 +40,16 @@ pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
 }
 
 /// Deallocate a buffer aligned on a cache size
-pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
-    unsafe {
-        if cfg!(debug_assertions) {
-            // dealloc markers for debug
-            for i in 0..len as isize {
-                *buff_ptr.offset(i) = 0xff;
-            }
+pub unsafe fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
+    if cfg!(debug_assertions) {
+        // dealloc markers for debug
+        for i in 0..len as isize {
+            *buff_ptr.offset(i) = 0xff;
         }
-
-        let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
-        dealloc(buff_ptr, layout)
     }
+
+    let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
+    dealloc(buff_ptr, layout)
 }
 
 // Returns number of trailing bits which are set to 0

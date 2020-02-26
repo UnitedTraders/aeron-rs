@@ -23,7 +23,7 @@ impl AlignedBuffer {
 
 impl Drop for AlignedBuffer {
     fn drop(&mut self) {
-        dealloc_buffer_aligned(self.ptr, self.len)
+        unsafe { dealloc_buffer_aligned(self.ptr, self.len) }
     }
 }
 
@@ -114,6 +114,7 @@ impl AtomicBuffer {
         unsafe { *(self.at(position) as *mut T) }
     }
 
+    // TODO: Change to mutable reference
     #[inline]
     pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
         self.bounds_check(position, std::mem::size_of::<T>() as isize);
@@ -187,14 +188,28 @@ impl AtomicBuffer {
 
     // Put bytes in to this buffer at specified offset
     #[inline]
-    pub fn put_bytes(&self, offset: Index, src: &[u8]) {
+    pub unsafe fn put_bytes(&self, offset: Index, src: &[u8]) {
         self.bounds_check(offset, src.len() as isize);
 
-        let slice = unsafe {
-            let ptr = self.at(offset);
-            slice::from_raw_parts_mut(ptr, src.len() as usize)
-        };
-        slice.copy_from_slice(src)
+        let ptr = self.ptr.offset(offset);
+        ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
+    }
+
+    // #[inline]
+    // pub unsafe fn put_bytes_to_buffer(&self, index: Index, src_buffer: &AtomicBuffer, src_index: Index, length: Index) {
+    //     self.bounds_check(index, length);
+    //     src_buffer.bounds_check(src_index, length);
+    //
+    //     let ptr = self.ptr.offset(index);
+    //     ::std::ptr::copy(ptr, src_buffer.ptr.offset(src_index), length as usize);
+    // }
+
+    #[inline]
+    pub unsafe fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
+        self.bounds_check(offset, length);
+
+        let ptr = self.at(offset);
+        ::std::ptr::copy(ptr, dest, length as usize);
     }
 
     // Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
@@ -243,6 +258,7 @@ impl AtomicBuffer {
 
         // Strings in Aeron are zero terminated and are not UTF-8 encoded.
         // We can't go with Rust UTF strings as Media Driver will not understand us.
+
         let c_str = unsafe {
             let ptr = self.at(offset) as *const i8;
             CStr::from_ptr(ptr)
@@ -264,7 +280,19 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         self.put::<i32>(offset, string.len() as i32);
-        self.put_bytes(offset + I32_SIZE, string);
+        unsafe {
+            self.put_bytes(offset + I32_SIZE, string);
+        }
+    }
+
+    #[inline]
+    pub fn put_string_without_length(&self, offset: Index, string: &[u8]) -> Index {
+        self.bounds_check(offset, string.len() as isize);
+
+        unsafe {
+            self.put_bytes(offset + I32_SIZE, string);
+        }
+        string.len() as isize
     }
 
     /**
@@ -328,7 +356,10 @@ mod tests {
         assert_eq!(data.len(), 8);
 
         let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
-        buffer.put_bytes(4, &[0, 1, 2, 3]);
+
+        unsafe {
+            buffer.put_bytes(4, &[0, 1, 2, 3]);
+        }
 
         assert_eq!(buffer.as_slice(), &[0, 1, 2, 3, 0, 1, 2, 3])
     }

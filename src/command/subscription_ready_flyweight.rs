@@ -54,24 +54,24 @@ impl SubscriptionReadyFlyweight {
     // Getters
 
     #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.flyweight.m_struct.correlation_id
+    pub unsafe fn correlation_id(&self) -> i64 {
+        (*self.flyweight.m_struct).correlation_id
     }
 
     #[inline]
-    pub fn channel_status_indicator_id(&self) -> i32 {
-        self.flyweight.m_struct.channel_status_indicator_id
+    pub unsafe fn channel_status_indicator_id(&self) -> i32 {
+        (*self.flyweight.m_struct).channel_status_indicator_id
     }
 
     // Setters
 
     #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        self.flyweight.m_struct.correlation_id = value;
+    pub unsafe fn set_correlation_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).correlation_id = value;
     }
 
     #[inline]
-    pub fn set_channel_status_indicator_id(&mut self, value: i32) {
-        self.flyweight.m_struct.channel_status_indicator_id = value;
+    pub unsafe fn set_channel_status_indicator_id(&mut self, value: i32) {
+        (*self.flyweight.m_struct).channel_status_indicator_id = value;
     }
 }

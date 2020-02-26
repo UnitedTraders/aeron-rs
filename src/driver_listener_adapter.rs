@@ -92,7 +92,7 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
         }
     }
 
-    pub fn receive_messages(&mut self) -> Result<usize, BroadcastTransmitError> {
+    pub unsafe fn receive_messages(&mut self) -> Result<usize, BroadcastTransmitError> {
         let this_driver_listener = self.driver_listener;
 
         let receive_handler = |msg_type_id: i32, buffer: AtomicBuffer, offset: Index, _length: Index| match msg_type_id {
@@ -155,6 +155,7 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
             }
             control_protocol_events::ON_ERROR => {
                 let error_response = ErrorResponseFlyweight::new(buffer, offset);
+
                 let error_code = error_response.error_code();
 
                 if ERROR_CODE_CHANNEL_ENDPOINT_ERROR == error_code {

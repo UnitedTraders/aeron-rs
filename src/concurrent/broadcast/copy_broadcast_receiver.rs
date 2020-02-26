@@ -62,7 +62,9 @@ impl CopyBroadcastReceiver {
             }
 
             let msg_type_id = self.receiver.type_id();
-            self.scratch_buffer.put_bytes(0, self.receiver.buffer().as_slice());
+            unsafe {
+                self.scratch_buffer.put_bytes(0, self.receiver.buffer().as_slice());
+            }
 
             if !self.receiver.validate() {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);

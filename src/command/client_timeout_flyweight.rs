@@ -49,12 +49,12 @@ impl ClientTimeoutFlyweight {
     }
 
     #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.flyweight.m_struct.client_id
+    pub unsafe fn client_id(&self) -> i64 {
+        (*self.flyweight.m_struct).client_id
     }
 
     #[inline]
-    pub fn set_client_id(&mut self, value: i64) {
-        self.flyweight.m_struct.client_id = value;
+    pub unsafe fn set_client_id(&mut self, value: i64) {
+        (*self.flyweight.m_struct).client_id = value;
     }
 }

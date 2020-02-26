@@ -81,25 +81,28 @@ impl CounterMessageFlyweight {
     }
 
     #[inline]
-    pub fn key_buffer(&self) {
-        unimplemented!()
+    pub fn key_buffer(&self) -> *mut u8 {
+        self.correlated_message_flyweight
+            .flyweight
+            .bytes_at(self.key_length_offset() + I32_SIZE)
     }
 
     #[inline]
-    pub fn key_length(&self) -> Index {
-        // FIXME: Check correctness
-        let length: Index = 0;
-        self.correlated_message_flyweight
-            .flyweight
-            .get_bytes(self.key_length_offset(), length as *mut i8, I32_SIZE);
+    pub fn key_length(&self) -> i32 {
+        let length: i32 = 0;
+        unsafe {
+            self.correlated_message_flyweight
+                .flyweight
+                .get_bytes(self.key_length_offset(), length as *mut u8, I32_SIZE);
+        }
         length
     }
 
     #[inline]
-    pub fn label_length(&self) -> Index {
+    pub fn label_length(&self) -> i32 {
         self.correlated_message_flyweight
             .flyweight
-            .string_get_length(self.label_length_offset())
+            .string_get_length(self.label_length_offset()) as i32
     }
 
     #[inline]
@@ -110,7 +113,7 @@ impl CounterMessageFlyweight {
     }
 
     #[inline]
-    pub fn set_label(&mut self, label: String) {
+    pub fn set_label(&mut self, label: &[u8]) {
         self.correlated_message_flyweight
             .flyweight
             .string_put(self.label_length_offset(), label);
@@ -118,7 +121,7 @@ impl CounterMessageFlyweight {
 
     #[inline]
     pub fn length(&self) -> Index {
-        self.label_length_offset() + I32_SIZE + self.label_length()
+        self.label_length_offset() + I32_SIZE + self.label_length() as Index
     }
 }
 
@@ -133,7 +136,7 @@ impl CounterMessageFlyweight {
     #[inline]
     fn label_length_offset(&self) -> Index {
         let offset = self.key_length_offset();
-        let unaligned_key_length = self.key_length();
+        let unaligned_key_length = self.key_length() as Index;
         let alignment = I32_SIZE;
         let aligned_key_length = bit_utils::align(unaligned_key_length, alignment);
 
