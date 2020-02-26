@@ -289,14 +289,14 @@ mod tests {
     use crate::utils::types::Index;
 
     #[test]
-    fn that_buffer_can_be_created() {
+    fn atomic_buffer_can_be_created() {
         let capacity = 1024 << 2;
         let mut data = Vec::with_capacity(capacity);
         let _buffer = AtomicBuffer::new(data.as_mut_ptr(), capacity as Index);
     }
 
     #[test]
-    fn test_align_buffer_create() {
+    fn atomic_buffer_aligned_buffer_create() {
         let src = AlignedBuffer::with_capacity(16);
         let atomic_buffer = AtomicBuffer::from_aligned(&src);
 
@@ -305,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn that_buffer_can_write() {
+    fn atomic_buffer_write_read() {
         let src = AlignedBuffer::with_capacity(1024 << 2);
         let buffer = AtomicBuffer::from_aligned(&src);
         let to_write = 1;
@@ -316,14 +316,14 @@ mod tests {
     }
 
     #[test]
-    fn that_buffer_preserves_from_aligned() {
+    fn atomic_buffer_preserves_from_aligned() {
         let buffer = AlignedBuffer::with_capacity(8);
         let _atomic_buffer = AtomicBuffer::from_aligned(&buffer);
         // TODO: assert_eq!(atomic_buffer.as_slice(), buffer.)
     }
 
     #[test]
-    fn test_put_bytes() {
+    fn atomic_buffer_put_bytes() {
         let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
         assert_eq!(data.len(), 8);
 
@@ -334,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_as_slice() {
+    fn atomic_buffer_get_as_slice() {
         let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
         assert_eq!(data.len(), 8);
 
@@ -345,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_as_mut_slice() {
+    fn atomic_buffer_get_as_mut_slice() {
         let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
         assert_eq!(data.len(), 8);
 
@@ -356,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn get_sub_slice() {
+    fn atomic_buffer_get_sub_slice() {
         let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
         assert_eq!(data.len(), 8);
 
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn get_sub_slice_out_of_bounds() {
+    fn atomic_buffer_get_sub_slice_out_of_bounds() {
         let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
         assert_eq!(data.len(), 8);
 
@@ -377,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn test_put_and_get_string() {
+    fn atomic_buffer_put_and_get_string() {
         let src = AlignedBuffer::with_capacity(16);
         let atomic_buffer = AtomicBuffer::from_aligned(&src);
 

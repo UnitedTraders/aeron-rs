@@ -468,14 +468,14 @@ mod tests {
     }
 
     #[test]
-    fn calculate_capacity_for_buffer() {
+    fn ring_buffer_calculate_capacity_for_buffer() {
         let test = Test::new();
         assert_eq!(test.ab.capacity(), BUFFER_SZ);
         assert_eq!(test.ring_buffer.capacity(), BUFFER_SZ - TRAILER_LENGTH)
     }
 
     #[test]
-    fn that_capacity_ok() {
+    fn ring_buffer_that_capacity_ok() {
         let b = AlignedBuffer::with_capacity(1024);
         let ab = AtomicBuffer::from_aligned(&b);
         let cap = ab.capacity();
@@ -486,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn capacity_not_two_power() {
+    fn ring_buffer_capacity_not_two_power() {
         let test_buffer = AlignedBuffer::with_capacity(ODD_BUFFER_SZ);
         let ab = AtomicBuffer::from_aligned(&test_buffer);
         let ring_res = ManyToOneRingBuffer::new(ab);
@@ -499,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn max_message_size_exceeded() {
+    fn ring_buffer_max_message_size_exceeded() {
         let test = Test::new();
         let size = test.ring_buffer.max_msg_len() + 1;
         let write_res = test
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn that_writes_to_empty() {
+    fn ring_buffer_that_writes_to_empty() {
         let test = Test::new();
 
         let src = [1, 2, 3];
@@ -529,7 +529,7 @@ mod tests {
     }
 
     #[test]
-    fn should_reject_write_when_insufficient_space() {
+    fn ring_buffer_should_reject_write_when_insufficient_space() {
         // TODO
         let mut test = Test::new();
 
