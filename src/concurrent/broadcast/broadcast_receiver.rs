@@ -137,14 +137,9 @@ impl BroadcastReceiver {
 mod tests {
     use super::*;
     use crate::concurrent::broadcast::broadcast_transmitter::BroadcastTransmitter;
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
 
-    fn sized_buffer(capacity: usize) -> AtomicBuffer {
-        let mut data = Vec::with_capacity(capacity + 128);
-        AtomicBuffer::new(data.as_mut_ptr(), capacity as Index)
-    }
-
-    fn channel(capacity: usize) -> (BroadcastTransmitter, BroadcastReceiver) {
-        let buffer = sized_buffer(capacity + 128);
+    fn channel(buffer: AtomicBuffer) -> (BroadcastTransmitter, BroadcastReceiver) {
         (
             BroadcastTransmitter::new(buffer).unwrap(),
             BroadcastReceiver::new(buffer).unwrap(),
@@ -153,11 +148,15 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let (mut tx, _rx) = channel(128);
+        let data = AlignedBuffer::with_capacity(128 + broadcast_buffer_descriptor::TRAILER_LENGTH);
+        let rx_tx_buf = AtomicBuffer::from_aligned(&data);
 
-        let buffer = sized_buffer(16);
+        let (mut tx, _rx) = channel(rx_tx_buf);
 
-        tx.transmit(2, &buffer, 0, 4).expect("cant' trasmit");
+        let tx_data = AlignedBuffer::with_capacity(16);
+        let tx_buf = AtomicBuffer::from_aligned(&tx_data);
+
+        tx.transmit(2, &tx_buf, 0, 4).expect("cant' trasmit");
         //        let received = rx.receive_next();
 
         //        assert!(received)
