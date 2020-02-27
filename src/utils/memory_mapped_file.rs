@@ -14,14 +14,26 @@
  * limitations under the License.
  */
 
+use std::fs::File;
+use std::io;
+use std::path::Path;
+
+use memmap::Mmap;
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
-use std::path::Path;
+
+#[derive(Debug)]
+enum MemMappedFileError {
+    IOError(io::Error),
+}
 
 struct FileHandle {
     handle: usize,
+    mmap: Mmap,
 }
 
+#[derive(Debug)]
 struct MemoryMappedFile {
     memory: *mut u8,
     memory_size: usize,
@@ -55,8 +67,12 @@ impl MemoryMappedFile {
         return true;
     }
 
-    fn create_new<P: AsRef<Path>>(filename: P, offset: Index, size: usize) -> Self {
-        let fd = FileHandle { handle: 0 };
+    fn create_new<P: AsRef<Path>>(path: P, offset: Index, size: usize) -> Result<Self, MemMappedFileError> {
+        let file = File::open(path).map_err(|err| MemMappedFileError::IOError(err))?;
+
+        let mmap = unsafe { Mmap::map(&file).map_err(|err| MemMappedFileError::IOError(err))? };
+        let fd = FileHandle { handle: 0, mmap };
+        // self
 
         /*     FileHandle fd;
                 fd.handle = open(filename, O_RDWR | O_CREAT, 0666);
@@ -79,17 +95,17 @@ impl MemoryMappedFile {
         return Self::from_file_handle(fd, offset, size, false);
     }
 
-    fn from_file_handle(fd: FileHandle, offset: Index, length: usize, read_only: bool) -> Self {
+    fn from_file_handle(fd: FileHandle, offset: Index, length: usize, read_only: bool) -> Result<Self, MemMappedFileError> {
         if 0 == length && 0 == offset {
             // struct stat statInfo;
             // ::fstat(fd.handle, &statInfo);
             // length = statInfo.st_size;
         }
 
-        Self {
+        Ok(Self {
             memory: Self::do_mapping(length, fd, offset, read_only),
             memory_size: length,
-        }
+        })
     }
 
     fn do_mapping(length: usize, fd: FileHandle, offset: Index, read_only: bool) -> *mut u8 {
@@ -115,11 +131,26 @@ impl MemoryMappedFile {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{ErrorKind, Write};
+
     use super::*;
+    use crate::utils::memory_mapped_file::MemMappedFileError::IOError;
+    use std::fs;
+
+    #[test]
+    #[should_panic]
+    fn test_file_not_found() {
+        MemoryMappedFile::create_new(Path::new("abc.file"), 0, 128).unwrap();
+    }
 
     #[test]
     fn test_file_size() {
-        let file = MemoryMappedFile::create_new(Path::new("abc.file"), 0, 128);
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let file_path = tmp_dir.path().join("mapped.file");
+        let mut tmp_file = File::create(file_path.clone()).unwrap();
+        tmp_file.write(&[1, 2, 4]).unwrap();
+
+        let file = MemoryMappedFile::create_new(file_path, 0, 128).unwrap();
         assert_eq!(file.memory_size, 128)
     }
 }
