@@ -10,6 +10,6 @@ pub mod commands;
 pub mod concurrent;
 pub mod context;
 pub mod driver_listener_adapter;
-pub mod driver_proxy;
+//pub mod driver_proxy;
 pub mod protocol;
 pub mod utils;
