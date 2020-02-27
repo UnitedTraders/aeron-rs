@@ -128,11 +128,27 @@ impl MemoryMappedFile {
         ab.buffer() //todo
     }
 
-    fn memory_ptr(&self) -> *const u8 {
+    pub fn map_existing<P: AsRef<Path>>(filename: P) -> Result<MemoryMappedFile, MemMappedFileError> {
+        // FileHandle fd;
+        // DWORD dwDesiredAccess = readOnly? GENERIC_READ: (GENERIC_READ | GENERIC_WRITE);
+        // DWORD dwSharedMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+        // fd.handle = CreateFile(filename, dwDesiredAccess, dwSharedMode, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        //
+        // if (fd.handle == INVALID_HANDLE_VALUE)
+        // {
+        //     throw IOException(std::string("Failed to create file: ") + filename + " " + toString(GetLastError()), SOURCEINFO);
+        // }
+        //
+        // return MemoryMappedFile::ptr_t(new;
+        // MemoryMappedFile(fd, offset, size, readOnly));
+        Self::create_new(filename, 0, 0)
+    }
+
+    pub fn memory_ptr(&self) -> *mut u8 {
         self.memory
     }
 
-    fn memory_size(&self) -> Index {
+    pub fn memory_size(&self) -> Index {
         self.memory_size
     }
 }
@@ -165,8 +181,6 @@ mod tests {
 
     #[test]
     fn test_file_size() {
-        // let (mut tmp_file, file_path) = create_file();
-
         let tmp_dir = tempfile::tempdir().unwrap();
         let file_path = tmp_dir.path().join("mapped.file");
         let mut tmp_file = File::create(file_path.clone()).unwrap();
@@ -179,5 +193,24 @@ mod tests {
     }
 
     #[test]
-    fn test_read_write() {}
+    fn test_read_write() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let file_path = tmp_dir.path().join("mapped.file");
+        let mut tmp_file = File::create(file_path.clone()).unwrap();
+
+        let size = 200;
+        tmp_file.set_len(size);
+
+        let file = MemoryMappedFile::create_new(file_path.clone(), 0, size as isize).unwrap();
+        for n in 0..size {
+            unsafe { *file.memory_ptr().offset(n as isize) = (n & 0xff) as u8 }
+        }
+
+        let file = MemoryMappedFile::map_existing(file_path).unwrap();
+
+        for n in 0..size {
+            let b = unsafe { *file.memory_ptr().offset(n as isize) };
+            assert_eq!(b, (n & 0xff) as u8)
+        }
+    }
 }
