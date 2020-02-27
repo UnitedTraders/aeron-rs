@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-use std::alloc::{alloc_zeroed, dealloc, Layout};
-
-use cache_line_size::CACHE_LINE_SIZE;
-
 use crate::utils::types::Index;
-
-pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 
 pub fn align(value: Index, alignment: Index) -> Index {
     (value + (alignment - 1)) & !(alignment - 1)
@@ -28,28 +22,6 @@ pub fn align(value: Index, alignment: Index) -> Index {
 
 pub fn is_power_of_two(value: Index) -> bool {
     value > 0 && ((value & (!value + 1)) == value)
-}
-
-#[allow(dead_code)]
-/// Allocate a buffer aligned on the cache size
-pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
-    unsafe {
-        let layout = Layout::from_size_align_unchecked(size as usize, CACHE_LINE_SIZE);
-        alloc_zeroed(layout)
-    }
-}
-
-/// Deallocate a buffer aligned on a cache size
-pub unsafe fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
-    if cfg!(debug_assertions) {
-        // dealloc markers for debug
-        for i in 0..len as isize {
-            *buff_ptr.offset(i) = 0xff;
-        }
-    }
-
-    let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
-    dealloc(buff_ptr, layout)
 }
 
 // Returns number of trailing bits which are set to 0
@@ -66,6 +38,22 @@ pub fn number_of_trailing_zeroes(value: i32) -> i32 {
     let index = ((value as i64 & -value as i64) * 0x04D7_651F) as u32;
 
     table[(index >> 27) as usize]
+}
+
+pub fn find_next_power_of_two_i64(mut value: i64) -> i64 {
+    value -= 1;
+
+    // Set all bits below the leading one using binary expansion
+    // http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf
+    let mut i: i64 = 1;
+
+    loop {
+        if i >= std::mem::size_of::<i64>() as i64 * 8 {break;}
+        value |= value >> i;
+        i = i * 2;
+    }
+
+    value + 1
 }
 
 #[cfg(test)]
@@ -86,5 +74,22 @@ mod tests {
         assert_eq!(number_of_trailing_zeroes(513), 0);
         assert_eq!(number_of_trailing_zeroes(1_073_741_824), 30);
         assert_eq!(number_of_trailing_zeroes(1_073_741_825), 0);
+    }
+
+    #[test]
+    fn test_next_power_of_two() {
+        assert_eq!(find_next_power_of_two_i64(0), 0);
+        assert_eq!(find_next_power_of_two_i64(1), 1);
+        assert_eq!(find_next_power_of_two_i64(2), 2);
+        assert_eq!(find_next_power_of_two_i64(3), 4);
+        assert_eq!(find_next_power_of_two_i64(4), 4);
+        assert_eq!(find_next_power_of_two_i64(5), 8);
+        assert_eq!(find_next_power_of_two_i64(6), 8);
+        assert_eq!(find_next_power_of_two_i64(7), 8);
+        assert_eq!(find_next_power_of_two_i64(8), 8);
+        assert_eq!(find_next_power_of_two_i64(9), 16);
+        assert_eq!(find_next_power_of_two_i64(10), 16);
+        assert_eq!(find_next_power_of_two_i64(17), 32);
+        assert_eq!(find_next_power_of_two_i64(12345), 16384);
     }
 }

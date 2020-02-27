@@ -56,12 +56,12 @@ struct SubscriptionMessageDefn {
     channel_data: *mut i8,
 }
 
-pub(crate) struct PublicationMessageFlyweight {
+pub(crate) struct SubscriptionMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: SubscriptionMessageDefn,
 }
 
-impl PublicationMessageFlyweight {
+impl SubscriptionMessageFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
         let m_struct = correlated_message_flyweight.flyweight.get::<SubscriptionMessageDefn>(0);

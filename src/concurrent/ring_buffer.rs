@@ -19,8 +19,9 @@ use std::fmt;
 use crate::commands::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::{
-    bit_utils::{align, is_power_of_two, CACHE_LINE_LENGTH},
+    bit_utils::{align, is_power_of_two},
     types::Index,
+    misc::CACHE_LINE_LENGTH,
 };
 
 // The read handler function signature
@@ -181,9 +182,8 @@ impl ManyToOneRingBuffer {
     }
 
     // todo: replace src+start/len with a single struct blitted over a buffer?
-    pub fn write(&self, cmd: AeronCommand, src: &[u8]) -> Result<(), Error> {
+    pub fn write(&self, cmd: AeronCommand, src: &[u8], length: Index) -> Result<(), Error> {
         // record_descriptor::check_msg_type_id()?;
-        let length = src.len() as Index;
         self.check_msg_length(length)?;
 
         let record_len = length + record_descriptor::HEADER_LENGTH;
@@ -507,7 +507,7 @@ mod tests {
         let size = test.ring_buffer.max_msg_len() + 1;
         let write_res = test
             .ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab.as_sub_slice(0, size));
+            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab.as_sub_slice(0, size), size);
 
         assert_eq!(write_res.unwrap_err(), Error::MessageTooLong { msg: 129, max: 128 });
     }
@@ -517,7 +517,7 @@ mod tests {
         let test = Test::new();
 
         let src = [1, 2, 3];
-        test.ring_buffer.write(AeronCommand::UnitTestMessageTypeID, &src).unwrap();
+        test.ring_buffer.write(AeronCommand::UnitTestMessageTypeID, &src, 3).unwrap();
 
         let tail_index = 0;
         let record_length: Index = test.ab.get(record_descriptor::length_offset(tail_index));
@@ -544,9 +544,11 @@ mod tests {
         test.ab.put(HEAD_COUNTER_INDEX, head);
         test.ab.put(TAIL_COUNTER_INDEX, tail);
 
+        let slice = test.src_ab.as_mutable_slice();
+
         let err = test
             .ring_buffer
-            .write(AeronCommand::ClientKeepAlive, test.src_ab.as_mutable_slice())
+            .write(AeronCommand::ClientKeepAlive, slice, slice.len() as Index)
             .unwrap_err();
         assert_eq!(err, Error::MessageTooLong { msg: 1792, max: 128 });
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), tail as i64);

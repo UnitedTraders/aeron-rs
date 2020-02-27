@@ -1,7 +1,12 @@
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use crate::utils::types::Moment;
 use std::ffi::CStr;
+use std::alloc::{Layout, alloc_zeroed, dealloc};
+
+use cache_line_size::CACHE_LINE_SIZE;
+
+use crate::utils::types::{Moment, Index};
+
+pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 
 #[inline]
 // Get system time since start of UNIX epoch in milliseconds (ms)
@@ -27,4 +32,30 @@ pub unsafe fn aeron_str_to_rust(raw_str: *const u8) -> String {
 // Accepts C-style zero terminated string
 pub fn aeron_str_no_len_to_rust(raw_str: *const u8) -> String {
     unsafe { String::from(CStr::from_ptr(raw_str as *const i8).to_str().unwrap()) }
+}
+
+pub fn semantic_version_compose(major: i32, minor: i32, patch: i32) -> i32 {
+    (major << 16) | (minor << 8) | patch
+}
+
+#[allow(dead_code)]
+/// Allocate a buffer aligned on the cache size
+pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
+    unsafe {
+        let layout = Layout::from_size_align_unchecked(size as usize, CACHE_LINE_SIZE);
+        alloc_zeroed(layout)
+    }
+}
+
+/// Deallocate a buffer aligned on a cache size
+pub unsafe fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
+    if cfg!(debug_assertions) {
+        // dealloc markers for debug
+        for i in 0..len as isize {
+            *buff_ptr.offset(i) = 0xff;
+        }
+    }
+
+    let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
+    dealloc(buff_ptr, layout)
 }

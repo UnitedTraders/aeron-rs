@@ -22,7 +22,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::reports::loss_report_descriptor::LossReportEntryDefn;
 use crate::offset_of;
 use crate::utils::bit_utils;
-use crate::utils::bit_utils::CACHE_LINE_LENGTH;
+use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::types::{Index, I32_SIZE};
 
 /**

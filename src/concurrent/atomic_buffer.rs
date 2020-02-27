@@ -3,8 +3,8 @@ use std::fmt::{Debug, Error, Formatter};
 use std::slice;
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
-use crate::utils::bit_utils::{alloc_buffer_aligned, dealloc_buffer_aligned};
 use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
+use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {

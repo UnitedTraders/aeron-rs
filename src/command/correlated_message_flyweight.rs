@@ -37,7 +37,7 @@ pub(crate) struct CorrelatedMessageDefn {
     correlation_id: i64,
 }
 
-const CORRELATED_MESSAGE_LENGTH: Index = std::mem::size_of::<CorrelatedMessageDefn>() as Index;
+pub const CORRELATED_MESSAGE_LENGTH: Index = std::mem::size_of::<CorrelatedMessageDefn>() as Index;
 
 pub(crate) struct CorrelatedMessageFlyweight {
     pub(crate) flyweight: Flyweight<CorrelatedMessageDefn>,

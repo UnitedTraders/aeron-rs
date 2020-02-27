@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
-use crate::utils::bit_utils::CACHE_LINE_LENGTH;
+use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
 use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
 

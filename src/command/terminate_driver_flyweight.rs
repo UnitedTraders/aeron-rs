@@ -46,12 +46,12 @@ struct TerminateDriverDefn {
 
 const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
 
-pub(crate) struct PublicationMessageFlyweight {
+pub(crate) struct TerminateDriverFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: TerminateDriverDefn,
 }
 
-impl PublicationMessageFlyweight {
+impl TerminateDriverFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
         let m_struct = correlated_message_flyweight.flyweight.get::<TerminateDriverDefn>(0);

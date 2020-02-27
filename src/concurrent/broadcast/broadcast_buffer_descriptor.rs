@@ -16,7 +16,7 @@
 
 use crate::concurrent::broadcast::BroadcastTransmitError;
 use crate::utils::bit_utils::is_power_of_two;
-use crate::utils::bit_utils::CACHE_LINE_LENGTH;
+use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::types::Index;
 use crate::utils::types::I64_SIZE;
 
