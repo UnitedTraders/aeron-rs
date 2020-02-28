@@ -31,3 +31,17 @@ impl Display for AeronError {
         }
     }
 }
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum AeronErrorCode {
+    GenericError = 0,
+    InvalidChannel = 1,
+    UnknownSubscription = 2,
+    UnknownPublication = 3,
+    ChannelEndpointError = 4,
+    UnknownCounter = 5,
+    UnknownCommandTypeId = 10,
+    MalformedCommand = 11,
+    ErrorNotSupplied = 12,
+}

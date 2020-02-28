@@ -45,44 +45,52 @@ impl HeaderFlyweight {
 
     // Getters
     #[inline]
-    pub unsafe fn frame_length(&self) -> i32 {
-        (*self.flyweight.m_struct).frame_length
+    pub fn frame_length(&self) -> i32 {
+        unsafe { (*self.flyweight.m_struct).frame_length }
     }
 
     #[inline]
-    pub unsafe fn version(&self) -> i8 {
-        (*self.flyweight.m_struct).version
+    pub fn version(&self) -> i8 {
+        unsafe { (*self.flyweight.m_struct).version }
     }
 
     #[inline]
-    pub unsafe fn flags(&self) -> i8 {
-        (*self.flyweight.m_struct).flags
+    pub fn flags(&self) -> i8 {
+        unsafe { (*self.flyweight.m_struct).flags }
     }
 
     #[inline]
-    pub unsafe fn h_type(&self) -> i16 {
-        (*self.flyweight.m_struct).h_type
+    pub fn h_type(&self) -> i16 {
+        unsafe { (*self.flyweight.m_struct).h_type }
     }
 
     // Setters
     #[inline]
-    pub unsafe fn set_frame_length(&mut self, value: i32) {
-        (*self.flyweight.m_struct).frame_length = value;
+    pub fn set_frame_length(&mut self, value: i32) {
+        unsafe {
+            (*self.flyweight.m_struct).frame_length = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_version(&mut self, value: i8) {
-        (*self.flyweight.m_struct).version = value;
+    pub fn set_version(&mut self, value: i8) {
+        unsafe {
+            (*self.flyweight.m_struct).version = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_flags(&mut self, value: i8) {
-        (*self.flyweight.m_struct).flags = value;
+    pub fn set_flags(&mut self, value: i8) {
+        unsafe {
+            (*self.flyweight.m_struct).flags = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_h_type(&mut self, value: i16) {
-        (*self.flyweight.m_struct).h_type = value;
+    pub fn set_h_type(&mut self, value: i16) {
+        unsafe {
+            (*self.flyweight.m_struct).h_type = value;
+        }
     }
 
     #[inline]

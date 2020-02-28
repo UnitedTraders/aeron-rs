@@ -16,6 +16,7 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::atomics;
 use crate::concurrent::broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError};
@@ -107,7 +108,7 @@ impl BroadcastReceiver {
                     record_descriptor::RECORD_ALIGNMENT,
                 ) as i64;
 
-            if record_descriptor::PADDING_MSG_TYPE_ID == self.buffer.get::<i32>(record_descriptor::type_offset(record_offset)) {
+            if AeronCommand::Padding as i32 == self.buffer.get::<i32>(record_descriptor::type_offset(record_offset)) {
                 record_offset = 0;
                 self.cursor = self.next_record;
                 self.next_record += align(
@@ -136,8 +137,8 @@ impl BroadcastReceiver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concurrent::broadcast::broadcast_transmitter::BroadcastTransmitter;
     use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::broadcast::broadcast_transmitter::BroadcastTransmitter;
 
     fn channel(buffer: AtomicBuffer) -> (BroadcastTransmitter, BroadcastReceiver) {
         (

@@ -16,7 +16,7 @@
 use std::ffi::CString;
 
 use crate::command::client_timeout_flyweight::ClientTimeoutFlyweight;
-use crate::command::control_protocol_events;
+use crate::command::control_protocol_events::AeronCommand;
 use crate::command::counter_update_flyweight::CounterUpdateFlyweight;
 use crate::command::error_response_flyweight::{ErrorResponseFlyweight, ERROR_CODE_CHANNEL_ENDPOINT_ERROR};
 use crate::command::image_buffers_ready_flyweight::ImageBuffersReadyFlyweight;
@@ -92,11 +92,11 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
         }
     }
 
-    pub unsafe fn receive_messages(&mut self) -> Result<usize, BroadcastTransmitError> {
+    pub fn receive_messages(&mut self) -> Result<usize, BroadcastTransmitError> {
         let this_driver_listener = self.driver_listener;
 
-        let receive_handler = |msg_type_id: i32, buffer: AtomicBuffer, offset: Index, _length: Index| match msg_type_id {
-            control_protocol_events::ON_PUBLICATION_READY => {
+        let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| match msg {
+            AeronCommand::ResponseOnPublicationReady => {
                 let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_new_publication(
@@ -109,7 +109,7 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
                     publication_ready.log_file_name(),
                 );
             }
-            control_protocol_events::ON_EXCLUSIVE_PUBLICATION_READY => {
+            AeronCommand::ResponseOnExclusivePublicationReady => {
                 let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_new_exclusive_publication(
@@ -122,7 +122,7 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
                     publication_ready.log_file_name(),
                 );
             }
-            control_protocol_events::ON_SUBSCRIPTION_READY => {
+            AeronCommand::ResponseOnSubscriptionReady => {
                 let subscription_ready = SubscriptionReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_subscription_ready(
@@ -130,7 +130,7 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
                     subscription_ready.channel_status_indicator_id(),
                 );
             }
-            control_protocol_events::ON_AVAILABLE_IMAGE => {
+            AeronCommand::ResponseOnAvailableImage => {
                 let image_ready = ImageBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_available_image(
@@ -142,18 +142,18 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
                     image_ready.source_identity(),
                 );
             }
-            control_protocol_events::ON_OPERATION_SUCCESS => {
+            AeronCommand::ResponseOnOperationSuccess => {
                 let operation_succeeded = OperationSucceededFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_operation_success(operation_succeeded.correlation_id());
             }
-            control_protocol_events::ON_UNAVAILABLE_IMAGE => {
+            AeronCommand::ResponseOnUnavailableImage => {
                 let image_message = ImageMessageFlyweight::new(buffer, offset);
 
                 this_driver_listener
                     .on_unavailable_image(image_message.correlation_id(), image_message.subscription_registration_id());
             }
-            control_protocol_events::ON_ERROR => {
+            AeronCommand::ResponseOnError => {
                 let error_response = ErrorResponseFlyweight::new(buffer, offset);
 
                 let error_code = error_response.error_code();
@@ -171,20 +171,20 @@ impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
                     );
                 }
             }
-            control_protocol_events::ON_COUNTER_READY => {
+            AeronCommand::ResponseOnCounterReady => {
                 let response = CounterUpdateFlyweight::new(buffer, offset);
                 this_driver_listener.on_available_counter(response.correlation_id(), response.counter_id());
             }
-            control_protocol_events::ON_UNAVAILABLE_COUNTER => {
+            AeronCommand::ResponseOnUnavailableCounter => {
                 let response = CounterUpdateFlyweight::new(buffer, offset);
                 this_driver_listener.on_unavailable_counter(response.correlation_id(), response.counter_id());
             }
-            control_protocol_events::ON_CLIENT_TIMEOUT => {
+            AeronCommand::ResponseOnClientTimeout => {
                 let response = ClientTimeoutFlyweight::new(buffer, offset);
                 this_driver_listener.on_client_timeout(response.client_id());
             }
             _ => {
-                unreachable!("Unexpected control protocol event: {}", msg_type_id);
+                unreachable!("Unexpected control protocol event: {}", msg as i32);
             }
         };
 

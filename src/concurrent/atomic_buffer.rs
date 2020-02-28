@@ -3,8 +3,8 @@ use std::fmt::{Debug, Error, Formatter};
 use std::slice;
 use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
-use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -23,7 +23,7 @@ impl AlignedBuffer {
 
 impl Drop for AlignedBuffer {
     fn drop(&mut self) {
-        unsafe { dealloc_buffer_aligned(self.ptr, self.len) }
+        dealloc_buffer_aligned(self.ptr, self.len)
     }
 }
 
@@ -188,11 +188,13 @@ impl AtomicBuffer {
 
     // Put bytes in to this buffer at specified offset
     #[inline]
-    pub unsafe fn put_bytes(&self, offset: Index, src: &[u8]) {
+    pub fn put_bytes(&self, offset: Index, src: &[u8]) {
         self.bounds_check(offset, src.len() as isize);
 
-        let ptr = self.ptr.offset(offset);
-        ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
+        unsafe {
+            let ptr = self.ptr.offset(offset);
+            ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
+        }
     }
 
     // #[inline]
@@ -205,11 +207,14 @@ impl AtomicBuffer {
     // }
 
     #[inline]
-    pub unsafe fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
         self.bounds_check(offset, length);
 
-        let ptr = self.at(offset);
-        ::std::ptr::copy(ptr, dest, length as usize);
+        unsafe {
+            let ptr = self.at(offset);
+            ::std::ptr::copy(ptr, dest, length as usize);
+        }
     }
 
     // Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
@@ -280,18 +285,16 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         self.put::<i32>(offset, string.len() as i32);
-        unsafe {
-            self.put_bytes(offset + I32_SIZE, string);
-        }
+
+        self.put_bytes(offset + I32_SIZE, string);
     }
 
     #[inline]
     pub fn put_string_without_length(&self, offset: Index, string: &[u8]) -> Index {
         self.bounds_check(offset, string.len() as isize);
 
-        unsafe {
-            self.put_bytes(offset + I32_SIZE, string);
-        }
+        self.put_bytes(offset + I32_SIZE, string);
+
         string.len() as isize
     }
 
@@ -357,9 +360,7 @@ mod tests {
 
         let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
 
-        unsafe {
-            buffer.put_bytes(4, &[0, 1, 2, 3]);
-        }
+        buffer.put_bytes(4, &[0, 1, 2, 3]);
 
         assert_eq!(buffer.as_slice(), &[0, 1, 2, 3, 0, 1, 2, 3])
     }

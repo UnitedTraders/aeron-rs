@@ -16,12 +16,12 @@
 
 use std::fmt;
 
-use crate::commands::AeronCommand;
+use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::{
     bit_utils::{align, is_power_of_two},
-    types::Index,
     misc::CACHE_LINE_LENGTH,
+    types::Index,
 };
 
 // The read handler function signature
@@ -64,12 +64,12 @@ mod record_descriptor {
      * </pre>
      */
     use super::Error;
-    use crate::commands::AeronCommand;
+    use crate::command::control_protocol_events::AeronCommand;
     use crate::utils::types::{Index, I32_SIZE};
 
     pub const HEADER_LENGTH: Index = I32_SIZE * 2;
     pub const ALIGNMENT: Index = HEADER_LENGTH;
-    pub const PADDING_MSG_TYPE_ID: i32 = -1;
+    // pub const PADDING_MSG_TYPE_ID: i32 = -1;
 
     #[inline]
     pub fn length_offset(record_offset: Index) -> Index {
@@ -104,9 +104,9 @@ mod record_descriptor {
     }
 
     #[inline]
-    pub fn message_type(header: i64) -> Result<AeronCommand, Error> {
+    pub fn message_type(header: i64) -> AeronCommand {
         let type_id = message_type_id(header);
-        AeronCommand::from_header(type_id).ok_or_else(|| Error::UnknownCommand { cmd: type_id })
+        AeronCommand::from_command_id(type_id)
     }
 
     #[inline]
@@ -122,7 +122,6 @@ mod record_descriptor {
 pub enum Error {
     InsufficientCapacity,
     MessageTooLong { msg: Index, max: Index },
-    UnknownCommand { cmd: i32 },
     NonPositiveMessageTypeId(i32),
     CapacityIsNotTwoPower { capacity: Index },
 }
@@ -132,7 +131,6 @@ impl fmt::Display for Error {
         let msg = match self {
             Error::InsufficientCapacity => "Insufficient capacity".into(),
             Error::MessageTooLong { msg, max } => format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg),
-            Error::UnknownCommand { cmd } => format!("Unknow command: {}", cmd),
             Error::NonPositiveMessageTypeId(type_id) => {
                 format!("Message type id must be greater than zero, msgTypeId={}", type_id)
             }
@@ -193,10 +191,10 @@ impl ManyToOneRingBuffer {
 
         self.buffer
             .put_ordered(record_index, record_descriptor::make_header(-record_len, cmd));
-        unsafe {
-            self.buffer
-                .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
-        }
+
+        self.buffer
+            .put_bytes(record_descriptor::encoded_msg_offset(record_index), src);
+
         self.buffer
             .put_ordered(record_descriptor::length_offset(record_index), record_len);
 
@@ -224,19 +222,16 @@ impl ManyToOneRingBuffer {
 
             bytes_read += align(record_len, record_descriptor::ALIGNMENT);
 
-            if let Ok(msg_type) = record_descriptor::message_type(header) {
-                if let AeronCommand::Padding = msg_type {
-                    continue;
-                }
-                messages_read += 1;
-                let view = self.buffer.view(
-                    record_descriptor::encoded_msg_offset(record_index),
-                    record_len - record_descriptor::HEADER_LENGTH,
-                );
-                handler(msg_type, &view)
-            } else {
-                break;
+            let msg_type = record_descriptor::message_type(header);
+            if let AeronCommand::Padding = msg_type {
+                continue;
             }
+            messages_read += 1;
+            let view = self.buffer.view(
+                record_descriptor::encoded_msg_offset(record_index),
+                record_len - record_descriptor::HEADER_LENGTH,
+            );
+            handler(msg_type, &view)
         }
 
         // todo: move to a guard, or prevent corruption on panic

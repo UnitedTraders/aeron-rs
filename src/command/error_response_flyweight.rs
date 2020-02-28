@@ -73,13 +73,13 @@ impl ErrorResponseFlyweight {
     }
 
     #[inline]
-    pub unsafe fn offending_command_correlation_id(&self) -> i64 {
-        (*self.flyweight.m_struct).offending_command_correlation_id
+    pub fn offending_command_correlation_id(&self) -> i64 {
+        unsafe { (*self.flyweight.m_struct).offending_command_correlation_id }
     }
 
     #[inline]
-    pub unsafe fn error_code(&self) -> i32 {
-        (*self.flyweight.m_struct).error_code
+    pub fn error_code(&self) -> i32 {
+        unsafe { (*self.flyweight.m_struct).error_code }
     }
 
     #[inline]
@@ -88,7 +88,7 @@ impl ErrorResponseFlyweight {
     }
 
     #[inline]
-    pub unsafe fn length(&self) -> Index {
-        offset_of!(ErrorResponseDefn, error_message_data) + (*self.flyweight.m_struct).error_message_length as Index
+    pub fn length(&self) -> Index {
+        unsafe { offset_of!(ErrorResponseDefn, error_message_data) + (*self.flyweight.m_struct).error_message_length as Index }
     }
 }

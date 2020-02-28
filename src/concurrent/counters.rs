@@ -22,8 +22,8 @@ use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
-use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::errors::*;
+use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
 
 /**
@@ -369,9 +369,7 @@ impl CountersManager {
                 return Err(AeronError::IllegalArgumentException(String::from("allocate: key too long")));
             }
 
-            unsafe {
-                self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
-            }
+            self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
         }
 
         if let Some(key_fn) = key_func {

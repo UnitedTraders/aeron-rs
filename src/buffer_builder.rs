@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::utils::types::Index;
-use crate::concurrent::logbuffer::data_frame_header;
-use crate::utils::errors::AeronError;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header;
 use crate::concurrent::logbuffer::header::Header;
 use crate::utils::bit_utils;
+use crate::utils::errors::AeronError;
 use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::Index;
 
 const BUFFER_BUILDER_MAX_CAPACITY: Index = std::u32::MAX as Index - 8;
 
@@ -34,7 +34,7 @@ struct BufferBuilder {
 impl Drop for BufferBuilder {
     fn drop(&mut self) {
         // Free the memory we own
-        unsafe { dealloc_buffer_aligned(self.buffer, self.capacity) }
+        dealloc_buffer_aligned(self.buffer, self.capacity)
     }
 }
 
@@ -44,12 +44,12 @@ impl BufferBuilder {
         Self {
             capacity: len,
             limit: data_frame_header::LENGTH,
-            buffer: alloc_buffer_aligned(len)
+            buffer: alloc_buffer_aligned(len),
         }
     }
-    
+
     pub fn buffer(&self) -> *mut u8 {
-       self.buffer
+        self.buffer
     }
 
     pub fn limit(&self) -> Index {
@@ -59,7 +59,8 @@ impl BufferBuilder {
     pub fn set_limit(&mut self, limit: Index) -> Result<(), AeronError> {
         if limit >= self.capacity {
             return Err(AeronError::IllegalArgumentException(format!(
-                "limit outside range: capacity={}  limit={}", self.capacity, limit
+                "limit outside range: capacity={}  limit={}",
+                self.capacity, limit
             )));
         }
 
@@ -73,10 +74,22 @@ impl BufferBuilder {
         self
     }
 
-    pub fn append(&mut self,  buffer: AtomicBuffer, offset: Index, length: Index,  header: Header) -> Result<&BufferBuilder, AeronError> {
+    pub fn append(
+        &mut self,
+        buffer: AtomicBuffer,
+        offset: Index,
+        length: Index,
+        _header: Header,
+    ) -> Result<&BufferBuilder, AeronError> {
         self.ensure_capacity(length)?;
 
-        unsafe { std::ptr::copy(buffer.buffer().offset(offset), self.buffer.offset(self.limit), length as usize);}
+        unsafe {
+            std::ptr::copy(
+                buffer.buffer().offset(offset),
+                self.buffer.offset(self.limit),
+                length as usize,
+            );
+        }
 
         self.limit += length;
 
@@ -95,14 +108,16 @@ impl BufferBuilder {
                         "max capacity reached:  {}",
                         BUFFER_BUILDER_MAX_CAPACITY
                     )));
-                 }
+                }
 
                 capacity = BUFFER_BUILDER_MAX_CAPACITY;
             } else {
                 capacity = new_capacity;
             }
 
-            if capacity >= required_capacity { break; }
+            if capacity >= required_capacity {
+                break;
+            }
         }
 
         Ok(capacity)
