@@ -16,7 +16,8 @@
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::counters::CountersReader;
-use crate::utils::types::Index;
+use crate::utils::types::{Index, I64_SIZE};
+use lazy_static::lazy_static;
 
 const CHANNEL_ENDPOINT_INITIALIZING: i64 = 0;
 const CHANNEL_ENDPOINT_ERRORED: i64 = -1;
@@ -25,32 +26,38 @@ const CHANNEL_ENDPOINT_CLOSING: i64 = 2;
 
 const NO_ID_ALLOCATED: i32 = -1;
 
+static mut STATIC_BUFFER_SLICE: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+
+fn static_buffer() -> AtomicBuffer {
+    let buffer = unsafe {
+        assert_eq!(STATIC_BUFFER_SLICE.len(), I64_SIZE as usize);
+        AtomicBuffer::wrap_slice(&mut STATIC_BUFFER_SLICE)
+    };
+    buffer.put_ordered::<i64>(0, CHANNEL_ENDPOINT_ACTIVE);
+    buffer
+}
+
+#[derive(Debug)]
 struct StatusIndicatorReader {
     buffer: AtomicBuffer,
     id: i32,
     offset: Index,
-    static_buffer: Option<[u8; 8]>,
 }
 
 impl StatusIndicatorReader {
     pub fn new(input_buffer: AtomicBuffer, id: i32) -> Self {
         if NO_ID_ALLOCATED == id {
-            let mut static_buffer: [u8; 8] = [0; 8];
-            let buffer = AtomicBuffer::wrap_slice(&mut static_buffer);
-            buffer.put_ordered::<i64>(0, CHANNEL_ENDPOINT_ACTIVE);
-
             Self {
-                static_buffer: Some(static_buffer),
-                buffer: AtomicBuffer::wrap(input_buffer),
+                buffer: AtomicBuffer::wrap(static_buffer()),
                 id,
                 offset: 0,
             }
         } else {
+            let offset = CountersReader::counter_offset(id);
             Self {
                 buffer: AtomicBuffer::wrap(input_buffer),
                 id,
-                offset: CountersReader::counter_offset(id),
-                static_buffer: None,
+                offset,
             }
         }
     }
@@ -106,31 +113,26 @@ mod tests {
 
     #[test]
     fn test() {
-        let buffer = AlignedBuffer::with_capacity(16);
+        let buffer = AlignedBuffer::with_capacity(65536);
         let atomic_buffer = AtomicBuffer::from_aligned(&buffer);
 
         let reader = StatusIndicatorReader::new(atomic_buffer, 239);
+        let counters_reader = CountersReader::counter_offset(239);
+
         assert_eq!(reader.id(), 239);
-        assert_eq!(reader.offset, CountersReader::counter_offset(239));
-        assert_eq!(
-            reader.volatile(),
-            reader.buffer.get_volatile::<i64>(CountersReader::counter_offset(239))
-        );
+        assert_eq!(reader.offset, counters_reader);
+        assert_eq!(reader.volatile(), reader.buffer.get_volatile::<i64>(counters_reader));
     }
 
     #[test]
     fn test_id_not_allocated() {
-        let buffer = AlignedBuffer::with_capacity(16);
+        let buffer = AlignedBuffer::with_capacity(1024);
         let atomic_buffer = AtomicBuffer::from_aligned(&buffer);
 
         let reader = StatusIndicatorReader::new(atomic_buffer, NO_ID_ALLOCATED);
         assert_eq!(reader.id(), NO_ID_ALLOCATED);
-        assert_eq!(reader.offset, 0);
-        assert_eq!(
-            reader.volatile(),
-            reader.buffer.get_volatile::<i64>(CountersReader::counter_offset(239))
-        );
-        assert_eq!(reader.buffer.as_slice(), &[]);
-        assert_eq!(reader.static_buffer, Some([1, 0, 0, 0, 0, 0, 0, 0]));
+        assert_eq!(reader.volatile(), reader.buffer.get_volatile::<i64>(reader.offset));
+        assert_eq!(reader.buffer.as_slice(), &[1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(reader.buffer.as_slice(), static_buffer().as_slice());
     }
 }
