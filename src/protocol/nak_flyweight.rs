@@ -15,9 +15,8 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
-
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
+use crate::utils::types::Index;
 
 const NAK_DEFN_SIZE: Index = std::mem::size_of::<NakDefn>() as Index;
 

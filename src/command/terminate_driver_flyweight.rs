@@ -88,4 +88,28 @@ impl TerminateDriverFlyweight {
     pub fn length(&self) -> Index {
         TERMINATE_DRIVER_LENGTH + self.m_struct.token_length as Index
     }
+
+    // Parent Getters
+
+    #[inline]
+    pub fn client_id(&self) -> i64 {
+        self.correlated_message_flyweight.client_id()
+    }
+
+    #[inline]
+    pub fn correlation_id(&self) -> i64 {
+        self.correlated_message_flyweight.correlation_id()
+    }
+
+    // Parent Setters
+
+    #[inline]
+    pub fn set_client_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_client_id(value);
+    }
+
+    #[inline]
+    pub fn set_correlation_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_correlation_id(value);
+    }
 }

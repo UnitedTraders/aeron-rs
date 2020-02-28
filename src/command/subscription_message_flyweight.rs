@@ -53,7 +53,7 @@ struct SubscriptionMessageDefn {
     registration_correlation_id: i64,
     stream_id: i32,
     channel_length: i32,
-    channel_data: *mut i8,
+    channel_data: [i8; 1],
 }
 
 pub(crate) struct SubscriptionMessageFlyweight {
@@ -108,5 +108,29 @@ impl SubscriptionMessageFlyweight {
     #[inline]
     pub fn length(&self) -> Index {
         offset_of!(SubscriptionMessageDefn, channel_data) + self.m_struct.channel_length as Index
+    }
+
+    // Parent Getters
+
+    #[inline]
+    pub fn client_id(&self) -> i64 {
+        self.correlated_message_flyweight.client_id()
+    }
+
+    #[inline]
+    pub fn correlation_id(&self) -> i64 {
+        self.correlated_message_flyweight.correlation_id()
+    }
+
+    // Parent Setters
+
+    #[inline]
+    pub fn set_client_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_client_id(value);
+    }
+
+    #[inline]
+    pub fn set_correlation_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_correlation_id(value);
     }
 }

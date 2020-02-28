@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::atomic::{fence, Ordering};
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
 use crate::concurrent::logbuffer::header::HeaderWriter;
@@ -21,7 +23,6 @@ use crate::concurrent::logbuffer::term_appender::{OnReservedValueSupplier, TERM_
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
 use crate::utils::bit_utils;
 use crate::utils::types::{Index, I64_SIZE};
-use std::sync::atomic::{fence, Ordering};
 
 struct ExclusiveTermAppender<'a> {
     term_buffer: &'a AtomicBuffer,

@@ -50,7 +50,7 @@ struct ImageMessageDefn {
     subscription_registration_id: i64,
     stream_id: i32,
     channel_length: i32,
-    channel_data: *mut i8,
+    channel_data: [i8; 1],
 }
 
 pub(crate) struct ImageMessageFlyweight {

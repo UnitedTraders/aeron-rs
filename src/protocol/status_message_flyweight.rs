@@ -15,9 +15,8 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
-
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
+use crate::utils::types::Index;
 
 const STATUS_MESSAGE_DEFN_SIZE: Index = std::mem::size_of::<StatusMessageDefn>() as Index;
 

@@ -15,9 +15,8 @@
  */
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
-
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
+use crate::utils::types::Index;
 
 const DATA_HEADER_DEFN_SIZE: Index = std::mem::size_of::<DataHeaderDefn>() as Index;
 
@@ -35,7 +34,7 @@ struct DataHeaderDefn {
     session_id: i32,
     stream_id: i32,
     term_id: i32,
-    data: *mut u8,
+    data: [u8; 1],
 }
 
 struct DataHeaderFlyweight {
@@ -75,8 +74,8 @@ impl DataHeaderFlyweight {
     }
 
     #[inline]
-    pub fn data(&self) -> *mut u8 {
-        self.m_struct.data
+    pub fn data(&self) -> *const u8 {
+        self.m_struct.data.as_ptr()
     }
 
     // Setters

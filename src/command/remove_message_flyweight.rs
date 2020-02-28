@@ -74,4 +74,28 @@ impl RemoveMessageFlyweight {
     pub const fn length(&self) -> Index {
         REMOVE_MESSAGE_LENGTH
     }
+
+    // Parent Getters
+
+    #[inline]
+    pub fn client_id(&self) -> i64 {
+        self.correlated_message_flyweight.client_id()
+    }
+
+    #[inline]
+    pub fn correlation_id(&self) -> i64 {
+        self.correlated_message_flyweight.correlation_id()
+    }
+
+    // Parent Setters
+
+    #[inline]
+    pub fn set_client_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_client_id(value);
+    }
+
+    #[inline]
+    pub fn set_correlation_id(&mut self, value: i64) {
+        self.correlated_message_flyweight.set_correlation_id(value);
+    }
 }

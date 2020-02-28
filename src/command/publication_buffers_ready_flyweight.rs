@@ -60,7 +60,7 @@ struct PublicationBuffersReadyDefn {
     position_limit_counter_id: i32,
     channel_status_indicator_id: i32,
     log_file_length: i32,
-    log_file_data: *mut i8,
+    log_file_data: [i8; 1],
 }
 
 pub(crate) struct PublicationBuffersReadyFlyweight {

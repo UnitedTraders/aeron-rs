@@ -46,7 +46,7 @@ struct ErrorResponseDefn {
     offending_command_correlation_id: i64,
     error_code: i32,
     error_message_length: i32,
-    error_message_data: *mut i8,
+    error_message_data: [i8; 1],
 }
 
 pub(crate) const ERROR_CODE_UNKNOWN_CODE_VALUE: i32 = -1;
