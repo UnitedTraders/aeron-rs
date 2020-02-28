@@ -62,41 +62,6 @@ impl StatusIndicatorReader {
         }
     }
 
-    // pub fn from_indicator_reader(reader: StatusIndicatorReader) {
-    //     Self::new()
-    //     AtomicBuffer::from_aligned()
-    //     if NO_ID_ALLOCATED == m_id
-    //     {
-    //         m_buffer.wrap(m_staticBuffer);
-    //     }
-    //     else
-    //     {
-    //         m_buffer.wrap(indicatorReader.m_buffer);
-    //     }
-    //
-    //     m_buffer.putInt64Ordered(m_offset, indicatorReader.m_buffer.getInt64Volatile(indicatorReader.m_offset));
-    // }
-
-    // StatusIndicatorReader& operator=(const StatusIndicatorReader& indicatorReader)
-    // {
-    // m_staticBuffer = indicatorReader.m_staticBuffer;
-    // m_id = indicatorReader.m_id;
-    // m_offset = indicatorReader.m_offset;
-    //
-    // if (ChannelEndpointStatus::NO_ID_ALLOCATED == m_id)
-    // {
-    // m_buffer.wrap(m_staticBuffer);
-    // }
-    // else
-    // {
-    // m_buffer.wrap(indicatorReader.m_buffer);
-    // }
-    //
-    // m_buffer.putInt64Ordered(m_offset, indicatorReader.m_buffer.getInt64Volatile(indicatorReader.m_offset));
-    //
-    // return *this;
-    // }
-
     pub fn id(&self) -> i32 {
         self.id
     }
