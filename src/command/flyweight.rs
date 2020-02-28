@@ -66,11 +66,11 @@ impl<T: Copy> Flyweight<T> {
 
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
-        unsafe { self.buffer.put_bytes(self.base_offset + offset, src) }
+        self.buffer.put_bytes(self.base_offset + offset, src)
     }
 
     #[inline]
-    pub unsafe fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
+    pub fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
         self.buffer.get_bytes(self.base_offset + offset, dest, length);
     }
 

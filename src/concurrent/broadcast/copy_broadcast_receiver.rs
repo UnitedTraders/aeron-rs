@@ -25,6 +25,7 @@ trait Handler {
 
 use super::broadcast_receiver::BroadcastReceiver;
 use super::BroadcastTransmitError;
+use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
@@ -43,7 +44,7 @@ impl CopyBroadcastReceiver {
 
     pub fn receive<F>(&mut self, handler: F) -> Result<usize, BroadcastTransmitError>
     where
-        F: Fn(i32, AtomicBuffer, Index, Index),
+        F: Fn(AeronCommand, AtomicBuffer, Index, Index),
     {
         let mut messages_received: usize = 0;
         let last_seen_lapped_count = self.receiver.lapped_count();
@@ -61,16 +62,15 @@ impl CopyBroadcastReceiver {
                 });
             }
 
-            let msg_type_id = self.receiver.type_id();
-            unsafe {
-                self.scratch_buffer.put_bytes(0, self.receiver.buffer().as_slice());
-            }
+            let msg = AeronCommand::from_command_id(self.receiver.type_id());
+
+            self.scratch_buffer.put_bytes(0, self.receiver.buffer().as_slice());
 
             if !self.receiver.validate() {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);
             }
 
-            handler(msg_type_id, self.scratch_buffer, 0, length);
+            handler(msg, self.scratch_buffer, 0, length);
 
             messages_received = 1;
         }

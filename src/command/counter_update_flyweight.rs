@@ -54,24 +54,28 @@ impl CounterUpdateFlyweight {
     // Getters
 
     #[inline]
-    pub unsafe fn correlation_id(&self) -> i64 {
-        (*self.flyweight.m_struct).correlation_id
+    pub fn correlation_id(&self) -> i64 {
+        unsafe { (*self.flyweight.m_struct).correlation_id }
     }
 
     #[inline]
-    pub unsafe fn counter_id(&self) -> i32 {
-        (*self.flyweight.m_struct).counter_id
+    pub fn counter_id(&self) -> i32 {
+        unsafe { (*self.flyweight.m_struct).counter_id }
     }
 
     // Setters
 
     #[inline]
-    pub unsafe fn set_correlation_id(&mut self, value: i64) {
-        (*self.flyweight.m_struct).correlation_id = value;
+    pub fn set_correlation_id(&mut self, value: i64) {
+        unsafe {
+            (*self.flyweight.m_struct).correlation_id = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_counter_id(&mut self, value: i32) {
-        (*self.flyweight.m_struct).counter_id = value;
+    pub fn set_counter_id(&mut self, value: i32) {
+        unsafe {
+            (*self.flyweight.m_struct).counter_id = value;
+        }
     }
 }

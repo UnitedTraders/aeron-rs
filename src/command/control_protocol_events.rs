@@ -17,55 +17,75 @@
 /**
 * List of event types used in the control protocol between the media driver and the core.
 */
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AeronCommand {
+    Padding = -0x01,
 
-/** Add Publication */
-pub(crate) const ADD_PUBLICATION: i32 = 0x01;
-/** Remove Publication */
-pub(crate) const REMOVE_PUBLICATION: i32 = 0x02;
-/** Add Exclusive Publication */
-pub(crate) const ADD_EXCLUSIVE_PUBLICATION: i32 = 0x03;
-/** Add Subscriber */
-pub(crate) const ADD_SUBSCRIPTION: i32 = 0x04;
-/** Remove Subscriber */
-pub(crate) const REMOVE_SUBSCRIPTION: i32 = 0x05;
-/** Keepalive from Client */
-pub(crate) const CLIENT_KEEPALIVE: i32 = 0x06;
-/** Add Destination */
-pub(crate) const ADD_DESTINATION: i32 = 0x07;
-/** Remove Destination */
-pub(crate) const REMOVE_DESTINATION: i32 = 0x08;
-/** Add Counter */
-pub(crate) const ADD_COUNTER: i32 = 0x09;
-/** Remove Counter */
-pub(crate) const REMOVE_COUNTER: i32 = 0x0A;
-/** Client Close */
-pub(crate) const CLIENT_CLOSE: i32 = 0x0B;
-/** Add Destination for existing Subscription */
-pub(crate) const ADD_RCV_DESTINATION: i32 = 0x0C;
-/** Remove Destination for existing Subscription */
-pub(crate) const REMOVE_RCV_DESTINATION: i32 = 0x0D;
-/** Request driver run termination hook */
-pub(crate) const TERMINATE_DRIVER: i32 = 0x0E;
+    AddPublication = 0x01,
+    RemovePublication = 0x02,
+    AddExclusivePublication = 0x03,
+    AddSubscription = 0x04,
+    RemoveSubscription = 0x05,
+    ClientKeepAlive = 0x06,
+    AddDestination = 0x07,
+    RemoveDestination = 0x08,
+    AddCounter = 0x09,
+    RemoveCounter = 0x0A,
+    ClientClose = 0x0B,
+    AddRcvDestination = 0x0C,
+    RemoveRcvDestination = 0x0D,
+    TerminateDriver = 0x0E,
 
-// Media Driver to Clients
+    ResponseOnError = 0xF01,
+    ResponseOnAvailableImage = 0xF02,
+    ResponseOnPublicationReady = 0xF03,
+    ResponseOnOperationSuccess = 0xF04,
+    ResponseOnUnavailableImage = 0xF05,
+    ResponseOnExclusivePublicationReady = 0xF06,
+    ResponseOnSubscriptionReady = 0xF07,
+    ResponseOnCounterReady = 0xF08,
+    ResponseOnUnavailableCounter = 0xF9,
+    ResponseOnClientTimeout = 0xF0A,
 
-/** Error Response */
-pub(crate) const ON_ERROR: i32 = 0x0F01;
-/** New image Buffer Notification */
-pub(crate) const ON_AVAILABLE_IMAGE: i32 = 0x0F02;
-/** New pub(crate)lication Buffer Notification */
-pub(crate) const ON_PUBLICATION_READY: i32 = 0x0F03;
-/** Operation Succeeded */
-pub(crate) const ON_OPERATION_SUCCESS: i32 = 0x0F04;
-/** Inform client of timeout and removal of inactive image */
-pub(crate) const ON_UNAVAILABLE_IMAGE: i32 = 0x0F05;
-/** New Exclusive Publication Buffer notification */
-pub(crate) const ON_EXCLUSIVE_PUBLICATION_READY: i32 = 0x0F06;
-/** New subscription notification */
-pub(crate) const ON_SUBSCRIPTION_READY: i32 = 0x0F07;
-/** New counter notification */
-pub(crate) const ON_COUNTER_READY: i32 = 0x0F08;
-/** inform clients of removal of counter */
-pub(crate) const ON_UNAVAILABLE_COUNTER: i32 = 0x0F09;
-/** inform clients of client timeout */
-pub(crate) const ON_CLIENT_TIMEOUT: i32 = 0x0F0A;
+    #[cfg(test)]
+    UnitTestMessageTypeID = 0x65,
+}
+
+impl AeronCommand {
+    pub fn from_command_id(command_id: i32) -> Self {
+        match command_id {
+            -0x01 => Self::Padding,
+
+            0x01 => Self::AddPublication,
+            0x02 => Self::RemovePublication,
+            0x03 => Self::AddExclusivePublication,
+            0x04 => Self::AddSubscription,
+            0x05 => Self::RemoveSubscription,
+            0x06 => Self::ClientKeepAlive,
+            0x07 => Self::AddDestination,
+            0x08 => Self::RemoveDestination,
+            0x09 => Self::AddCounter,
+            0x0A => Self::RemoveCounter,
+            0x0B => Self::ClientClose,
+            0x0C => Self::AddRcvDestination,
+            0x0D => Self::RemoveRcvDestination,
+            0x0E => Self::TerminateDriver,
+
+            0xF01 => Self::ResponseOnError,
+            0xF02 => Self::ResponseOnAvailableImage,
+            0xF03 => Self::ResponseOnPublicationReady,
+            0xF04 => Self::ResponseOnOperationSuccess,
+            0xF05 => Self::ResponseOnUnavailableImage,
+            0xF06 => Self::ResponseOnExclusivePublicationReady,
+            0xF07 => Self::ResponseOnSubscriptionReady,
+            0xF08 => Self::ResponseOnCounterReady,
+            0xF9 => Self::ResponseOnUnavailableCounter,
+            0xF0A => Self::ResponseOnClientTimeout,
+
+            #[cfg(test)]
+            0x65 => Self::UnitTestMessageTypeID,
+            _ => unreachable!("Unexpected control protocol event: {}", command_id),
+        }
+    }
+}

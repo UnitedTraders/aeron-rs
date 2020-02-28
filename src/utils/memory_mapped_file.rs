@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-use std::fs::{File, OpenOptions};
-use std::path::{Path, PathBuf};
-use std::{fs, io};
-
-use memmap::{Mmap, MmapMut};
-
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
 use core::slice;
 use std::ffi::OsString;
-use std::ops::{Deref, DerefMut};
+use std::fs::OpenOptions;
+use std::ops::DerefMut;
+use std::path::Path;
+use std::{fs, io};
+
+use memmap::MmapMut;
+
+use crate::utils::types::Index;
 
 #[derive(Debug)]
 enum MemMappedFileError {
@@ -45,10 +44,10 @@ impl FileHandle {
             .write(true)
             .create(true)
             .open(&file_path)
-            .map_err(|err| MemMappedFileError::IOError(err))?;
+            .map_err(MemMappedFileError::IOError)?;
 
         unsafe { MmapMut::map_mut(&file) }
-            .map_err(|err| MemMappedFileError::IOError(err))
+            .map_err(MemMappedFileError::IOError)
             .map(move |mmap| Self { mmap, file_path })
     }
 }
@@ -66,7 +65,7 @@ impl MemoryMappedFile {
         0
     }
 
-    fn fill(fd: FileHandle, size: usize, value: *mut u8) -> bool {
+    fn fill(_fd: FileHandle, _size: usize, _value: *mut u8) -> bool {
         // std::unique_ptr < uint8_t[] > buffer(new uint8_t[m_page_size]);
         // memset(buffer.get(), value, m_page_size);
 
@@ -85,11 +84,11 @@ impl MemoryMappedFile {
         //         return false;
         //     }
         // }
-        return true;
+        true
     }
 
     fn create_new<P: AsRef<Path> + Into<OsString>>(path: P, offset: Index, size: Index) -> Result<Self, MemMappedFileError> {
-        let mut fd = FileHandle::read(path)?;
+        let fd = FileHandle::read(path)?;
         // self
 
         /*     FileHandle fd;
@@ -110,24 +109,24 @@ impl MemoryMappedFile {
                     throw IOException(std::string("failed to write to file: ") + filename, SOURCEINFO);
                 }
         */
-        return Self::from_file_handle(fd, offset, size, false);
+        Self::from_file_handle(fd, offset, size, false)
     }
 
     fn from_file_handle(
         mut fd: FileHandle,
         offset: Index,
         mut length: Index,
-        read_only: bool,
+        _read_only: bool,
     ) -> Result<Self, MemMappedFileError> {
         if 0 == length && 0 == offset {
-            let metadata = fs::metadata(&fd.file_path).map_err(|err| MemMappedFileError::IOError(err))?;
+            let metadata = fs::metadata(&fd.file_path).map_err(MemMappedFileError::IOError)?;
 
             length = metadata.len() as isize;
             eprintln!("length = {:?}", length);
         }
 
         let x1 = fd.mmap.deref_mut();
-        let ptr = unsafe { x1.as_mut_ptr() };
+        let ptr = x1.as_mut_ptr();
 
         let x = Self {
             ptr,
@@ -183,13 +182,10 @@ impl MemoryMappedFile {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{ErrorKind, Write};
+    use std::fs::{File, OpenOptions};
+    use std::path::PathBuf;
 
     use super::*;
-    use crate::utils::memory_mapped_file::MemMappedFileError::IOError;
-    use std::fs;
-    use std::fs::OpenOptions;
-    use std::path::PathBuf;
 
     #[test]
     #[should_panic]
@@ -200,11 +196,11 @@ mod tests {
     fn create_file() -> (File, PathBuf) {
         let tmp_dir = tempfile::tempdir().unwrap();
         let file_path = tmp_dir.path().join("mapped.file");
-        let mut tmp_file = File::create(file_path.clone()).unwrap();
-        tmp_file.set_len(10);
+        let tmp_file = File::create(file_path.clone()).unwrap();
+        tmp_file.set_len(10).ok();
 
         eprintln!("file_path = {:?}", file_path);
-        tmp_file.sync_data();
+        tmp_file.sync_data().ok();
         (tmp_file, file_path)
     }
 
@@ -212,8 +208,8 @@ mod tests {
     fn test_file_size() {
         let tmp_dir = tempfile::tempdir().unwrap();
         let file_path = tmp_dir.path().join("mapped.file");
-        let mut tmp_file = File::create(file_path.clone()).unwrap();
-        tmp_file.set_len(10);
+        let tmp_file = File::create(file_path.clone()).unwrap();
+        tmp_file.set_len(10).ok();
 
         // tmp_file.sync_data();
 
@@ -226,17 +222,16 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let file_path = tmp_dir.path().join("mapped.file");
         eprintln!("file_path = {:?}", file_path);
-        let mut tmp_file = OpenOptions::new()
+        let tmp_file = OpenOptions::new()
             .write(true)
             .create_new(true)
             .create(true)
             .truncate(true)
-            .append(true)
             .open(&file_path)
             .unwrap();
 
         let size = 10000 as Index;
-        tmp_file.set_len(size as u64);
+        tmp_file.set_len(size as u64).ok();
 
         {
             let mut file = MemoryMappedFile::create_new(file_path.clone(), 0, size as isize).unwrap();
@@ -247,7 +242,7 @@ mod tests {
             }
         }
 
-        let mut file = MemoryMappedFile::map_existing_full(file_path, true).unwrap();
+        let file = MemoryMappedFile::map_existing_full(file_path, true).unwrap();
 
         for n in 0..size as usize {
             let b = file.memory_ptr();

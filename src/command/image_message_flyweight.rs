@@ -67,18 +67,18 @@ impl ImageMessageFlyweight {
     // Getters
 
     #[inline]
-    pub unsafe fn correlation_id(&self) -> i64 {
-        (*self.flyweight.m_struct).correlation_id
+    pub fn correlation_id(&self) -> i64 {
+        unsafe { (*self.flyweight.m_struct).correlation_id }
     }
 
     #[inline]
-    pub unsafe fn subscription_registration_id(&self) -> i64 {
-        (*self.flyweight.m_struct).subscription_registration_id
+    pub fn subscription_registration_id(&self) -> i64 {
+        unsafe { (*self.flyweight.m_struct).subscription_registration_id }
     }
 
     #[inline]
-    pub unsafe fn stream_id(&self) -> i32 {
-        (*self.flyweight.m_struct).stream_id
+    pub fn stream_id(&self) -> i32 {
+        unsafe { (*self.flyweight.m_struct).stream_id }
     }
 
     #[inline]
@@ -87,25 +87,31 @@ impl ImageMessageFlyweight {
     }
 
     #[inline]
-    pub unsafe fn length(&self) -> Index {
-        offset_of!(ImageMessageDefn, channel_data) + (*self.flyweight.m_struct).channel_length as Index
+    pub fn length(&self) -> Index {
+        unsafe { offset_of!(ImageMessageDefn, channel_data) + (*self.flyweight.m_struct).channel_length as Index }
     }
 
     // Setters
 
     #[inline]
-    pub unsafe fn set_correlation_id(&mut self, value: i64) {
-        (*self.flyweight.m_struct).correlation_id = value;
+    pub fn set_correlation_id(&mut self, value: i64) {
+        unsafe {
+            (*self.flyweight.m_struct).correlation_id = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_subscription_registration_id(&mut self, value: i64) {
-        (*self.flyweight.m_struct).subscription_registration_id = value;
+    pub fn set_subscription_registration_id(&mut self, value: i64) {
+        unsafe {
+            (*self.flyweight.m_struct).subscription_registration_id = value;
+        }
     }
 
     #[inline]
-    pub unsafe fn set_stream_id(&mut self, value: i32) {
-        (*self.flyweight.m_struct).stream_id = value;
+    pub fn set_stream_id(&mut self, value: i32) {
+        unsafe {
+            (*self.flyweight.m_struct).stream_id = value;
+        }
     }
 
     #[inline]

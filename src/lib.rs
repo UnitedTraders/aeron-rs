@@ -6,7 +6,6 @@
 
 pub mod aeron;
 pub mod command;
-pub mod commands;
 pub mod concurrent;
 pub mod context;
 pub mod driver_listener_adapter;

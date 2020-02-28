@@ -48,9 +48,11 @@ pub fn find_next_power_of_two_i64(mut value: i64) -> i64 {
     let mut i: i64 = 1;
 
     loop {
-        if i >= std::mem::size_of::<i64>() as i64 * 8 {break;}
+        if i >= std::mem::size_of::<i64>() as i64 * 8 {
+            break;
+        }
         value |= value >> i;
-        i = i * 2;
+        i *= 2;
     }
 
     value + 1
