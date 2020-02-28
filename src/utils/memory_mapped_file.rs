@@ -22,10 +22,11 @@ use std::{fs, io};
 
 use memmap::MmapMut;
 
+use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
 #[derive(Debug)]
-enum MemMappedFileError {
+pub enum MemMappedFileError {
     IOError(io::Error),
 }
 
@@ -67,7 +68,7 @@ impl FileHandle {
 }
 
 #[derive(Debug)]
-pub(crate) struct MemoryMappedFile {
+pub struct MemoryMappedFile {
     ptr: *mut u8,
     fd: FileHandle,
     memory_size: Index,
@@ -156,6 +157,10 @@ impl MemoryMappedFile {
 
     pub fn memory_size(&self) -> Index {
         self.memory_size
+    }
+
+    pub fn atomic_buffer(&self, offset: Index, size: Index) -> AtomicBuffer {
+        unsafe { AtomicBuffer::new(self.ptr.offset(offset), size) }
     }
 }
 

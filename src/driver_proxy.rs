@@ -13,11 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+use std::ffi::CString;
 
 use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
+use crate::utils::errors::AeronError;
+use crate::commands::AeronCommand;
+use crate::command::publication_message_flyweight::PublicationMessageFlyweight;
+use crate::command::control_protocol_events;
+use crate::command::remove_message_flyweight::RemoveMessageFlyweight;
+use crate::command::subscription_message_flyweight::SubscriptionMessageFlyweight;
+use crate::command::correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH};
+use crate::command::destination_message_flyweight::DestinationMessageFlyweight;
+use crate::command::counter_message_flyweight::CounterMessageFlyweight;
+use crate::command::terminate_driver_flyweight::TerminateDriverFlyweight;
 
 pub(crate) struct DriverProxy<'a> {
     to_driver_command_buffer: &'a ManyToOneRingBuffer,
@@ -41,297 +51,271 @@ impl<'a> DriverProxy<'a> {
         self.client_id
     }
 
-    pub fn add_publication(&self, channel: &str, stream_id: i32) -> i64 {
+    pub fn add_publication(&self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
         let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
-        writeCommandToDriver([&](AtomicBuffer & buffer, util::index_t & length) {
-            PublicationMessageFlyweight publicationMessage(buffer, 0);
+        self.write_command_to_driver(| buffer,length| {
+            let mut publication_message = PublicationMessageFlyweight::new(buffer, 0);
 
-            publicationMessage.clientId(self.client_id);
-            publicationMessage.correlation_id(correlation_id);
-            publicationMessage.stream_id(stream_id);
-            publicationMessage.channel(channel);
+            publication_message.set_client_id(self.client_id);
+            publication_message.set_correlation_id(correlation_id);
+            publication_message.set_stream_id(stream_id);
+            publication_message.set_channel(channel.as_bytes_with_nul());
 
-            length = publicationMessage.length();
+            *length = publication_message.length();
 
-            return ControlProtocolEvents::ADD_PUBLICATION;
+            Ok(control_protocol_events::ADD_PUBLICATION)
         });
 
-        correlation_idx`
+        Ok(correlation_id)
     }
 
-    std::int64_t addExclusivePublication(const std::string & channel, std::int32_t stream_id)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    pub fn add_exclusive_publication(&self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+        self.write_command_to_driver(| buffer,length| {
+            let mut publication_message = PublicationMessageFlyweight::new(buffer, 0);
 
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    PublicationMessageFlyweight publicationMessage(buffer, 0);
+            publication_message.set_client_id(self.client_id);
+            publication_message.set_correlation_id(correlation_id);
+            publication_message.set_stream_id(stream_id);
+            publication_message.set_channel(channel.as_bytes_with_nul());
 
-    publicationMessage.clientId( self.client_id);
-    publicationMessage.correlation_id(correlation_id);
-    publicationMessage.stream_id(stream_id);
-    publicationMessage.channel(channel);
+            *length = publication_message.length();
 
-    length = publicationMessage.length();
+            Ok(control_protocol_events::ADD_EXCLUSIVE_PUBLICATION)
+        });
 
-    return ControlProtocolEvents::ADD_EXCLUSIVE_PUBLICATION;
-    });
-
-    return correlation_id;
+        Ok(correlation_id)
     }
 
-    std::int64_t removePublication(std::int64_t registrationId)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    RemoveMessageFlyweight removeMessage(buffer, 0);
-
-    removeMessage.clientId( self.client_id);
-    removeMessage.correlation_id(correlation_id);
-    removeMessage.registrationId(registrationId);
-
-    length = RemoveMessageFlyweight::length();
-
-    return ControlProtocolEvents::REMOVE_PUBLICATION;
-    });
-
-    return correlation_id;
+    pub fn remove_publication(&self, registration_id: i64) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut remove_message = RemoveMessageFlyweight::new(buffer, 0);
+        
+            remove_message.set_client_id(self.client_id);
+            remove_message.set_correlation_id(correlation_id);
+            remove_message.set_registration_id(registration_id);
+        
+            *length = remove_message.length();
+        
+            Ok(control_protocol_events::REMOVE_PUBLICATION)
+        });
+    
+        Ok(correlation_id)
     }
 
-    std::int64_t addSubscription(const std::string & channel, std::int32_t stream_id)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    pub fn add_subscription(&self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    SubscriptionMessageFlyweight subscriptionMessage(buffer, 0);
+        self.write_command_to_driver(| buffer,length| {
+            let mut subscription_message = SubscriptionMessageFlyweight::new(buffer, 0);
 
-    subscriptionMessage.clientId( self.client_id);
-    subscriptionMessage.registrationCorrelationId( - 1);
-    subscriptionMessage.correlation_id(correlation_id);
-    subscriptionMessage.stream_id(stream_id);
-    subscriptionMessage.channel(channel);
+            subscription_message.set_client_id(self.client_id);
+            subscription_message.set_registration_correlation_id( - 1);
+            subscription_message.set_correlation_id(correlation_id);
+            subscription_message.set_stream_id(stream_id);
+            subscription_message.set_channel(channel.as_bytes_with_nul());
 
-    length = subscriptionMessage.length();
+            *length = subscription_message.length();
 
-    return ControlProtocolEvents::ADD_SUBSCRIPTION;
-    });
+            Ok(control_protocol_events::ADD_SUBSCRIPTION)
+        });
 
-    return correlation_id;
+        Ok(correlation_id)
     }
 
-    std::int64_t removeSubscription(std::int64_t registrationId)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    RemoveMessageFlyweight removeMessage(buffer, 0);
-
-    removeMessage.clientId( self.client_id);
-    removeMessage.correlation_id(correlation_id);
-    removeMessage.registrationId(registrationId);
-
-    length = RemoveMessageFlyweight::length();
-
-    return ControlProtocolEvents::REMOVE_SUBSCRIPTION;
-    });
-    return correlation_id;
+    pub fn remove_subscription(&self, registration_id: i64) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut remove_message = RemoveMessageFlyweight::new(buffer, 0);
+        
+            remove_message.set_client_id(self.client_id);
+            remove_message.set_correlation_id(correlation_id);
+            remove_message.set_registration_id(registration_id);
+        
+            *length = remove_message.length();
+        
+            Ok(control_protocol_events::REMOVE_SUBSCRIPTION)
+        });
+        Ok(correlation_id)
     }
 
-    void sendClientKeepalive()
-    {
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    CorrelatedMessageFlyweight correlatedMessage(buffer, 0);
-
-    correlatedMessage.clientId( self.client_id);
-    correlatedMessage.correlation_id(0);
-
-    length = CORRELATED_MESSAGE_LENGTH;
-
-    return ControlProtocolEvents::CLIENT_KEEPALIVE;
-    });
+    pub fn send_client_keepalive(&self) {
+        self.write_command_to_driver(| buffer,length| {
+            let mut correlated_message = CorrelatedMessageFlyweight::new(buffer, 0);
+        
+            correlated_message.set_client_id(self.client_id);
+            correlated_message.set_correlation_id(0);
+        
+            *length = CORRELATED_MESSAGE_LENGTH;
+        
+            Ok(control_protocol_events::CLIENT_KEEPALIVE)
+        });
     }
 
-    std::int64_t addDestination(std::int64_t publicationRegistrationId, const std::string & channel)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    DestinationMessageFlyweight addMessage(buffer, 0);
-
-    addMessage.clientId( self.client_id);
-    addMessage.registrationId(publicationRegistrationId);
-    addMessage.correlation_id(correlation_id);
-    addMessage.channel(channel);
-
-    length = addMessage.length();
-
-    return ControlProtocolEvents::ADD_DESTINATION;
-    });
-
-    return correlation_id;
+    pub fn add_destination(&self, publication_registration_id: i64, channel: CString) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut add_message = DestinationMessageFlyweight::new(buffer, 0);
+        
+            add_message.set_client_id(self.client_id);
+            add_message.set_registration_id(publication_registration_id);
+            add_message.set_correlation_id(correlation_id);
+            add_message.set_channel(channel.as_bytes_with_nul());
+        
+            *length = add_message.length();
+        
+            Ok(control_protocol_events::ADD_DESTINATION)
+        });
+    
+        Ok(correlation_id)
     }
 
-    std::int64_t removeDestination(std::int64_t publicationRegistrationId, const std::string & channel)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    DestinationMessageFlyweight removeMessage(buffer, 0);
-
-    removeMessage.clientId( self.client_id);
-    removeMessage.registrationId(publicationRegistrationId);
-    removeMessage.correlation_id(correlation_id);
-    removeMessage.channel(channel);
-
-    length = removeMessage.length();
-
-    return ControlProtocolEvents::REMOVE_DESTINATION;
-    });
-
-    return correlation_id;
+    pub fn remove_destination(&self, publication_registration_id: i64, channel: CString) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut remove_message = DestinationMessageFlyweight::new(buffer, 0);
+        
+            remove_message.set_client_id( self.set_client_id);
+            remove_message.set_registration_id(publication_registration_id);
+            remove_message.set_correlation_id(correlation_id);
+            remove_message.set_channel(channel.as_bytes_with_nul());
+        
+            *length = remove_message.length();
+        
+            Ok(control_protocol_events::REMOVE_DESTINATION)
+        });
+    
+        Ok(correlation_id)
     }
 
-    std::int64_t addRcvDestination(std::int64_t subscriptionRegistrationId, const std::string & channel)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    DestinationMessageFlyweight addMessage(buffer, 0);
-
-    addMessage.clientId( self.client_id);
-    addMessage.registrationId(subscriptionRegistrationId);
-    addMessage.correlation_id(correlation_id);
-    addMessage.channel(channel);
-
-    length = addMessage.length();
-
-    return ControlProtocolEvents::ADD_RCV_DESTINATION;
-    });
-
-    return correlation_id;
+    pub fn add_rcv_destination(&self, subscription_registration_id: i64, channel: CString) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut add_message = DestinationMessageFlyweight::new(buffer, 0);
+        
+            add_message.set_client_id( self.set_client_id);
+            add_message.set_registration_id(subscription_registration_id);
+            add_message.set_correlation_id(correlation_id);
+            add_message.set_channel(channel.as_bytes_with_nul());
+        
+            *length = add_message.length();
+        
+            Ok(control_protocol_events::ADD_RCV_DESTINATION)
+        });
+    
+        Ok(correlation_id)
     }
 
-    std::int64_t removeRcvDestination(std::int64_t subscriptionRegistrationId, const std::string & channel)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
-
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    DestinationMessageFlyweight removeMessage(buffer, 0);
-
-    removeMessage.clientId( self.client_id);
-    removeMessage.registrationId(subscriptionRegistrationId);
-    removeMessage.correlation_id(correlation_id);
-    removeMessage.channel(channel);
-
-    length = removeMessage.length();
-
-    return ControlProtocolEvents::REMOVE_RCV_DESTINATION;
-    });
-
-    return correlation_id;
+    pub fn remove_rcv_destination(&self, subscription_registration_id: i64, channel: CString) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    
+        self.write_command_to_driver(| buffer,length| {
+            let mut remove_message = DestinationMessageFlyweight::new(buffer, 0);
+        
+            remove_message.set_client_id( self.set_client_id);
+            remove_message.set_registration_id(subscription_registration_id);
+            remove_message.set_correlation_id(correlation_id);
+            remove_message.set_channel(channel.as_bytes_with_nul());
+        
+            *length = remove_message.length();
+        
+            Ok(control_protocol_events::REMOVE_RCV_DESTINATION)
+        });
+    
+        Ok(correlation_id)
     }
 
-    std::int64_t addCounter(std::int32_t typeId, const std::uint8_t * key, std::size_t keyLength, const std::string & label)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    pub fn add_counter(&self, type_id: i32, key: &[u8], key_length: Index, label: CString) -> Result<i64, AeronError> {
 
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    CounterMessageFlyweight command(buffer, 0);
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
-    command.clientId( self.client_id);
-    command.correlation_id(correlation_id);
-    command.typeId(typeId);
-    command.keyBuffer(key, keyLength);
-    command.label(label);
+        self.write_command_to_driver(| buffer,length|
+        {
+            let mut command = CounterMessageFlyweight::new(buffer, 0);
 
-    length = command.length();
+            command.set_client_id( self.set_client_id);
+            command.set_correlation_id(correlation_id);
+            command.set_type_id(type_id);
+            command.set_key_buffer(key, key_length);
+            command.set_label(label.as_bytes_with_nul());
 
-    return ControlProtocolEvents::ADD_COUNTER;
-    });
+            *length = command.length();
 
-    return correlation_id;
+            Ok(control_protocol_events::ADD_COUNTER)
+        });
+
+        Ok(correlation_id)
     }
 
-    std::int64_t removeCounter(std::int64_t registrationId)
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    pub fn remove_counter(&self, registration_id: i64) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    RemoveMessageFlyweight command(buffer, 0);
+        self.write_command_to_driver(| buffer,length| {
+            let mut command = RemoveMessageFlyweight::new(buffer, 0);
 
-    command.clientId( self.client_id);
-    command.correlation_id(correlation_id);
-    command.registrationId(registrationId);
+            command.set_client_id( self.set_client_id);
+            command.set_correlation_id(correlation_id);
+            command.set_registration_id(registration_id);
 
-    length = RemoveMessageFlyweight::length();
+            *length = command.length();
 
-    return ControlProtocolEvents::REMOVE_COUNTER;
-    });
+            Ok(control_protocol_events::REMOVE_COUNTER)
+        });
 
-    return correlation_id;
+        Ok(correlation_id)
     }
 
-    std::int64_t clientClose()
-    {
-    std::int64_t correlation_id = self.to_driver_command_buffer.next_correlation_id();
+    pub fn client_close(&self) -> Result<i64, AeronError> {
+        let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
-    writeCommandToDriver([ & ](AtomicBuffer& buffer, util::index_t & length)
-    {
-    CorrelatedMessageFlyweight correlatedMessage(buffer, 0);
+        self.write_command_to_driver(| buffer,length| {
+            let mut correlated_message = CorrelatedMessageFlyweight::new(buffer, 0);
 
-    correlatedMessage.clientId( self.client_id);
-    correlatedMessage.correlation_id(correlation_id);
+            correlated_message.set_client_id( self.set_client_id);
+            correlated_message.set_correlation_id(correlation_id);
 
-    length = CORRELATED_MESSAGE_LENGTH;
+            *length = CORRELATED_MESSAGE_LENGTH;
 
-    return ControlProtocolEvents::CLIENT_CLOSE;
-    });
+            Ok(control_protocol_events::CLIENT_CLOSE)
+        });
 
-    return correlation_id;
+        Ok(correlation_id)
     }
 
-    void terminateDriver(const std::uint8_t * tokenBuffer, std::size_t tokenLength)
-    {
-    writeCommandToDriver([ & ](AtomicBuffer & buffer, util::index_t & length)
-    {
-    TerminateDriverFlyweight request(buffer, 0);
+    pub fn terminate_driver(&self, token_buffer: *const u8, token_length: Index) {
+        self.write_command_to_driver(| buffer,length| {
+            let mut request = TerminateDriverFlyweight::new(buffer, 0);
 
-    request.clientId( self.client_id);
-    request.correlation_id( - 1);
-    request.tokenBuffer(tokenBuffer, tokenLength);
+            request.set_client_id( self.set_client_id);
+            request.set_correlation_id( - 1);
+            request.set_token_buffer(token_buffer, token_length);
 
-    length = request.length();
+            *length = request.length();
 
-    return ControlProtocolEvents::TERMINATE_DRIVER;
-    });
+            Ok(control_protocol_events::TERMINATE_DRIVER)
+        });
     }
 
-    private:
-    typedef std::array < std::uint8_t, 512 > driver_proxy_command_buffer_t;
-
-
-    fn write_command_to_driver<T>(&self, filler: T) {
+    fn write_command_to_driver<T>(&self, filler: impl Fn(AtomicBuffer, &mut Index)->Result<i32, AeronError>) -> Result<(), AeronError>{
         let message_buffer = DriverProxyCommandBuffer::default();
         let buffer = AtomicBuffer::new(&message_buffer.data[0] as *mut u8, message_buffer.data.len() as Index);
-        let length = buffer.capacity();
+        let mut length = buffer.capacity();
 
-        let msg_type_id = filler(buffer, length);
+        // Filler returns not only msg type but also actual msg length via mut ref length param.
+        let msg_type_id = filler(buffer, &mut length)?;
 
-        if !self.to_driver_command_buffer.write(msg_type_id, buffer, 0, length) {
-            throw util::IllegalStateException("couldn't write command to driver", SOURCEINFO);
+        if !self.to_driver_command_buffer.write(AeronCommand::from_header(msg_type_id).expect("Unknown message type"), buffer.as_slice(), length) {
+            return Err(AeronError::IllegalStateException(String::from("couldn't write command to driver")));
         }
+        
+        Ok(())
     }
 }
 
@@ -350,4 +334,3 @@ impl Default for DriverProxyCommandBuffer {
         }
     }
 }
-
