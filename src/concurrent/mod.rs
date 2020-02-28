@@ -7,3 +7,4 @@ pub mod position;
 pub mod reports;
 pub mod ring_buffer;
 pub mod status;
+pub mod strategies;
