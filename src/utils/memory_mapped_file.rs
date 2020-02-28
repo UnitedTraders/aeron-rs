@@ -54,7 +54,7 @@ impl FileHandle {
 }
 
 #[derive(Debug)]
-struct MemoryMappedFile {
+pub(crate) struct MemoryMappedFile {
     ptr: *mut u8,
     fd: FileHandle,
     memory_size: Index,
