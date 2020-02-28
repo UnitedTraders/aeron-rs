@@ -19,8 +19,8 @@ use lazy_static::lazy_static;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
 use crate::utils::bit_utils::is_power_of_two;
-use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::errors::AeronError;
+use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::types::I64_SIZE;
 use crate::utils::types::{Index, I32_SIZE};
 
