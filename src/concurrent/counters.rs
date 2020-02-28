@@ -71,11 +71,11 @@ use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZ
  *  +---------------------------------------------------------------+
  */
 
-const NULL_COUNTER_ID: i32 = -1;
-const RECORD_UNUSED: i32 = 0;
-const RECORD_ALLOCATED: i32 = 1;
-const RECORD_RECLAIMED: i32 = -1;
-const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
+pub const NULL_COUNTER_ID: i32 = -1;
+pub const RECORD_UNUSED: i32 = 0;
+pub const RECORD_ALLOCATED: i32 = 1;
+pub const RECORD_RECLAIMED: i32 = -1;
+pub const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
 
 const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
 const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
@@ -148,6 +148,7 @@ lazy_static! {
     pub static ref FREE_TO_REUSE_DEADLINE_OFFSET: Index = offset_of!(CounterMetaDataDefn, free_to_reuse_deadline) as Index;
     pub static ref LABEL_LENGTH_OFFSET: Index = offset_of!(CounterMetaDataDefn, label_length) as Index;
     pub static ref KEY_OFFSET: Index = offset_of!(CounterMetaDataDefn, key) as Index;
+    pub static ref TYPE_ID_OFFSET: Index = offset_of!(CounterMetaDataDefn, type_id) as Index;
 }
 
 pub struct CountersReader {
