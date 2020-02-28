@@ -88,6 +88,22 @@ impl CounterMessageFlyweight {
     }
 
     #[inline]
+    pub fn set_key_buffer(&mut self, key: *const u8, key_length: Index) {
+        self.correlated_message_flyweight
+            .flyweight
+            .put::<i32>(self.key_length_offset(), key_length as i32);
+
+        if key_length > 0 {
+            unsafe {
+                self.correlated_message_flyweight.flyweight.put_bytes(
+                    self.key_length_offset() + I32_SIZE,
+                    ::std::slice::from_raw_parts(key, key_length as usize),
+                );
+            }
+        }
+    }
+
+    #[inline]
     pub fn key_length(&self) -> i32 {
         let length: i32 = 0;
 

@@ -17,7 +17,6 @@
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::counters::CountersReader;
 use crate::utils::types::{Index, I64_SIZE};
-use lazy_static::lazy_static;
 
 const CHANNEL_ENDPOINT_INITIALIZING: i64 = 0;
 const CHANNEL_ENDPOINT_ERRORED: i64 = -1;
