@@ -14,4 +14,4 @@ pub mod driver_listener_adapter;
 pub mod buffer_builder;
 pub mod protocol;
 pub mod utils;
-//pub mod cnc_file_descriptor;
+pub mod cnc_file_descriptor;
