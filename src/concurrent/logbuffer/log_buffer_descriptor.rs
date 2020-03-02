@@ -29,7 +29,7 @@ const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
 const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
 const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
-const PARTITION_COUNT: Index = 3;
+pub const PARTITION_COUNT: Index = 3;
 
 /*
  * Layout description for log buffers which contains partitions of terms with associated term meta data,
@@ -48,7 +48,7 @@ const PARTITION_COUNT: Index = 3;
  * </pre>
  */
 
-const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
+pub const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
 
 /**
  * <pre>
