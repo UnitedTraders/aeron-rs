@@ -19,6 +19,7 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum AeronError {
+    GenericError(String),
     IllegalArgumentException(String),
     IllegalStateException(String),
 }
@@ -26,6 +27,7 @@ pub enum AeronError {
 impl Display for AeronError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            AeronError::GenericError(msg) => write!(f, "Aeron error: {}", msg),
             AeronError::IllegalArgumentException(msg) => write!(f, "Illegal argument: {}", msg),
             AeronError::IllegalStateException(msg) => write!(f, "Illegal state: {}", msg),
         }
