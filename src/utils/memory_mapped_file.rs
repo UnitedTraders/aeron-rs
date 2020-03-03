@@ -80,6 +80,11 @@ impl MemoryMappedFile {
         0
     }
 
+    pub(crate) fn file_size<P: AsRef<Path>>(file: P) -> Result<u64, MemMappedFileError> {
+        let metadata = fs::metadata(file).map_err(MemMappedFileError::IOError)?;
+        Ok(metadata.len())
+    }
+
     // fn fill(fd: FileHandle, size: usize, value: *mut u8) -> bool {
     // std::unique_ptr < uint8_t[] > buffer(new uint8_t[m_page_size]);
     // memset(buffer.get(), value, m_page_size);
@@ -102,7 +107,7 @@ impl MemoryMappedFile {
     // true
     // }
 
-    fn create_new<P: AsRef<Path> + Into<OsString>>(path: P, offset: Index, size: Index) -> Result<Self, MemMappedFileError> {
+    pub fn create_new<P: AsRef<Path> + Into<OsString>>(path: P, offset: Index, size: Index) -> Result<Self, MemMappedFileError> {
         let fd = FileHandle::create(path, size)?;
         //todo fill
         Self::from_file_handle(fd, offset, size, false)
@@ -115,9 +120,7 @@ impl MemoryMappedFile {
         _read_only: bool,
     ) -> Result<Self, MemMappedFileError> {
         if 0 == length && 0 == offset {
-            let metadata = fs::metadata(&fd.file_path).map_err(MemMappedFileError::IOError)?;
-
-            length = metadata.len() as isize;
+            length = Self::file_size(&fd.file_path)? as isize;
         }
 
         let mmf = Self {

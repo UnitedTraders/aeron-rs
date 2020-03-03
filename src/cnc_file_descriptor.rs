@@ -70,8 +70,8 @@ use crate::utils::{bit_utils, misc};
 * </pre>
 */
 
-static CNC_FILE: &str = "cnc.dat";
-const CNC_VERSION: i32 = 16;
+pub(crate) static CNC_FILE: &str = "cnc.dat";
+pub(crate) const CNC_VERSION: i32 = 16;
 
 #[derive(Copy, Clone)]
 #[repr(C, packed(4))]
@@ -92,13 +92,13 @@ lazy_static! {
         bit_utils::align(std::mem::size_of::<MetaDataDefn>() as Index, misc::CACHE_LINE_LENGTH * 2);
 }
 
-pub fn cnc_version_volatile(cnc_file: MemoryMappedFile) -> i32 {
+pub fn cnc_version_volatile(cnc_file: &MemoryMappedFile) -> i32 {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     meta_data_buffer.get_volatile::<i32>(offset_of!(MetaDataDefn, cnc_version))
 }
 
-pub fn create_to_driver_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
+pub fn create_to_driver_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -106,7 +106,7 @@ pub fn create_to_driver_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
     cnc_file.atomic_buffer(*META_DATA_LENGTH, meta_data.to_driver_buffer_length as Index)
 }
 
-pub fn create_to_clients_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
+pub fn create_to_clients_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -116,7 +116,7 @@ pub fn create_to_clients_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
     )
 }
 
-pub fn create_counter_metadata_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
+pub fn create_counter_metadata_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -127,7 +127,7 @@ pub fn create_counter_metadata_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffe
     )
 }
 
-pub fn create_counter_values_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
+pub fn create_counter_values_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -140,7 +140,7 @@ pub fn create_counter_values_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer 
     )
 }
 
-pub fn create_error_log_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
+pub fn create_error_log_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -154,7 +154,7 @@ pub fn create_error_log_buffer(cnc_file: MemoryMappedFile) -> AtomicBuffer {
     )
 }
 
-pub fn client_liveness_timeout(cnc_file: MemoryMappedFile) -> i64 {
+pub fn client_liveness_timeout(cnc_file: &MemoryMappedFile) -> i64 {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -162,7 +162,7 @@ pub fn client_liveness_timeout(cnc_file: MemoryMappedFile) -> i64 {
     meta_data.client_liveness_timeout
 }
 
-pub fn start_timestamp(cnc_file: MemoryMappedFile) -> i64 {
+pub fn start_timestamp(cnc_file: &MemoryMappedFile) -> i64 {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);
@@ -170,7 +170,7 @@ pub fn start_timestamp(cnc_file: MemoryMappedFile) -> i64 {
     meta_data.start_timestamp
 }
 
-pub fn pid(cnc_file: MemoryMappedFile) -> i64 {
+pub fn pid(cnc_file: &MemoryMappedFile) -> i64 {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
     let meta_data = meta_data_buffer.get::<MetaDataDefn>(0);

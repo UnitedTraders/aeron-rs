@@ -41,6 +41,27 @@ pub fn semantic_version_compose(major: i32, minor: i32, patch: i32) -> i32 {
     (major << 16) | (minor << 8) | patch
 }
 
+pub fn semantic_version_major(version: i32) -> u8 {
+    ((version >> 16) & 0xFF) as u8
+}
+
+pub fn semantic_version_minor(version: i32) -> u8 {
+    ((version >> 8) & 0xFF) as u8
+}
+
+pub fn semantic_version_patch(version: i32) -> u8 {
+    (version & 0xFF) as u8
+}
+
+pub fn semantic_version_to_string(version: i32) -> String {
+    format!(
+        "{}.{}.{}",
+        semantic_version_major(version),
+        semantic_version_minor(version),
+        semantic_version_patch(version)
+    )
+}
+
 #[allow(dead_code)]
 /// Allocate a buffer aligned on the cache size
 pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
