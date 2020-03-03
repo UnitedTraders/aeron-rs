@@ -25,7 +25,7 @@ const BUFFER_BUILDER_MAX_CAPACITY: Index = std::u32::MAX as Index - 8;
 
 // This type must not impl Copy! Only move semantics is allowed.
 // BufferBuilder owns memory (allocates / deallocates it)
-struct BufferBuilder {
+pub struct BufferBuilder {
     capacity: Index,
     limit: Index,
     buffer: *mut u8,
@@ -76,10 +76,10 @@ impl BufferBuilder {
 
     pub fn append(
         &mut self,
-        buffer: AtomicBuffer,
+        buffer: &AtomicBuffer,
         offset: Index,
         length: Index,
-        _header: Header,
+        _header: &Header,
     ) -> Result<&BufferBuilder, AeronError> {
         self.ensure_capacity(length)?;
 
