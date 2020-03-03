@@ -19,7 +19,7 @@ impl LogBuffers {
         let log_len = MemoryMappedFile::file_size(&file_path).map_err(AeronError::MemMappedFileError)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
-        let atomic_buffer = memory_mapped_file.atomic_buffer(0, log_len as isize);
+        let _atomic_buffer = memory_mapped_file.atomic_buffer(0, log_len as isize);
 
         let meta_buffer = memory_mapped_file.atomic_buffer(
             (log_len as Index) - log_buffer_descriptor::LOG_META_DATA_LENGTH,
@@ -48,7 +48,7 @@ impl LogBuffers {
         })
     }
 
-    pub fn atomic_buffer(&self, index: Index) -> AtomicBuffer {
+    pub fn atomic_buffer(&self, _index: Index) -> AtomicBuffer {
         self.memory_mapped_file.atomic_buffer(0, 0)
     }
 }
@@ -69,7 +69,7 @@ mod tests {
         // tmp_file.sync_data();
 
         let buffers = LogBuffers::from_existing(file_path).unwrap();
-        let buffer = buffers.atomic_buffer(0);
+        let _buffer = buffers.atomic_buffer(0);
 
         // assert_eq!(file.memory_size(), 128);
 
