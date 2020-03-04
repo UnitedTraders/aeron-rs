@@ -151,11 +151,14 @@ impl<'a> TermAppender<'a> {
     }
 
     // Appends unfrag message which is inside several AtomicBuffers passed as Vec
-    pub fn append_unfragmented_message_bulk(&self, header: &HeaderWriter,
-                                                    buffers: Vec<AtomicBuffer>,
-                                                    length: Index,
-                                                    reserved_value_supplier: OnReservedValueSupplier,
-                                                    active_term_id: i32) -> Result<Index, AeronError> {
+    pub fn append_unfragmented_message_bulk(
+        &self,
+        header: &HeaderWriter,
+        buffers: Vec<AtomicBuffer>,
+        length: Index,
+        reserved_value_supplier: OnReservedValueSupplier,
+        active_term_id: i32,
+    ) -> Result<Index, AeronError> {
         let frame_length: Index = length + data_frame_header::LENGTH;
         let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
         let raw_tail: i64 = self.get_and_add_raw_tail(aligned_length);
@@ -169,7 +172,8 @@ impl<'a> TermAppender<'a> {
         let mut resulting_offset = term_offset + aligned_length as i64;
 
         if resulting_offset > term_length as i64 {
-            resulting_offset = TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
+            resulting_offset =
+                TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let frame_offset = term_offset as Index;
             header.write(self.term_buffer, frame_offset, frame_length, term_id);
@@ -187,12 +191,13 @@ impl<'a> TermAppender<'a> {
             }
 
             let reserved_value = reserved_value_supplier(self.term_buffer, frame_offset, frame_length);
-            self.term_buffer.put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
+            self.term_buffer
+                .put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
             frame_descriptor::set_frame_length_ordered(self.term_buffer, frame_offset, frame_length);
         }
 
-            Ok(resulting_offset as Index)
+        Ok(resulting_offset as Index)
     }
 
     // This fn copy supplied (in msg_body_buffer) message in to internal term_buffer

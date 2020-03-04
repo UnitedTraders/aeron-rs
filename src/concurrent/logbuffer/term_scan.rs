@@ -292,10 +292,7 @@ mod tests {
             data_frame_header::HDR_TYPE_DATA,
         );
         // Write next message length as 0 in to log
-        log.put_ordered::<i32>(
-            frame_descriptor::length_offset(aligned_message_length * 2),
-            message_length,
-        );
+        log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_message_length * 2), message_length);
         // Set type for second msg
         log.put::<u16>(
             frame_descriptor::type_offset(aligned_message_length * 2),
@@ -413,10 +410,7 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(
-            tail - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH,
-        );
+        log.put_ordered::<i32>(tail - frame_descriptor::ALIGNED_HEADER_LENGTH, data_frame_header::LENGTH);
         log.put_ordered::<i32>(tail, 0);
         log.put_ordered::<i32>(
             high_water_mark - frame_descriptor::ALIGNED_HEADER_LENGTH,
@@ -446,10 +440,7 @@ mod tests {
 
         log.set_memory(0, log.capacity(), 0);
 
-        log.put_ordered::<i32>(
-            tail - frame_descriptor::ALIGNED_HEADER_LENGTH,
-            data_frame_header::LENGTH,
-        );
+        log.put_ordered::<i32>(tail - frame_descriptor::ALIGNED_HEADER_LENGTH, data_frame_header::LENGTH);
         log.put_ordered::<i32>(tail, 0);
         log.put_ordered::<i32>(
             high_water_mark - frame_descriptor::ALIGNED_HEADER_LENGTH,
