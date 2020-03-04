@@ -73,7 +73,7 @@ impl AtomicBuffer {
     pub fn wrap_slice(slice: &mut [u8]) -> Self {
         AtomicBuffer {
             ptr: slice.as_mut_ptr(),
-            len: slice.len() as isize,
+            len: slice.len() as Index,
         }
     }
 
@@ -104,26 +104,26 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn bounds_check(&self, idx: Index, len: isize) {
+    pub fn bounds_check(&self, idx: Index, len: Index) {
         assert!((idx + len as Index) <= self.len)
     }
 
     #[inline]
     pub fn get<T: Copy>(&self, position: Index) -> T {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { *(self.at(position) as *mut T) }
     }
 
     // TODO: Change to mutable reference
     #[inline]
     pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { self.at(position) as *mut T }
     }
 
     #[inline]
     pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { &*(self.at(position) as *const T) }
     }
 
@@ -145,7 +145,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn get_volatile<T: Copy>(&self, position: Index) -> T {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         let read = self.get(position);
         fence(Ordering::Acquire);
         read
@@ -153,14 +153,14 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn put_ordered<T>(&self, position: Index, val: T) {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         fence(Ordering::Release);
         self.put(position, val);
     }
 
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
-        self.bounds_check(position, std::mem::size_of::<T>() as isize);
+        self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { *(self.at(position) as *mut T) = val }
     }
 
@@ -189,10 +189,10 @@ impl AtomicBuffer {
     // Put bytes in to this buffer at specified offset
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
-        self.bounds_check(offset, src.len() as isize);
+        self.bounds_check(offset, src.len() as Index);
 
         unsafe {
-            let ptr = self.ptr.offset(offset);
+            let ptr = self.ptr.offset(offset as isize);
             ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
         }
     }
@@ -243,7 +243,7 @@ impl AtomicBuffer {
     }
 
     pub fn as_sub_slice(&self, index: Index, len: Index) -> &[u8] {
-        self.bounds_check(index, len as isize);
+        self.bounds_check(index, len);
         // self.view(index, len).as_slice()
         unsafe { slice::from_raw_parts(self.at(index), len as usize) }
     }
@@ -254,11 +254,11 @@ impl AtomicBuffer {
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         let length: i32 = self.get::<i32>(offset);
-        self.get_string_without_length(offset + I32_SIZE, length as isize)
+        self.get_string_without_length(offset + I32_SIZE, length)
     }
 
     #[inline]
-    pub fn get_string_without_length(&self, offset: Index, length: isize) -> CString {
+    pub fn get_string_without_length(&self, offset: Index, length: Index) -> CString {
         self.bounds_check(offset, length);
 
         // Strings in Aeron are zero terminated and are not UTF-8 encoded.
@@ -281,7 +281,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn put_string(&self, offset: Index, string: &[u8]) {
-        self.bounds_check(offset, string.len() as isize + I32_SIZE);
+        self.bounds_check(offset, string.len() as Index + I32_SIZE);
 
         // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
         self.put::<i32>(offset, string.len() as i32);
@@ -291,11 +291,11 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn put_string_without_length(&self, offset: Index, string: &[u8]) -> Index {
-        self.bounds_check(offset, string.len() as isize);
+        self.bounds_check(offset, string.len() as Index);
 
         self.put_bytes(offset + I32_SIZE, string);
 
-        string.len() as isize
+        string.len() as Index
     }
 
     /**
@@ -306,7 +306,7 @@ impl AtomicBuffer {
      * @return the value before applying the delta.
      */
     pub fn get_and_add_i64(&self, offset: Index, delta: i64) -> i64 {
-        self.bounds_check(offset, I64_SIZE as isize);
+        self.bounds_check(offset, I64_SIZE);
         unsafe {
             let atomic_ptr = self.at(offset) as *const AtomicI64;
             (*atomic_ptr).fetch_add(delta, Ordering::SeqCst)

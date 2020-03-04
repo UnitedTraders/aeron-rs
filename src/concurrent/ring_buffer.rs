@@ -286,7 +286,7 @@ impl ManyToOneRingBuffer {
     }
 
     #[inline]
-    pub fn size(&self) -> i32 {
+    pub fn size(&self) -> Index {
         let mut tail: i64;
         let mut head_after = self.consumer_position();
 
@@ -296,7 +296,7 @@ impl ManyToOneRingBuffer {
             head_after = self.consumer_position();
 
             if head_after == head_before {
-                return (tail - head_after) as i32;
+                return (tail - head_after) as Index;
             }
         }
     }

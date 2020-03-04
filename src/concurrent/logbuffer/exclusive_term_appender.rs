@@ -35,7 +35,7 @@ impl<'a> ExclusiveTermAppender<'a> {
         // due to a bug elsewhere. Therefore don't need more sophisticated error handling.
         meta_data_buffer.bounds_check(
             *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (partition_index * I64_SIZE),
-            I64_SIZE as isize,
+            I64_SIZE,
         );
 
         Self {

@@ -91,7 +91,7 @@ impl CounterMessageFlyweight {
     pub fn set_key_buffer(&mut self, key: *const u8, key_length: Index) {
         self.correlated_message_flyweight
             .flyweight
-            .put::<i32>(self.key_length_offset(), key_length as i32);
+            .put::<i32>(self.key_length_offset(), key_length);
 
         if key_length > 0 {
             unsafe {
@@ -115,10 +115,10 @@ impl CounterMessageFlyweight {
     }
 
     #[inline]
-    pub fn label_length(&self) -> i32 {
+    pub fn label_length(&self) -> Index {
         self.correlated_message_flyweight
             .flyweight
-            .string_get_length(self.label_length_offset()) as i32
+            .string_get_length(self.label_length_offset())
     }
 
     #[inline]

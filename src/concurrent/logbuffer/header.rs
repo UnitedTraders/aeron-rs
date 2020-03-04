@@ -44,7 +44,7 @@ impl Header {
             context,
             initial_term_id,
             offset: 0,
-            position_bits_to_shift: number_of_trailing_zeroes(capacity as i32),
+            position_bits_to_shift: number_of_trailing_zeroes(capacity),
             buffer: None,
         }
     }
@@ -207,7 +207,7 @@ pub struct HeaderWriter {
 }
 
 impl HeaderWriter {
-    pub fn new(default_hdr: &AtomicBuffer) -> Self {
+    pub fn new(default_hdr: AtomicBuffer) -> Self {
         Self {
             session_id: default_hdr.get::<i32>(*data_frame_header::SESSION_ID_FIELD_OFFSET),
             stream_id: default_hdr.get::<i32>(*data_frame_header::STREAM_ID_FIELD_OFFSET),
@@ -218,14 +218,14 @@ impl HeaderWriter {
      * Write header in LITTLE_ENDIAN order
      */
     pub fn write(&self, term_buffer: &AtomicBuffer, offset: Index, length: Index, term_id: i32) {
-        term_buffer.put_ordered::<i32>(offset, -(length as i32));
+        term_buffer.put_ordered::<i32>(offset, -(length));
 
         let mut hdr = term_buffer.get::<DataFrameHeaderDefn>(offset);
 
         hdr.version = data_frame_header::CURRENT_VERSION;
         hdr.flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;
         hdr.frame_type = data_frame_header::HDR_TYPE_DATA;
-        hdr.term_offset = offset as i32;
+        hdr.term_offset = offset;
         hdr.session_id = self.session_id;
         hdr.stream_id = self.stream_id;
         hdr.term_id = term_id;

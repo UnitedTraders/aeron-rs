@@ -317,7 +317,7 @@ pub fn rotate_log(log_meta_data_buffer: &AtomicBuffer, current_term_count: i32, 
     let next_term_id = current_term_id + 1;
     let next_term_count = current_term_count + 1;
     let next_index = index_by_term_count(next_term_count as i64);
-    let expected_term_id = next_term_id - PARTITION_COUNT as i32;
+    let expected_term_id = next_term_id - PARTITION_COUNT;
     let new_raw_tail: i64 = next_term_id as i64 * (1_i64 << 32);
 
     let mut raw_tail: i64;

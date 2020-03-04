@@ -57,7 +57,7 @@ impl CopyBroadcastReceiver {
             let length = self.receiver.length() as Index;
             if length > self.scratch_buffer.capacity() {
                 return Err(BroadcastTransmitError::BufferTooSmall {
-                    need: length as isize,
+                    need: length,
                     capacity: self.scratch_buffer.capacity(),
                 });
             }

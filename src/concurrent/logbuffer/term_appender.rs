@@ -36,7 +36,7 @@ pub type OnReservedValueSupplier = fn(&AtomicBuffer, Index, Index) -> i64;
 
 pub const TERM_APPENDER_FAILED: Index = I32_SIZE - 2;
 
-fn default_reserved_value_supplier(_term_buffer: AtomicBuffer, _term_offset: Index, _length: Index) -> i64 {
+pub fn default_reserved_value_supplier(_term_buffer: AtomicBuffer, _term_offset: Index, _length: Index) -> i64 {
     0
 }
 
@@ -150,53 +150,50 @@ impl<'a> TermAppender<'a> {
         Ok(resulting_offset as Index)
     }
 
-    /* Looks like this generic fn is not used. Therefore leave it incomplete for now.
-     * It will need proper constraint on T to be fully functional.
-    pub fn append_unfragmented_message_buf_iter<T>(&self, header: &HeaderWriter,
-                                                    buffer_iter: T,
+    // Appends unfrag message which is inside several AtomicBuffers passed as Vec
+    pub fn append_unfragmented_message_bulk(&self, header: &HeaderWriter,
+                                                    buffers: Vec<AtomicBuffer>,
                                                     length: Index,
                                                     reserved_value_supplier: OnReservedValueSupplier,
-                                                    active_term_id: i32) -> i32 {
+                                                    active_term_id: i32) -> Result<Index, AeronError> {
         let frame_length: Index = length + data_frame_header::LENGTH;
         let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
-        let raw_tail: i64 = get_and_add_raw_tail(aligned_length);
+        let raw_tail: i64 = self.get_and_add_raw_tail(aligned_length);
         let term_offset: i64 = raw_tail & 0xFFFFFFFF;
         let term_id: i32 = log_buffer_descriptor::term_id(raw_tail);
 
-        let term_length: i32 = self.term_buffer.capacity();
+        let term_length = self.term_buffer.capacity();
 
-        check_term(active_term_id, term_id);
+        TermAppender::check_term(active_term_id, term_id)?;
 
         let mut resulting_offset = term_offset + aligned_length as i64;
 
         if resulting_offset > term_length as i64 {
-            resulting_offset = handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id);
+            resulting_offset = TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
-            let frame_offset: i32 = term_offset as i32;
+            let frame_offset = term_offset as Index;
             header.write(self.term_buffer, frame_offset, frame_length, term_id);
 
             let mut offset = frame_offset + data_frame_header::LENGTH;
 
-            loop {
+            for buf in buffers.iter() {
                 let ending_offset = offset + length;
                 if offset >= ending_offset {
                     break;
                 }
-                offset += buffer_iter.capacity();
-                buffer_iter.next();
+                offset += buf.capacity();
 
-                self.term_buffer.copy_from(offset, *buffer_iter, 0, buffer_iter.capacity());
+                self.term_buffer.copy_from(offset, buf, 0, buf.capacity());
             }
 
             let reserved_value = reserved_value_supplier(self.term_buffer, frame_offset, frame_length);
             self.term_buffer.put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
             frame_descriptor::set_frame_length_ordered(self.term_buffer, frame_offset, frame_length);
-            }
+        }
 
-            resulting_offset as i32
+            Ok(resulting_offset as Index)
     }
-    */
 
     // This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
     pub fn append_fragmented_message(
@@ -350,7 +347,7 @@ mod tests {
             let hidden_term_buffer = AtomicBuffer::from_aligned(&ht_buff);
 
             let $term_appender = TermAppender::new(&hidden_term_buffer, &$hidden_metadata_buffer, PARTITION_INDEX);
-            let $header_writer = HeaderWriter::new(&$hdr);
+            let $header_writer = HeaderWriter::new($hdr);
 
             $metadata_buffer.set_memory(0, $metadata_buffer.capacity(), 0);
             $term_buffer.set_memory(0, $term_buffer.capacity(), 0);
@@ -412,13 +409,13 @@ mod tests {
         let _prev_tail = hidden_metadata_buffer.get_and_add_i64(*TERM_TAIL_OFFSET, packed_tail);
 
         // Mark this message as pending
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length);
         // Copy the message from msg_body in to term buffer
         term_buffer.copy_from(data_frame_header::LENGTH, &msg_body, 0, msg_length);
         // Write reserved value i.e. reserve needed amount of term buffer
         term_buffer.put::<i64>(tail + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, RESERVED_VALUE);
         // Mark message as ready for transmission
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length);
 
         let resulting_offset =
             term_appender.append_unfragmented_message(&header_writer, &msg_body, 0, msg_length, reserved_value_supplier, TERM_ID);
@@ -450,10 +447,10 @@ mod tests {
         let packed_tail = pack_raw_tail(TERM_ID, tail);
         let _prev_tail = hidden_metadata_buffer.get_and_add_i64(*TERM_TAIL_OFFSET, packed_tail);
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length);
         term_buffer.copy_from(tail + data_frame_header::LENGTH, &msg_body, 0, msg_length);
         term_buffer.put::<i64>(tail + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, RESERVED_VALUE);
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length);
 
         let resulting_offset0 =
             term_appender.append_unfragmented_message(&header_writer, &msg_body, 0, msg_length, reserved_value_supplier, TERM_ID);
@@ -462,10 +459,10 @@ mod tests {
 
         tail = aligned_frame_length;
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length);
         term_buffer.copy_from(tail + data_frame_header::LENGTH, &msg_body, 0, msg_length);
         term_buffer.put::<i64>(tail + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, RESERVED_VALUE);
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length);
 
         let resulting_offset1 =
             term_appender.append_unfragmented_message(&header_writer, &msg_body, 0, msg_length, reserved_value_supplier, TERM_ID);
@@ -496,9 +493,9 @@ mod tests {
         let packed_tail = pack_raw_tail(TERM_ID, tail_value);
         let _prev_tail = hidden_metadata_buffer.get_and_add_i64(*TERM_TAIL_OFFSET, packed_tail);
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail_value), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail_value), -frame_length);
         term_buffer.put::<u16>(frame_descriptor::type_offset(tail_value), data_frame_header::HDR_TYPE_PAD);
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail_value), frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail_value), frame_length);
 
         let resulting_offset =
             term_appender.append_unfragmented_message(&header_writer, &msg_body, 0, msg_length, reserved_value_supplier, TERM_ID);
@@ -529,19 +526,19 @@ mod tests {
         let packed_tail = pack_raw_tail(TERM_ID, tail);
         let _prev_tail = hidden_metadata_buffer.get_and_add_i64(*TERM_TAIL_OFFSET, packed_tail);
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -MAX_FRAME_LENGTH as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -MAX_FRAME_LENGTH);
         term_buffer.copy_from(tail + data_frame_header::LENGTH, &msg_body, 0, MAX_PAYLOAD_LENGTH);
         term_buffer.put::<u8>(frame_descriptor::flags_offset(tail), frame_descriptor::BEGIN_FRAG);
         term_buffer.put::<i64>(tail + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, RESERVED_VALUE);
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), MAX_FRAME_LENGTH as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), MAX_FRAME_LENGTH);
 
         tail = MAX_FRAME_LENGTH;
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length);
         term_buffer.copy_from(tail + data_frame_header::LENGTH, &msg_body, MAX_PAYLOAD_LENGTH, 1);
         term_buffer.put::<u8>(frame_descriptor::flags_offset(tail), frame_descriptor::END_FRAG);
         term_buffer.put::<i64>(tail + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, RESERVED_VALUE);
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), frame_length);
 
         let resulting_offset = term_appender.append_fragmented_message(
             &header_writer,
@@ -580,7 +577,7 @@ mod tests {
         let packed_tail = pack_raw_tail(TERM_ID, tail);
         let _prev_tail = hidden_metadata_buffer.get_and_add_i64(*TERM_TAIL_OFFSET, packed_tail);
 
-        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length as i32);
+        term_buffer.put_ordered::<i32>(frame_descriptor::length_offset(tail), -frame_length);
 
         let resulting_offset = term_appender.claim(&header_writer, msg_length, &mut buffer_claim, TERM_ID);
         assert!(resulting_offset.is_ok());

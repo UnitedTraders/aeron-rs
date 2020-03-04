@@ -15,11 +15,9 @@
  */
 
 // Index type is used to express offset and size dimensions of data in buffers.
-// Originally it was i32 but it'c more handy (less type casts) to have it as isize.
-// We don't use usize as there are places where special "inverted" values with
-// minus sign added are used.
+// It is i32 because there are many places where "length: Index" is written in to log file where it must be 32 bits long.
 // DON'T USE THIS TYPE INSIDE PACKED STRUCTS AS ITS SIZE MAY CHANGE!!!
-pub type Index = isize;
+pub type Index = i32;
 
 // These are types USED inside "raw bytes packed" buffers and thus their size can't be changed
 pub type Moment = u64;

@@ -89,7 +89,7 @@ impl BroadcastTransmitter {
         }
 
         self.buffer
-            .put::<i32>(record_descriptor::length_offset(record_offset), record_length as i32);
+            .put::<i32>(record_descriptor::length_offset(record_offset), record_length);
         self.buffer
             .put::<i32>(record_descriptor::type_offset(record_offset), msg_type_id);
 
@@ -124,7 +124,7 @@ impl BroadcastTransmitter {
 
     fn insert_padding_record(&mut self, record_offset: Index, length: Index) {
         self.buffer
-            .put::<i32>(record_descriptor::length_offset(record_offset), length as i32);
+            .put::<i32>(record_descriptor::length_offset(record_offset), length);
         self.buffer
             .put::<i32>(record_descriptor::type_offset(record_offset), AeronCommand::Padding as i32);
     }
@@ -158,12 +158,12 @@ mod tests {
             }
         }
 
-        fn sized_buffer(capacity: isize) -> (AtomicBuffer, AlignedBuffer) {
+        fn sized_buffer(capacity: Index) -> (AtomicBuffer, AlignedBuffer) {
             let owner = AlignedBuffer::with_capacity(capacity);
             (AtomicBuffer::from_aligned(&owner), owner)
         }
 
-        fn sized_buffer_with_trailed(capacity: isize) -> (AtomicBuffer, AlignedBuffer) {
+        fn sized_buffer_with_trailed(capacity: Index) -> (AtomicBuffer, AlignedBuffer) {
             Self::sized_buffer(capacity + 128)
         }
 
@@ -175,7 +175,7 @@ mod tests {
             BroadcastTransmitter::new(self.buffer)
         }
 
-        fn create_message_buffer(&mut self, capacity: isize) -> AtomicBuffer {
+        fn create_message_buffer(&mut self, capacity: Index) -> AtomicBuffer {
             let (buffer, owner) = Self::sized_buffer(capacity);
             self.message_buffer_owner.push(owner);
             buffer
@@ -183,7 +183,7 @@ mod tests {
     }
 
     #[inline]
-    fn sized_buffer_filled_with_range(capacity: isize) -> (AtomicBuffer, Vec<u8>) {
+    fn sized_buffer_filled_with_range(capacity: Index) -> (AtomicBuffer, Vec<u8>) {
         assert!(capacity < 255);
 
         let _aligned_buffer = AlignedBuffer::with_capacity(capacity);

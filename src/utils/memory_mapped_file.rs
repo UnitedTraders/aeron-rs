@@ -120,7 +120,7 @@ impl MemoryMappedFile {
         _read_only: bool,
     ) -> Result<Self, MemMappedFileError> {
         if 0 == length && 0 == offset {
-            length = Self::file_size(&fd.file_path)? as isize;
+            length = Self::file_size(&fd.file_path)? as Index;
         }
 
         let mmf = Self {
@@ -163,7 +163,7 @@ impl MemoryMappedFile {
     }
 
     pub fn atomic_buffer(&self, offset: Index, size: Index) -> AtomicBuffer {
-        unsafe { AtomicBuffer::new(self.ptr.offset(offset), size) }
+        unsafe { AtomicBuffer::new(self.ptr.offset(offset as isize), size) }
     }
 }
 
@@ -219,7 +219,7 @@ mod tests {
         tmp_file.set_len(size as u64).unwrap();
 
         {
-            let mut file = MemoryMappedFile::create_new(file_path.clone(), 0, size as isize).unwrap();
+            let mut file = MemoryMappedFile::create_new(file_path.clone(), 0, size).unwrap();
 
             for n in 0..size as usize {
                 let to_write = (n & 0xff) as u8;

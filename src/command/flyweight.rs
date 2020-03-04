@@ -61,7 +61,7 @@ impl<T: Copy> Flyweight<T> {
 
     #[inline]
     pub fn bytes_at(&self, offset: Index) -> *mut u8 {
-        unsafe { self.buffer.buffer().offset(self.base_offset + offset) }
+        unsafe { self.buffer.buffer().offset((self.base_offset + offset) as isize) }
     }
 
     #[inline]

@@ -73,7 +73,7 @@ impl TerminateDriverFlyweight {
 
     #[inline]
     pub fn set_token_buffer(&mut self, token_buffer: *const u8, token_length: Index) {
-        self.m_struct.token_length = token_length as i32;
+        self.m_struct.token_length = token_length;
         if token_length > 0 {
             unsafe {
                 self.correlated_message_flyweight.flyweight.put_bytes(

@@ -85,8 +85,8 @@ impl BufferBuilder {
 
         unsafe {
             std::ptr::copy(
-                buffer.buffer().offset(offset),
-                self.buffer.offset(self.limit),
+                buffer.buffer().offset(offset as isize),
+                self.buffer.offset(self.limit as isize),
                 length as usize,
             );
         }

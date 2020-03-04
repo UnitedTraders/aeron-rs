@@ -162,7 +162,7 @@ impl CountersReader {
         Self {
             metadata_buffer,
             values_buffer,
-            max_counter_id: (values_buffer.capacity() / COUNTER_LENGTH) as i32,
+            max_counter_id: (values_buffer.capacity() / COUNTER_LENGTH),
         }
     }
 
@@ -441,7 +441,7 @@ impl CountersManager {
         let ret_id = self.high_water_mark;
         self.high_water_mark += 1;
 
-        ret_id as i32
+        ret_id
     }
 
     fn check_counters_capacity(&self, counter_id: i32) -> Result<i32, AeronError> {

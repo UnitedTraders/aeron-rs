@@ -57,7 +57,7 @@ impl BroadcastReceiver {
         let _cursor = rx.buffer.get::<i64>(rx.latest_counter_index);
         let _next_record = rx.cursor;
 
-        rx.record_offset = (rx.cursor & rx.mask as i64) as isize;
+        rx.record_offset = (rx.cursor & rx.mask as i64) as Index;
 
         Ok(rx)
     }
@@ -79,7 +79,7 @@ impl BroadcastReceiver {
     }
 
     pub fn length(&self) -> i32 {
-        self.buffer.get::<i32>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH as i32
+        self.buffer.get::<i32>(record_descriptor::length_offset(self.record_offset)) - record_descriptor::HEADER_LENGTH
     }
 
     pub fn buffer(&self) -> &AtomicBuffer {
@@ -94,17 +94,17 @@ impl BroadcastReceiver {
         if tail > cursor {
             // let mut record_offset: Index = (cursor & self.mask as i64) as isize;
 
-            if !self.do_validate(cursor as isize) {
+            if !self.do_validate(cursor as Index) {
                 //                self.m_lappedCount += 1;
                 cursor = self.buffer.get::<i64>(self.latest_counter_index);
             };
 
-            let mut record_offset: Index = (cursor & self.mask as i64) as isize;
+            let mut record_offset: Index = (cursor & self.mask as i64) as Index;
 
             self.cursor = cursor;
             self.next_record = cursor
                 + align(
-                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as isize,
+                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as Index,
                     record_descriptor::RECORD_ALIGNMENT,
                 ) as i64;
 
@@ -112,7 +112,7 @@ impl BroadcastReceiver {
                 record_offset = 0;
                 self.cursor = self.next_record;
                 self.next_record += align(
-                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as isize,
+                    self.buffer.get::<i32>(record_descriptor::length_offset(record_offset)) as Index,
                     record_descriptor::RECORD_ALIGNMENT,
                 ) as i64;
             }
@@ -126,11 +126,11 @@ impl BroadcastReceiver {
 
     pub fn validate(&self) -> bool {
         atomics::acquire();
-        self.do_validate(self.cursor as isize)
+        self.do_validate(self.cursor as Index)
     }
 
     fn do_validate(&self, cursor: Index) -> bool {
-        cursor + self.capacity > self.buffer.get_volatile::<i64>(self.tail_intent_counter_index) as isize
+        cursor + self.capacity > self.buffer.get_volatile::<i64>(self.tail_intent_counter_index) as Index
     }
 }
 

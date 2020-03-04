@@ -19,7 +19,7 @@ impl LogBuffers {
         let log_len = MemoryMappedFile::file_size(&file_path).map_err(AeronError::MemMappedFileError)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
-        let atomic_buffer = memory_mapped_file.atomic_buffer(0, log_len as isize);
+        let atomic_buffer = memory_mapped_file.atomic_buffer(0, log_len as Index);
 
         let meta_buffer = memory_mapped_file.atomic_buffer(
             (log_len as Index) - log_buffer_descriptor::LOG_META_DATA_LENGTH,
@@ -29,8 +29,8 @@ impl LogBuffers {
         let term_length = term_length(&meta_buffer) as Index;
         let page_size = page_size(&meta_buffer);
 
-        check_term_length(term_length as isize)?;
-        check_page_size(page_size as isize)?;
+        check_term_length(term_length)?;
+        check_page_size(page_size)?;
 
         let mut buffers: Vec<AtomicBuffer> = Vec::with_capacity((PARTITION_COUNT + 1) as usize);
 
@@ -48,7 +48,7 @@ impl LogBuffers {
         })
     }
 
-    pub fn atomic_buffer(&self, index: Index) -> AtomicBuffer {
+    pub fn atomic_buffer(&self, _index: Index) -> AtomicBuffer {
         self.memory_mapped_file.atomic_buffer(0, 0)
     }
 }
