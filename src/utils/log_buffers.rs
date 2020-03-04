@@ -9,7 +9,7 @@ use crate::utils::types::Index;
 use std::ffi::OsString;
 use std::path::Path;
 
-struct LogBuffers {
+pub(crate) struct LogBuffers {
     memory_mapped_file: MemoryMappedFile,
     buffers: Vec<AtomicBuffer>,
 }

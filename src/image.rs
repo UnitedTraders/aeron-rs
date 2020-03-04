@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use std::cmp::min;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::header::{Context, Header};
 use crate::concurrent::logbuffer::term_reader::{ExceptionHandler, FragmentHandler, ReadOutcome};
@@ -24,8 +27,6 @@ use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
 use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
-use std::cmp::min;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Eq, PartialEq)]
 enum ControlledPollAction {
@@ -125,7 +126,7 @@ impl Image {
         Self {
             term_buffers,
             header,
-            subscriber_position: subscriber_position.clone(),
+            subscriber_position: *subscriber_position,
             log_buffers,
             source_identity,
             is_closed: AtomicBool::new(false),
