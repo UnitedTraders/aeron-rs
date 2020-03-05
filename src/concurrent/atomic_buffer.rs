@@ -165,6 +165,15 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    pub fn put_atomic_i64(&self, offset: Index, val: i64) {
+        self.bounds_check(offset, I64_SIZE);
+        unsafe {
+            let atomic_ptr = self.at(offset) as *const AtomicI64;
+            (*atomic_ptr).store(val, Ordering::SeqCst);
+        }
+    }
+
+    #[inline]
     pub fn compare_and_set_i32(&self, position: Index, expected: i32, update: i32) -> bool {
         self.bounds_check(position, I32_SIZE);
         unsafe {
@@ -184,6 +193,19 @@ impl AtomicBuffer {
                 .compare_exchange(expected, update, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
         }
+    }
+
+    /**
+     * Single threaded increment with release semantics.
+     *
+     * @param offset in the buffer of the word.
+     * @param delta  for to be applied to the value.
+     */
+    pub fn add_i64_ordered(&self, offset: Index, delta: i64) {
+        self.bounds_check(offset, I64_SIZE);
+
+        let value = self.get::<i64>(offset);
+        self.put_ordered::<i64>(offset, value + delta);
     }
 
     // Put bytes in to this buffer at specified offset
