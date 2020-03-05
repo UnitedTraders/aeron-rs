@@ -162,7 +162,7 @@ impl<'a> TermAppender<'a> {
         let frame_length: Index = length + data_frame_header::LENGTH;
         let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
         let raw_tail: i64 = self.get_and_add_raw_tail(aligned_length);
-        let term_offset: i64 = raw_tail & 0xFFFFFFFF;
+        let term_offset: i64 = raw_tail & 0xFFFF_FFFF;
         let term_id: i32 = log_buffer_descriptor::term_id(raw_tail);
 
         let term_length = self.term_buffer.capacity();
