@@ -1,4 +1,5 @@
 pub mod atomic_buffer;
+pub mod atomic_counter;
 pub mod atomics;
 pub mod broadcast;
 pub mod counters;
