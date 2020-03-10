@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
+use std::cmp::min;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::header::{Context, Header};
 use crate::concurrent::logbuffer::term_reader::{ExceptionHandler, FragmentHandler, ReadOutcome};
 use crate::concurrent::logbuffer::term_scan::{scan, BlockHandler};
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor, term_reader};
 use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+
 use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
 use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
-use std::cmp::min;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Eq, PartialEq)]
 enum ControlledPollAction {
@@ -61,22 +64,17 @@ enum ControlledPollAction {
  * @param header representing the meta data for the data.
  * @return The action to be taken with regard to the stream position after the callback.
  */
-type ControlledPollFragmentHandler = dyn Fn(&AtomicBuffer, Index, Index, Header);
-// typedef std::function<ControlledPollAction(
-// concurrent::AtomicBuffer &buffer,
-// util::index_t offset,
-// util::index_t length,
-// Header &header)> controlled_poll_fragment_handler_t;
+type ControlledPollFragmentHandler = fn(&AtomicBuffer, Index, Index, Header);
 
 struct Image {
     term_buffers: Vec<AtomicBuffer>,
     header: Header,
     subscriber_position: UnsafeBufferPosition,
 
-    log_buffers: LogBuffers,
+    log_buffers: Arc<Mutex<LogBuffers>>,
     source_identity: String,
     is_closed: AtomicBool,
-    exception_handler: Box<ExceptionHandler>,
+    exception_handler: ExceptionHandler,
     correlation_id: i64,
     subscription_registration_id: i64,
     join_position: i64,
@@ -97,24 +95,24 @@ impl Image {
         subscription_registration_id: i64,
         source_identity: String,
         subscriber_position: &UnsafeBufferPosition,
-        log_buffers: LogBuffers,
-        exception_handler: Box<ExceptionHandler>,
-    ) -> Image {
+        log_buffers: Arc<Mutex<LogBuffers>>,
+        exception_handler: ExceptionHandler,
+    ) -> Result<Image, AeronError> {
+        let log_buffers_guard = log_buffers
+            .try_lock()
+            .map_err(|err| AeronError::GenericError(err.to_string()))?;
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(
-                &log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                &log_buffers_guard.get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
             ),
-            log_buffers.atomic_buffer(0).capacity(),
+            log_buffers_guard.get_atomic_buffer(0).capacity(),
             Context::default(), /*todo this ?*/
         );
 
-        // m_subscriberPosition(subscriber_position),
-        // m_exceptionHandler(exceptionHandler),
-        //
         let mut term_buffers: Vec<AtomicBuffer> = Vec::new();
 
         for i in 0..log_buffer_descriptor::PARTITION_COUNT {
-            term_buffers.push(log_buffers.atomic_buffer(i))
+            term_buffers.push(log_buffers_guard.get_atomic_buffer(i))
         }
 
         let capacity = term_buffers[0].capacity();
@@ -122,11 +120,11 @@ impl Image {
         let join_position = subscriber_position.get();
         let final_position = join_position;
 
-        Self {
+        Ok(Self {
             term_buffers,
             header,
             subscriber_position: subscriber_position.clone(),
-            log_buffers,
+            log_buffers: log_buffers.clone(),
             source_identity,
             is_closed: AtomicBool::new(false),
             exception_handler,
@@ -138,7 +136,7 @@ impl Image {
             term_length_mask: capacity - 1,
             position_bits_to_shift: number_of_trailing_zeroes(capacity),
             is_eos: false,
-        }
+        })
     }
 
     fn validate_position(&self, new_position: i64) -> Result<(), AeronError> {
@@ -294,7 +292,9 @@ impl Image {
             >= log_buffer_descriptor::end_of_stream_position(
                 &self
                     .log_buffers
-                    .atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                    .try_lock()
+                    .unwrap() //todo
+                    .get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
             )
     }
 
@@ -308,7 +308,7 @@ impl Image {
      *
      * @see fragment_handler_t
      */
-    pub fn poll<T>(&mut self, fragment_handler: &FragmentHandler<T>, fragment_limit: i32) -> i32 {
+    pub fn poll<T>(&mut self, fragment_handler: FragmentHandler<T>, fragment_limit: i32) -> i32 {
         if !self.is_closed() {
             let position = self.subscriber_position.get();
             let term_offset: Index = (position as Index) & self.term_length_mask;
@@ -321,7 +321,7 @@ impl Image {
                 fragment_handler,
                 fragment_limit,
                 &mut self.header,
-                &self.exception_handler,
+                self.exception_handler,
             );
 
             let new_position = position + (read_outcome.offset - term_offset) as i64;
@@ -633,8 +633,8 @@ impl Image {
         }
     }
 
-    pub fn log_buffers(&self) -> &LogBuffers {
-        &self.log_buffers
+    pub fn log_buffers(&self) -> Arc<Mutex<LogBuffers>> {
+        self.log_buffers.clone()
     }
 
     /// @cond HIDDEN_SYMBOLS
@@ -645,9 +645,29 @@ impl Image {
                 >= log_buffer_descriptor::end_of_stream_position(
                     &self
                         .log_buffers
-                        .atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                        .try_lock()
+                        .unwrap() //todo
+                        .get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
                 );
             self.is_closed.store(true, Ordering::Release)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::errors::AeronError::MemMappedFileError;
+    use crate::utils::memory_mapped_file::MemoryMappedFile;
+
+    #[test]
+    fn test_create_new() {
+        let unsafe_buffer_position = UnsafeBufferPosition::new(AtomicBuffer::wrap_slice(&mut []), 0);
+        MemoryMappedFile::create_new("file", 0, 65536).unwrap();
+
+        let log_buffers = LogBuffers::from_existing("file").unwrap();
+        let buffers = Arc::new(Mutex::new(log_buffers));
+
+        let image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |err| {});
     }
 }
