@@ -31,7 +31,7 @@ use crate::utils::types::Index;
 use std::sync::{Arc, Mutex};
 
 #[derive(Eq, PartialEq)]
-enum ControlledPollAction {
+pub enum ControlledPollAction {
     /**
      * Abort the current polling operation and do not advance the position for this fragment.
      */
@@ -66,7 +66,7 @@ enum ControlledPollAction {
  */
 type ControlledPollFragmentHandler = fn(&AtomicBuffer, Index, Index, Header);
 
-struct Image {
+pub struct Image {
     term_buffers: Vec<AtomicBuffer>,
     header: Header,
     subscriber_position: UnsafeBufferPosition,
@@ -89,7 +89,7 @@ struct Image {
 enum ImageError {}
 
 impl Image {
-    fn create(
+    pub(crate) fn create(
         session_id: i32,
         correlation_id: i64,
         subscription_registration_id: i64,
@@ -657,7 +657,6 @@ impl Image {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::errors::AeronError::MemMappedFileError;
     use crate::utils::memory_mapped_file::MemoryMappedFile;
 
     #[test]

@@ -24,6 +24,12 @@ pub enum AeronError {
     IllegalArgumentException(String),
     IllegalStateException(String),
     MemMappedFileError(MemMappedFileError),
+    ConductorServiceTimeout(String),
+    DriverTimeout(String),
+    ReentrantException(String),
+    RegistrationException(String),
+    ChannelEndpointException((i64, String)), // correlation ID + error message
+    ClientTimeoutException(String),
 }
 
 impl Display for AeronError {
@@ -33,6 +39,12 @@ impl Display for AeronError {
             AeronError::IllegalArgumentException(msg) => write!(f, "Illegal argument: {}", msg),
             AeronError::IllegalStateException(msg) => write!(f, "Illegal state: {}", msg),
             AeronError::MemMappedFileError(err) => write!(f, "MemMappedFileError: {:?}", err),
+            AeronError::ConductorServiceTimeout(err) => write!(f, "ConductorServiceTimeout: {:?}", err),
+            AeronError::DriverTimeout(err) => write!(f, "DriverTimeout: {:?}", err),
+            AeronError::ReentrantException(err) => write!(f, "ReentrantException: {:?}", err),
+            AeronError::RegistrationException(err) => write!(f, "RegistrationException: {:?}", err),
+            AeronError::ChannelEndpointException(err) => write!(f, "ChannelEndpointException: {:?}", err),
+            AeronError::ClientTimeoutException(err) => write!(f, "ClientTimeoutException: {:?}", err),
         }
     }
 }

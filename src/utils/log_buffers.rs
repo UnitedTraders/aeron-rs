@@ -57,7 +57,6 @@ impl LogBuffers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
 
     #[test]
     fn test_new() {

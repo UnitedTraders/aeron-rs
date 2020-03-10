@@ -20,12 +20,11 @@ use crate::cnc_file_descriptor;
 use crate::concurrent::counters::CountersReader;
 use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
 use crate::driver_proxy::DriverProxy;
+use crate::image::Image;
 use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
 use crate::utils::types::Index;
-
-struct Image {} // FIXME this is stab!
 
 /**
  * Used to represent a null value for when some value is not yet set.
@@ -36,7 +35,7 @@ const NULL_VALUE: i32 = -1; // TODO replace on Option
  * Function called by Aeron to signal about occurred error.
  *
 */
-type ErrorHandler = fn(error: &AeronError);
+pub type ErrorHandler = fn(error: &AeronError);
 
 /**
  * Function called by Aeron to deliver notification of an available image.
@@ -48,7 +47,7 @@ type ErrorHandler = fn(error: &AeronError);
  *
  * @param image that has become available.
  */
-type OnAvailableImage = fn(image: &Image);
+pub type OnAvailableImage = fn(image: &Image);
 
 /**
  * Function called by Aeron to deliver notification that an Image has become unavailable for polling.
@@ -60,7 +59,7 @@ type OnAvailableImage = fn(image: &Image);
  *
  * @param image that has become unavailable
  */
-type OnUnavailableImage = fn(image: &Image);
+pub type OnUnavailableImage = fn(image: &Image);
 
 /**
  * Function called by Aeron to deliver notification that the media driver has added a Publication successfully.
@@ -73,7 +72,7 @@ type OnUnavailableImage = fn(image: &Image);
  * @param session_id of the Publication
  * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::addPublication
  */
-type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, correlation_id: i64);
+pub type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification that the media driver has added a Subscription successfully.
@@ -83,9 +82,9 @@ type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, corre
  *
  * @param channel of the Subscription
  * @param stream_id within the channel of the Subscription
- * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::addSubscription
+ * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::add_subscription
  */
-type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
+pub type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification of a Counter being available.
@@ -98,7 +97,7 @@ type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
  * @param counter_id      that is available.
  */
 
-type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+pub type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
 
 /**
  * Function called by Aeron to deliver notification of counter being removed.
@@ -110,13 +109,13 @@ type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: 
  * @param registration_id for the counter.
  * @param counter_id      that is unavailable.
  */
-type OnUnavailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+pub type OnUnavailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
 
 /**
  * Function called when the Aeron client is closed to notify that the client or any of it associated resources
  * should not be used after this event.
  */
-type OnCloseClient = fn();
+pub type OnCloseClient = fn();
 
 const NULL_TIMEOUT: i64 = -1;
 const DEFAULT_MEDIA_DRIVER_TIMEOUT_MS: i64 = 10000;
@@ -247,7 +246,7 @@ impl Context {
     }
 
     /**
-     * Set the handler for successful Aeron::addExclusivePublication notifications.
+     * Set the handler for successful Aeron::add_exclusive_publication notifications.
      *
      * If not set, then will use new_publication_handler instead.
      *
@@ -261,7 +260,7 @@ impl Context {
     }
 
     /**
-     * Set the handler for successful Aeron::addSubscription notifications.
+     * Set the handler for successful Aeron::add_subscription notifications.
      *
      * @param handler called when add is completed successfully
      * @return reference to this Context instance

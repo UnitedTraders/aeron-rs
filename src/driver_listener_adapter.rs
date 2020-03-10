@@ -80,12 +80,12 @@ pub trait DriverListener {
 }
 
 pub struct DriverListenerAdapter<'a, T: DriverListener> {
-    broadcast_receiver: &'a mut CopyBroadcastReceiver,
+    broadcast_receiver: CopyBroadcastReceiver,
     driver_listener: &'a T,
 }
 
 impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
-    pub fn new(broadcast_receiver: &'a mut CopyBroadcastReceiver, driver_listener: &'a T) -> Self {
+    pub fn new(broadcast_receiver: CopyBroadcastReceiver, driver_listener: &'a T) -> Self {
         Self {
             broadcast_receiver,
             driver_listener,

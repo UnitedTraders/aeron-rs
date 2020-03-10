@@ -79,8 +79,8 @@ pub const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
 
 const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
 const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
-const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
-const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
+pub(crate) const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
+pub(crate) const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
 
 // Original C++ alignment specification was #pragma pack(4)
 #[repr(C, packed(4))]
