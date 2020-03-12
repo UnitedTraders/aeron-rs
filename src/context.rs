@@ -154,7 +154,7 @@ fn default_on_close_client_handler() {}
  * It can also set up error handling as well as application callbacks for connection information from the
  * Media Driver.
  */
-struct Context {
+pub struct Context {
     dir_name: String,
     error_handler: ErrorHandler,
     on_new_publication_handler: OnNewPublication,

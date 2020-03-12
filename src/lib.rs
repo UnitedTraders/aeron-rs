@@ -20,7 +20,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_safety_doc)]
 
-pub mod aeron;
+//pub mod aeron;
 pub mod buffer_builder;
 pub mod cnc_file_descriptor;
 pub mod command;
