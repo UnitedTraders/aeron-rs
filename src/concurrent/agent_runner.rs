@@ -15,20 +15,23 @@
  */
 
 use crate::concurrent::logbuffer::term_reader::ExceptionHandler;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use crate::utils::errors::AeronError;
 use crate::concurrent::strategies::Strategy;
+use crate::utils::errors::AeronError;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 // The trait to be implemented by agents run within AgentRunner
-trait Agent {
+pub trait Agent {
     fn on_start(&self) -> Result<(), AeronError>;
     fn do_work(&self) -> Result<i32, AeronError>;
     fn on_close(&self) -> Result<(), AeronError>;
 }
 
-struct AgentRunner<A: 'static + std::marker::Send + std::marker::Sync + Agent, I: 'static + std::marker::Send + std::marker::Sync + Strategy> {
+struct AgentRunner<
+    A: 'static + std::marker::Send + std::marker::Sync + Agent,
+    I: 'static + std::marker::Send + std::marker::Sync + Strategy,
+> {
     agent: Arc<A>,
     idle_strategy: Arc<Mutex<I>>,
     exception_handler: ExceptionHandler,
@@ -38,7 +41,11 @@ struct AgentRunner<A: 'static + std::marker::Send + std::marker::Sync + Agent, I
     name: String,
 }
 
-impl<A: 'static + std::marker::Send + std::marker::Sync + Agent, I: 'static + std::marker::Send + std::marker::Sync + Strategy> AgentRunner<A, I> {
+impl<
+        A: 'static + std::marker::Send + std::marker::Sync + Agent,
+        I: 'static + std::marker::Send + std::marker::Sync + Strategy,
+    > AgentRunner<A, I>
+{
     pub fn new(agent: Arc<A>, idle_strategy: Arc<Mutex<I>>, exception_handler: ExceptionHandler) -> Self {
         Self {
             agent,
@@ -65,10 +72,10 @@ impl<A: 'static + std::marker::Send + std::marker::Sync + Agent, I: 'static + st
     }
 
     /**
-    * Is the Agent running?
-    *
-    * @return is the Agent been started successfully and not closed?
-    */
+     * Is the Agent running?
+     *
+     * @return is the Agent been started successfully and not closed?
+     */
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::SeqCst)
     }
@@ -108,7 +115,9 @@ impl<A: 'static + std::marker::Send + std::marker::Sync + Agent, I: 'static + st
      */
     pub fn run(&mut self) {
         // Set is_running to true if its currently false.
-        let _res = self.is_running.compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
+        let _res = self
+            .is_running
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
 
         if let Err(error) = self.agent.on_start() {
             (self.exception_handler)(error);
@@ -128,17 +137,19 @@ impl<A: 'static + std::marker::Send + std::marker::Sync + Agent, I: 'static + st
     }
 
     /**
-    * Close the agent and stop the associated thread from running. This method waits for the thread to join.
-    */
+     * Close the agent and stop the associated thread from running. This method waits for the thread to join.
+     */
     pub fn close(self) {
         // Atomically compare and set is_running value
         // If is_running currently true then it will be set to false and Ok(true) is returned
         // If is_running currently false then no change will be done and Err(false) is returned
-        if let Ok(_prev_value) = self.is_running.compare_exchange(true, false, Ordering::SeqCst, Ordering::Acquire) {
+        if let Ok(_prev_value) = self
+            .is_running
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::Acquire)
+        {
             if let Some(handle) = self.thread {
                 let _ret = handle.join();
             }
         }
     }
 }
-
