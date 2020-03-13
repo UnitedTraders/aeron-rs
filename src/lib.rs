@@ -31,6 +31,7 @@ pub mod driver_proxy;
 pub mod heartbeat_timestamp;
 pub mod image;
 pub mod protocol;
+pub mod subscription;
 pub mod utils;
 //pub mod publication;
-//pub mod client_conductor;
+// pub mod client_conductor;

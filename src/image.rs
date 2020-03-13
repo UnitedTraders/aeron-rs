@@ -97,10 +97,8 @@ impl Image {
         subscriber_position: &UnsafeBufferPosition,
         log_buffers: Arc<Mutex<LogBuffers>>,
         exception_handler: ExceptionHandler,
-    ) -> Result<Image, AeronError> {
-        let log_buffers_guard = log_buffers
-            .try_lock()
-            .map_err(|err| AeronError::GenericError(err.to_string()))?;
+    ) -> Image {
+        let log_buffers_guard = log_buffers.lock().expect("Can't get guard");
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(
                 &log_buffers_guard.get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
@@ -120,7 +118,7 @@ impl Image {
         let join_position = subscriber_position.get();
         let final_position = join_position;
 
-        Ok(Self {
+        Self {
             term_buffers,
             header,
             subscriber_position: subscriber_position.clone(),
@@ -136,7 +134,7 @@ impl Image {
             term_length_mask: capacity - 1,
             position_bits_to_shift: number_of_trailing_zeroes(capacity),
             is_eos: false,
-        })
+        }
     }
 
     fn validate_position(&self, new_position: i64) -> Result<(), AeronError> {
@@ -348,7 +346,7 @@ impl Image {
      * @see controlled_poll_fragment_handler_t
      */
 
-    pub fn controlled_poll(&mut self, fragment_handler: &FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
+    pub fn controlled_poll(&mut self, fragment_handler: FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
         if !self.is_closed() {
             let mut fragments_read = 0;
             let mut initial_position = self.subscriber_position.get();
@@ -610,7 +608,7 @@ impl Image {
      * @see block_handler_t
      */
 
-    pub fn block_poll<F>(&self, block_handler: BlockHandler, block_length_limit: Index) -> i32 {
+    pub fn block_poll(&self, block_handler: BlockHandler, block_length_limit: Index) -> i32 {
         if !self.is_closed() {
             let position = self.subscriber_position.get();
             let term_offset = position as Index & self.term_length_mask;
@@ -654,6 +652,25 @@ impl Image {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct ImageList {
+    // images: Vec<Image>,
+    pub(crate) ptr: *mut Image,
+    pub length: isize,
+}
+
+impl ImageList {
+    pub fn image(&self, pos: isize) -> &mut Image {
+        assert!(pos < self.length);
+
+        let image = unsafe {
+            let img = self.ptr.offset(pos);
+            &mut *img
+        };
+        image
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -667,6 +684,6 @@ mod tests {
         let log_buffers = LogBuffers::from_existing("file").unwrap();
         let buffers = Arc::new(Mutex::new(log_buffers));
 
-        let image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |err| {});
+        let image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |_err| {});
     }
 }
