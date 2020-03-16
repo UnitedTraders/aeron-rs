@@ -26,19 +26,22 @@ trait Handler {
 use super::broadcast_receiver::BroadcastReceiver;
 use super::BroadcastTransmitError;
 use crate::command::control_protocol_events::AeronCommand;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use crate::utils::types::Index;
 
-pub struct CopyBroadcastReceiver {
-    receiver: BroadcastReceiver,
+pub struct CopyBroadcastReceiver<'a> {
+    receiver: &'a mut BroadcastReceiver,
     scratch_buffer: AtomicBuffer,
+    aligned_buffer: AlignedBuffer,
 }
 
-impl CopyBroadcastReceiver {
-    pub fn new(receiver: BroadcastReceiver, scratch_buffer: AtomicBuffer) -> Self {
+impl<'a> CopyBroadcastReceiver<'a> {
+    pub fn new(receiver: &'a mut BroadcastReceiver) -> Self {
+        let scratch = AlignedBuffer::with_capacity(4096);
         Self {
             receiver,
-            scratch_buffer,
+            scratch_buffer: AtomicBuffer::from_aligned(&scratch),
+            aligned_buffer: scratch,
         }
     }
 

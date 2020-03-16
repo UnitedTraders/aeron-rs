@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 use crate::concurrent::agent_runner::Agent;
-use crate::concurrent::logbuffer::term_reader::ExceptionHandler;
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
+use std::sync::Arc;
 
-struct AgentInvoker<'a, T: Agent> {
-    agent: &'a T,
-    exception_handler: ExceptionHandler,
+pub struct AgentInvoker<T: Agent> {
+    agent: Arc<T>,
+    exception_handler: ErrorHandler,
     is_started: bool,
     is_running: bool,
     is_closed: bool,
 }
 
-impl<'a, T: Agent> AgentInvoker<'a, T> {
-    pub fn new(agent: &'a T, exception_handler: ExceptionHandler) -> Self {
+impl<T: Agent> AgentInvoker<T> {
+    pub fn new(agent: Arc<T>, exception_handler: ErrorHandler) -> Self {
         Self {
             agent,
             exception_handler,

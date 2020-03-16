@@ -26,6 +26,7 @@ use crate::concurrent::logbuffer::term_appender::{OnReservedValueSupplier, defau
 use crate::utils::errors::AeronError;
 use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
 use crate::utils::log_buffers::LogBuffers;
+use crate::client_conductor::ClientConductor;
 
 const NOT_CONNECTED: i64 = -1;
 const BACK_PRESSURED: i64 = -2;
@@ -37,6 +38,9 @@ pub trait BulkPubSize {
     const SIZE: usize;
 }
 
+// FIXME: this is temporary solution to introduce ExclusivePublication
+// It needs to be carefully ported thereafter
+type ExclusivePublication<'a> = Publication<'a>;
 
 /**
  * @example basic_publisher.rs
@@ -49,12 +53,12 @@ pub trait BulkPubSize {
  * The APIs used to send are all non-blocking.
  * <p>
  * Note: Publication instances are threadsafe and can be shared between publisher threads.
- * @see Aeron#addPublication
+ * @see Aeron#add_publication
  * @see Aeron#findPublication
  */
 
 struct Publication<'a> {
-    conductor: &'a ClientConductor,
+    conductor: &'a ClientConductor<'a>,
     log_meta_data_buffer: &'a AtomicBuffer,
     channel: String,
     registration_id: i64,
@@ -164,7 +168,7 @@ impl<'a> Publication {
     }
 
     /**
-     * Registration Id returned by Aeron::addPublication when this Publication was added.
+     * Registration Id returned by Aeron::add_publication when this Publication was added.
      *
      * @    the registration_id of the publication.
      */
@@ -339,15 +343,15 @@ impl<'a> Publication {
         
             if position < limit {
                 let resulting_offset = if length <= self.max_payload_length {
-                    term_appender.append_unfragmented_message(self.header_writer, buffer, offset, length, reserved_value_supplier, term_id)
+                    term_appender.append_unfragmented_message(&self.header_writer, buffer, offset, length, reserved_value_supplier, term_id)
                 } else {
                     check_max_message_length(length)?;
-                    term_appender.append_fragmented_message(self.header_writer, buffer, offset, length, self.max_payload_length, reserved_value_supplier, term_id)
+                    term_appender.append_fragmented_message(&self.header_writer, buffer, offset, length, self.max_payload_length, reserved_value_supplier, term_id)
                 };
             
-                new_position = Publication::new_position(term_count, term_offset, term_id, position, resulting_offset);
+                new_position = self.new_position(term_count, term_offset, term_id, position as Index, resulting_offset); // FIXME: overflow of Index possible here
             } else {
-                new_position = Publication::back_pressure_status(position, length);
+                new_position = self.back_pressure_status(position, length);
             }
         }
     
@@ -441,18 +445,18 @@ impl<'a> Publication {
             }
 
             if position < limit {
-                let resulting_offset = if length <= self.max_payload_length {
+                let resulting_offset = if length <= self.max_payload_length as usize {
                     term_appender.append_unfragmented_message_bulk(
-                    self.header_writer, buffers, length, reserved_value_supplier, term_id)
+                        &self.header_writer, buffers, length, reserved_value_supplier, term_id)
                 } else {
                     check_max_message_length(length)?;
                     term_appender.append_fragmented_message_bulk(
-                    self.header_writer, buffers, length, self.max_payload_length, reserved_value_supplier, term_id)
+                        &self.header_writer, buffers, length, self.max_payload_length, reserved_value_supplier, term_id)
                 };
 
-                new_position = Publication::new_position(term_count, term_offset, term_id, position, resulting_offset);
+                new_position = self.new_position(term_count, term_offset, term_id, position as Index, resulting_offset);
             } else {
-                new_position = Publication::back_pressure_status(position, length);
+                new_position = self.back_pressure_status(position, length as Index); // FIXME: possible Index overflow
             }
         }
 
@@ -492,7 +496,7 @@ impl<'a> Publication {
      * @see BufferClaim::commit
      */
     pub fn try_claim(&self, length: Index, buffer_claim: BufferClaim) -> Result<i64, AeronError> {
-        Publication::check_payload_length(length)?;
+        self.check_payload_length(length)?;
         let mut new_position = PUBLICATION_CLOSED;
         
         if !self.is_closed() {
@@ -510,11 +514,11 @@ impl<'a> Publication {
             }
             
             if position < limit {
-                let resulting_offset = term_appender.claim(self.header_writer, length, buffer_claim, term_id);
-                new_position = Publication::new_position(
-                    term_count, term_offset, term_id, position, resulting_offset);
+                let resulting_offset = term_appender.claim(&self.header_writer, length, buffer_claim, term_id);
+                new_position = self.new_position(
+                    term_count, term_offset, term_id, position as Index, resulting_offset);
             } else {
-                new_position = Publication::back_pressure_status(position, length);
+                new_position = self.back_pressure_status(position, length);
             }
         }
     
@@ -527,7 +531,7 @@ impl<'a> Publication {
      * @param endpoint_channel for the destination to add
      * @    correlation id for the add command
      */
-    pub fn add_destination(&self, endpoint_channel: &str) -> Result<i64, AeronError> {
+    pub fn add_destination(&mut self, endpoint_channel: &str) -> Result<i64, AeronError> {
         if self.is_closed() {
             return Err(AeronError::IllegalStateException(String::from(
                 "Publication is closed",
@@ -543,7 +547,7 @@ impl<'a> Publication {
      * @param endpoint_channel for the destination to remove
      * @    correlation id for the remove command
      */
-    pub fn remove_destination(&self, endpoint_channel: &str) -> Result<i64, AeronError> {
+    pub fn remove_destination(&mut self, endpoint_channel: &str) -> Result<i64, AeronError> {
         if self.is_closed() {
             return Err(AeronError::IllegalStateException(String::from(
                 "Publication is closed",
@@ -572,7 +576,7 @@ impl<'a> Publication {
      * or Publication::remove_destination
      * @    true for added or false if not.
      */
-    pub fn find_destination_response(&self, correlation_id: i64) -> Result<bool, AeronError> {
+    pub fn find_destination_response(&mut self, correlation_id: i64) -> Result<bool, AeronError> {
         self.conductor.find_destination_response(correlation_id)
     }
 

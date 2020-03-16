@@ -17,8 +17,15 @@
 use std::time::Duration;
 
 use crate::concurrent::atomics::cpu_pause;
+use crate::utils::types::Moment;
 
 pub trait Strategy {
+    fn idle_opt(&self, work_count: i32);
+    fn idle(&self);
+    fn reset(&self);
+}
+
+pub trait StrategyMut {
     fn idle_opt(&mut self, work_count: i32);
     fn idle(&mut self);
     fn reset(&mut self);
@@ -40,7 +47,7 @@ pub struct BackOffIdleStrategy {
     max_park_period_ns: u64,
 }
 
-impl Strategy for BackOffIdleStrategy {
+impl StrategyMut for BackOffIdleStrategy {
     fn idle_opt(&mut self, work_count: i32) {
         if work_count > 0 {
             self.reset();
@@ -97,18 +104,18 @@ impl BusySpinIdleStrategy {
 }
 
 impl Strategy for BusySpinIdleStrategy {
-    fn idle_opt(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if work_count > 0 {
             return;
         }
         Self::pause();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         Self::pause();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         unimplemented!()
     }
 }
@@ -116,60 +123,60 @@ impl Strategy for BusySpinIdleStrategy {
 pub struct NoOpIdleStrategy {}
 
 impl Strategy for NoOpIdleStrategy {
-    fn idle_opt(&mut self, _work_count: i32) {
+    fn idle_opt(&self, _work_count: i32) {
         unimplemented!();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         unimplemented!()
     }
 }
 
 pub struct SleepingIdleStrategy {
-    duration: Duration,
+    duration: Moment,
 }
 
 impl SleepingIdleStrategy {
-    pub fn new(duration: Duration) -> Self {
+    pub fn new(duration: Moment) -> Self {
         Self { duration }
     }
 }
 
 impl Strategy for SleepingIdleStrategy {
-    fn idle_opt(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if 0 == work_count {
-            std::thread::sleep(self.duration);
+            std::thread::sleep(Duration::from_millis(self.duration));
         }
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
-        std::thread::sleep(self.duration)
+    fn reset(&self) {
+        std::thread::sleep(Duration::from_millis(self.duration))
     }
 }
 
 pub struct YieldingIdleStrategy {}
 
 impl Strategy for YieldingIdleStrategy {
-    fn idle_opt(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if 0 == work_count {
             return;
         }
         std::thread::yield_now();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         std::thread::yield_now();
     }
 }

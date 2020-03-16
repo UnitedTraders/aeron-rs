@@ -3,18 +3,19 @@ use crate::concurrent::logbuffer::term_scan::BlockHandler;
 use crate::image::{ControlledPollAction, Image, ImageList};
 use crate::utils::types::Index;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+use std::sync::Arc;
 
 pub struct Subscription {
     // conductor: ClientConductor<>;
     channel: String,
-    m_channelStatusId: i32,
-    m_roundRobinIndex: Index,
+    channel_status_id: i32,
+    round_robin_index: Index,
     //todo std::size_t
-    m_registrationId: i64,
-    m_streamId: i32,
+    registration_id: i64,
+    stream_id: i32,
 
-    m_imageList: AtomicPtr<ImageList>,
-    m_isClosed: AtomicBool,
+    image_list: AtomicPtr<ImageList>,
+    is_closed: AtomicBool,
 }
 
 impl Subscription {
@@ -33,7 +34,7 @@ impl Subscription {
      * @return Stream identity for scoping within the channel media address.
      */
     pub fn stream_id(&self) -> i32 {
-        return self.m_streamId;
+        return self.stream_id;
     }
 
     /**
@@ -42,7 +43,7 @@ impl Subscription {
      * @return the registrationId of the subscription.
      */
     pub fn registration_id(&self) -> i64 {
-        self.m_registrationId
+        self.registration_id
     }
 
     /**
@@ -51,41 +52,41 @@ impl Subscription {
      * @return the counter id used to represent the channel status.
      */
     pub fn channel_status_id(&self) -> i32 {
-        self.m_channelStatusId
+        self.channel_status_id
     }
 
-    pub fn add_destination(&self, endpointChannel: impl AsRef<String>) {
+    pub fn add_destination(&self, _endpoint_channel: impl AsRef<String>) {
         if self.is_closed() {
             panic!("Subscription is closed");
         }
-        // self.m_conductor.addRcvDestination(m_registrationId, endpointChannel);
+        // self.m_conductor.addRcvDestination(registration_id, endpoint_channel);
         // } todo
     }
 
-    pub fn remove_destination(&self, endpointChannel: impl AsRef<String>) {
+    pub fn remove_destination(&self, _endpoint_channel: impl AsRef<String>) {
         if self.is_closed() {
             panic!("Subscription is closed"); //todo
         }
 
-        // m_conductor.removeRcvDestination(m_registrationId, endpointChannel); todo
+        // m_conductor.removeRcvDestination(registration_id, endpoint_channel); todo
     }
 
     #[inline]
     fn load_image_list(&self) -> ImageList {
-        let mut image_list = unsafe { *self.m_imageList.load(Ordering::Acquire) };
+        let image_list = unsafe { *self.image_list.load(Ordering::Acquire) };
         image_list
     }
 
     /**
      * Poll the Image s under the subscription for having reached End of Stream.
      *
-     * @param endOfStreamHandler callback for handling end of stream indication.
+     * @param end_of_stream_handler callback for handling end of stream indication.
      * @return number of Image s that have reached End of Stream.
      * @deprecated
      */
 
-    pub fn poll_end_of_streams(&self, endOfStreamHandler: EndOfStreamHandler) -> i32 {
-        let mut numEndOfStreams = 0;
+    pub fn poll_end_of_streams(&self, end_of_stream_handler: EndOfStreamHandler) -> i32 {
+        let mut num_end_of_streams = 0;
 
         let image_list = self.load_image_list();
 
@@ -95,12 +96,12 @@ impl Subscription {
             let image = image_list.image(i);
 
             if image.is_end_of_stream() {
-                numEndOfStreams += 1;
-                endOfStreamHandler(image);
+                num_end_of_streams += 1;
+                end_of_stream_handler(image);
             }
         }
 
-        return numEndOfStreams;
+        return num_end_of_streams;
     }
 
     /**
@@ -109,42 +110,42 @@ impl Subscription {
      * Each fragment read will be a whole message if it is under MTU length. If larger than MTU then it will come
      * as a series of fragments ordered withing a session.
      *
-     * @param fragmentHandler callback for handling each message fragment as it is read.
-     * @param fragmentLimit   number of message fragments to limit for the poll across multiple Image s.
+     * @param fragment_handler callback for handling each message fragment as it is read.
+     * @param fragment_limit   number of message fragments to limit for the poll across multiple Image s.
      * @return the number of fragments received
      *
      * @see fragment_handler_t
      */
 
-    pub fn poll<T>(&mut self, fragmentHandler: FragmentHandler<T>, fragmentLimit: i32) -> i32 {
+    pub fn poll<T>(&mut self, fragment_handler: FragmentHandler<T>, fragment_limit: i32) -> i32 {
         let image_list = self.load_image_list();
 
         let length = image_list.length;
 
         // Image *images = imageList->m_images;
-        let mut fragmentsRead = 0;
+        let mut fragments_read = 0;
 
-        let mut startingIndex = self.m_roundRobinIndex as isize;
-        self.m_roundRobinIndex += 1;
+        let mut starting_index = self.round_robin_index as isize;
+        self.round_robin_index += 1;
 
-        if startingIndex >= length {
-            self.m_roundRobinIndex = 0;
-            startingIndex = 0;
+        if starting_index >= length {
+            self.round_robin_index = 0;
+            starting_index = 0;
         }
 
-        for i in startingIndex..length {
-            if fragmentsRead < fragmentLimit {
-                fragmentsRead += image_list.image(i).poll(fragmentHandler, fragmentLimit - fragmentsRead);
+        for i in starting_index..length {
+            if fragments_read < fragment_limit {
+                fragments_read += image_list.image(i).poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
-        for i in 0..startingIndex {
-            if fragmentsRead < fragmentLimit {
-                fragmentsRead += image_list.image(i).poll(fragmentHandler, fragmentLimit - fragmentsRead);
+        for i in 0..starting_index {
+            if fragments_read < fragment_limit {
+                fragments_read += image_list.image(i).poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
-        return fragmentsRead;
+        return fragments_read;
     }
 
     /**
@@ -157,12 +158,12 @@ impl Subscription {
      * <p>
      * To assemble messages that span multiple fragments then use controlled_poll_fragment_handler_t.
      *
-     * @param fragmentHandler callback for handling each message fragment as it is read.
-     * @param fragmentLimit   number of message fragments to limit for the poll operation across multiple Image s.
+     * @param fragment_handler callback for handling each message fragment as it is read.
+     * @param fragment_limit   number of message fragments to limit for the poll operation across multiple Image s.
      * @return the number of fragments received
      * @see controlled_poll_fragment_handler_t
      */
-    pub fn controlled_poll(&mut self, fragmentHandler: FragmentHandler<ControlledPollAction>, fragmentLimit: i32) -> i32 {
+    pub fn controlled_poll(&mut self, fragment_handler: FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
         let image_list = self.load_image_list();
 
         let length = image_list.length;
@@ -170,27 +171,27 @@ impl Subscription {
         // Image *images = imageList->m_images;
         let mut fragments_read = 0;
 
-        let mut startingIndex = self.m_roundRobinIndex as isize;
-        self.m_roundRobinIndex += 1;
+        let mut starting_index = self.round_robin_index as isize;
+        self.round_robin_index += 1;
 
-        if startingIndex >= length {
-            self.m_roundRobinIndex = 0;
-            startingIndex = 0;
+        if starting_index >= length {
+            self.round_robin_index = 0;
+            starting_index = 0;
         }
 
-        for i in startingIndex..length {
-            if fragments_read < fragmentLimit {
+        for i in starting_index..length {
+            if fragments_read < fragment_limit {
                 fragments_read += image_list
                     .image(i)
-                    .controlled_poll(fragmentHandler, fragmentLimit - fragments_read);
+                    .controlled_poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
-        for i in 0..startingIndex {
-            if fragments_read < fragmentLimit {
+        for i in 0..starting_index {
+            if fragments_read < fragment_limit {
                 fragments_read += image_list
                     .image(i)
-                    .controlled_poll(fragmentHandler, fragmentLimit - fragments_read);
+                    .controlled_poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
@@ -200,11 +201,11 @@ impl Subscription {
     /**
      * Poll the Image s under the subscription for available message fragments in blocks.
      *
-     * @param blockHandler     to receive a block of fragments from each Image.
-     * @param blockLengthLimit for each individual block.
+     * @param block_handler     to receive a block of fragments from each Image.
+     * @param block_length_limit for each individual block.
      * @return the number of bytes consumed.
      */
-    pub fn block_poll(&mut self, blockHandler: BlockHandler, blockLengthLimit: i32) -> i64 {
+    pub fn block_poll(&mut self, block_handler: BlockHandler, block_length_limit: i32) -> i64 {
         let image_list = self.load_image_list();
 
         let length = image_list.length;
@@ -212,7 +213,7 @@ impl Subscription {
         let mut bytes_consumed: i64 = 0;
 
         for i in 0..length {
-            bytes_consumed += image_list.image(i).block_poll(blockHandler, blockLengthLimit) as i64;
+            bytes_consumed += image_list.image(i).block_poll(block_handler, block_length_limit) as i64;
         }
 
         return bytes_consumed;
@@ -306,7 +307,31 @@ impl Subscription {
      * @return true if it has been closed otherwise false.
      */
     pub fn is_closed(&self) -> bool {
-        self.m_isClosed.load(Ordering::Acquire)
+        self.is_closed.load(Ordering::Acquire)
+    }
+
+    // FIXME: stubs for compilation of other files only
+
+    // Adds image to the subscription and returns ImageList
+    // as it was just before adding this Image
+    pub fn add_image(&mut self, _image: Arc<Image>) -> ImageList {
+        ImageList {
+            ptr: 0 as *mut Image,
+            length: 0,
+        }
+    }
+
+    // Removes image with given correlation_id and returns old ImageArray (as of before removal)
+    // and index of removed element. So effectively it return the Image deleted.
+    // Returns None if Image was not removed (e.g. was not found).
+    pub fn remove_image(&mut self, _correlation_id: i64) -> Option<(ImageList, Index)> {
+        None
+    }
+
+    // Removes all images and returns old ImageArray if subscription is not closed.
+    // Returns None if subscription is closed.
+    pub fn close_and_remove_images(&mut self) -> Option<ImageList> {
+        None
     }
 }
 

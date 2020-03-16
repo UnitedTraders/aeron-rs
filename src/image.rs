@@ -18,8 +18,8 @@ use std::cmp::min;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::header::{Context, Header};
-use crate::concurrent::logbuffer::term_reader::{ExceptionHandler, FragmentHandler, ReadOutcome};
+use crate::concurrent::logbuffer::header::Header;
+use crate::concurrent::logbuffer::term_reader::{ErrorHandler, FragmentHandler, ReadOutcome};
 use crate::concurrent::logbuffer::term_scan::{scan, BlockHandler};
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor, term_reader};
 use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
@@ -74,7 +74,7 @@ pub struct Image {
     log_buffers: Arc<Mutex<LogBuffers>>,
     source_identity: String,
     is_closed: AtomicBool,
-    exception_handler: ExceptionHandler,
+    exception_handler: ErrorHandler,
     correlation_id: i64,
     subscription_registration_id: i64,
     join_position: i64,
@@ -96,7 +96,7 @@ impl Image {
         source_identity: String,
         subscriber_position: &UnsafeBufferPosition,
         log_buffers: Arc<Mutex<LogBuffers>>,
-        exception_handler: ExceptionHandler,
+        exception_handler: ErrorHandler,
     ) -> Image {
         let log_buffers_guard = log_buffers.lock().expect("Can't get guard");
         let header = Header::new(
@@ -104,7 +104,6 @@ impl Image {
                 &log_buffers_guard.get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
             ),
             log_buffers_guard.get_atomic_buffer(0).capacity(),
-            Context::default(), /*todo this ?*/
         );
 
         let mut term_buffers: Vec<AtomicBuffer> = Vec::new();
@@ -684,6 +683,6 @@ mod tests {
         let log_buffers = LogBuffers::from_existing("file").unwrap();
         let buffers = Arc::new(Mutex::new(log_buffers));
 
-        let image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |_err| {});
+        let _image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |_err| {});
     }
 }

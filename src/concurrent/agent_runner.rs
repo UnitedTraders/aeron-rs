@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::logbuffer::term_reader::ExceptionHandler;
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
 use crate::concurrent::strategies::Strategy;
 use crate::utils::errors::AeronError;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,13 +28,13 @@ pub trait Agent {
     fn on_close(&self) -> Result<(), AeronError>;
 }
 
-struct AgentRunner<
+pub struct AgentRunner<
     A: 'static + std::marker::Send + std::marker::Sync + Agent,
     I: 'static + std::marker::Send + std::marker::Sync + Strategy,
 > {
     agent: Arc<A>,
-    idle_strategy: Arc<Mutex<I>>,
-    exception_handler: ExceptionHandler,
+    idle_strategy: Arc<I>,
+    exception_handler: ErrorHandler,
     is_running: AtomicBool,
     is_closed: AtomicBool,
     thread: Option<thread::JoinHandle<()>>,
@@ -46,7 +46,7 @@ impl<
         I: 'static + std::marker::Send + std::marker::Sync + Strategy,
     > AgentRunner<A, I>
 {
-    pub fn new(agent: Arc<A>, idle_strategy: Arc<Mutex<I>>, exception_handler: ExceptionHandler) -> Self {
+    pub fn new(agent: Arc<A>, idle_strategy: Arc<I>, exception_handler: ErrorHandler, name: &str) -> Self {
         Self {
             agent,
             idle_strategy,
@@ -54,7 +54,7 @@ impl<
             is_running: AtomicBool::from(false),
             is_closed: AtomicBool::from(false),
             thread: None,
-            name: String::from("aeron-agent"),
+            name: String::from(name),
         }
     }
 
@@ -126,7 +126,7 @@ impl<
 
         while self.is_running.load(Ordering::SeqCst) {
             match self.agent.do_work() {
-                Ok(work_cnt) => self.idle_strategy.lock().expect("mutex is poisoned").idle_opt(work_cnt),
+                Ok(work_cnt) => self.idle_strategy.idle_opt(work_cnt),
                 Err(error) => (self.exception_handler)(error),
             }
         }

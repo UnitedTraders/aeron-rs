@@ -28,10 +28,12 @@ use crate::utils::errors::AeronError;
 use crate::heartbeat_timestamp;
 use crate::concurrent::counters;
 use crate::concurrent::position::UnsafeBufferPosition;
-use crate::image::Image;
+use crate::image::{Image, ImageList};
 use crate::utils::misc::CallbackGuard;
 use std::ffi::CStr;
 use crate::utils::errors::AeronError::{ChannelEndpointException, ClientTimeoutException};
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
+use crate::subscription::Subscription;
 
 type EpochClock = fn()->Moment;
 type NanoClock = fn()->Moment;
@@ -47,8 +49,8 @@ enum RegistrationStatus {
 
 struct PublicationStateDefn {
     error_message: String,
-    buffers: Arc<LogBuffers>,
-    publication: Weak<Publication>,
+    buffers: Option<Arc<LogBuffers>>,      // PublicationStateDefn could be created without it
+    publication: Option<Weak<Publication>>,// and then these fields will be set later.
     channel: String,
     registration_id: i64,
     original_registration_id: i64,
@@ -65,8 +67,8 @@ impl PublicationStateDefn {
     pub fn new(channel: String, registration_id: i64, stream_id: i32, now_ms: Moment) -> Self {
         Self {
             error_message: String::from(""),
-            buffers: (),
-            publication: (),
+            buffers: None,
+            publication: None,
             channel,
             registration_id,
             time_of_registration_ms: now_ms,
@@ -83,8 +85,8 @@ impl PublicationStateDefn {
 
 struct ExclusivePublicationStateDefn {
     error_message: String,
-    buffers: Arc<LogBuffers>,
-    publication: Weak<ExclusivePublication>,
+    buffers: Option<Arc<LogBuffers>>,
+    publication: Option<Weak<ExclusivePublication>>,
     channel: String,
     registration_id: i64,
     original_registration_id: i64,
@@ -101,8 +103,8 @@ impl ExclusivePublicationStateDefn {
     pub fn new(channel: String, registration_id: i64, stream_id: i32, now_ms: Moment) -> Self {
         Self {
             error_message: String::from(""),
-            buffers: (),
-            publication: (),
+            buffers: None,
+            publication: None,
             channel,
             registration_id,
             time_of_registration_ms: now_ms,
@@ -120,7 +122,7 @@ impl ExclusivePublicationStateDefn {
 struct SubscriptionStateDefn {
     error_message: String,
     subscription_cache: Option<Arc<Subscription>>,
-    subscription: Weak<Subscription>,
+    subscription: Option<Weak<Subscription>>,
     on_available_image_handler: OnAvailableImageHandler,
     on_unavailable_image_handler: OnUnavailableImageHandler,
     channel: String,
@@ -140,7 +142,7 @@ impl SubscriptionStateDefn {
         Self {
             error_message: String::from(""),
             subscription_cache: None,
-            subscription: (),
+            subscription: None,
             on_available_image_handler,
             on_unavailable_image_handler,
             channel,
@@ -157,7 +159,7 @@ impl SubscriptionStateDefn {
 struct CounterStateDefn {
     error_message: String,
     counter_cache: Option<Arc<Counter>>,
-    counter: Weak<Counter>,
+    counter: Option<Weak<Counter>>,
     registration_id: i64,
     time_of_registration_ms: Moment,
     counter_id: i32,
@@ -170,7 +172,7 @@ impl CounterStateDefn {
         Self {
             error_message: String::from(""),
             counter_cache: None,
-            counter: (),
+            counter: None,
             registration_id,
             time_of_registration_ms: now_ms,
             error_code: -1,
@@ -182,12 +184,12 @@ impl CounterStateDefn {
 
 
 struct ImageListLingerDefn {
-    image_array: ImageArray,
-    time_of_last_state_change_ms: Moment,// = LLONG_MAX;
+    image_array: ImageList,
+    time_of_last_state_change_ms: Moment,
 }
 
 impl ImageListLingerDefn {
-    pub fn new(now_ms: Moment, image_array: ImageArray) -> Self {
+    pub fn new(now_ms: Moment, image_array: ImageList) -> Self {
         Self {
             image_array,
             time_of_last_state_change_ms: now_ms,
@@ -233,7 +235,7 @@ impl DestinationStateDefn {
 }
 
 
-struct ClientConductor<'a> {
+pub struct ClientConductor<'a> {
     publication_by_registration_id: HashMap<i64, PublicationStateDefn>,
     exclusive_publication_by_registration_id: HashMap<i64, ExclusivePublicationStateDefn>,
     subscription_by_registration_id: HashMap<i64, SubscriptionStateDefn>,
@@ -243,7 +245,7 @@ struct ClientConductor<'a> {
     log_buffers_by_registration_id: HashMap<i64, LogBuffersDefn>,
     lingering_image_lists: Vec<ImageListLingerDefn>,
 
-    driver_proxy: DriverProxy<'a>,
+    driver_proxy: Arc<DriverProxy<'a>>,
     driver_listener_adapter: DriverListenerAdapter<'a, ClientConductor<'a>>,
 
     counters_reader: CountersReader,
@@ -263,7 +265,7 @@ struct ClientConductor<'a> {
     resource_linger_timeout_ms: Moment,
     inter_service_timeout_ms: Moment,
     pre_touch_mapped_memory: bool,
-    is_in_callback: bool, // = false;
+    is_in_callback: bool,
     driver_active: AtomicBool,
     is_closed: AtomicBool,
     admin_lock: Mutex<bool>,
@@ -276,11 +278,11 @@ struct ClientConductor<'a> {
     padding: [u8; crate::utils::misc::CACHE_LINE_LENGTH as usize],
 }
 
-impl ClientConductor {
+impl<'a> ClientConductor<'a> {
     pub fn new(
         epoch_clock: EpochClock,
-        driver_proxy: DriverProxy,
-        broadcast_receiver: CopyBroadcastReceiver,
+        driver_proxy: Arc<DriverProxy<'a>>,
+        broadcast_receiver: &'a CopyBroadcastReceiver,
         counter_metadata_buffer: AtomicBuffer,
         counter_values_buffer: AtomicBuffer,
         on_new_publication_handler: OnNewPublication,
@@ -587,12 +589,12 @@ impl ClientConductor {
         Ok(publication)
     }
 
-        pub fn return_registration_error(err_code: i32, err_message: &str) -> Result<(),AeronError> {
-            Err(AeronError::RegistrationException(format!(
-                "error code {}, error message: ",
-                err_code, err_message
-            )))
-        }
+    pub fn return_registration_error(err_code: i32, err_message: &str) -> Result<(),AeronError> {
+        Err(AeronError::RegistrationException(format!(
+            "error code {}, error message: ",
+            err_code, err_message
+        )))
+    }
 
     pub fn release_publication(&mut self, registration_id: i64) {
         let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in release_publication");
@@ -614,7 +616,11 @@ impl ClientConductor {
 
         self.exclusive_publication_by_registration_id.insert(
         registration_id,
-        ExclusivePublicationStateDefn::new(String::from(channel), registration_id, stream_id, self.epoch_clock())));
+        ExclusivePublicationStateDefn::new(
+            String::from(channel),
+            registration_id,
+            stream_id,
+            self.epoch_clock()));
 
         Ok(registration_id)
     }
@@ -861,7 +867,7 @@ impl ClientConductor {
 
         self.destination_state_by_correlation_id.insert(
         correlation_id,
-        DestinationStateDefn::new(correlation_id, publication_registration_id, self.epoch_clock())));
+        DestinationStateDefn::new(correlation_id, publication_registration_id, self.epoch_clock()));
 
         OK(correlation_id)
     }
@@ -880,7 +886,7 @@ impl ClientConductor {
         // destination_state_by_correlation_id instead of inserting.
         self.destination_state_by_correlation_id.insert(
         correlation_id,
-        DestinationStateDefn::new(correlation_id, publication_registration_id, self.epoch_clock())));
+        DestinationStateDefn::new(correlation_id, publication_registration_id, self.epoch_clock()));
 
         Ok(correlation_id)
     }
@@ -896,7 +902,7 @@ impl ClientConductor {
 
         self.destination_state_by_correlation_id.insert(
         correlation_id,
-        DestinationStateDefn::new(correlation_id, subscription_registration_id, self.epoch_clock())));
+        DestinationStateDefn::new(correlation_id, subscription_registration_id, self.epoch_clock()));
 
         Ok(correlation_id)
     }
@@ -913,7 +919,7 @@ impl ClientConductor {
 
         self.destination_state_by_correlation_id.insert(
         correlation_id,
-        DestinationStateDefn::new(correlation_id, subscription_registration_id, self.epoch_clock())));
+        DestinationStateDefn::new(correlation_id, subscription_registration_id, self.epoch_clock()));
 
         Ok(correlation_id)
     }
@@ -1212,21 +1218,20 @@ impl ClientConductor {
             if let Some(subscription) = subscr_defn.subscription.upgrade() {
                 let subscriber_position = UnsafeBufferPosition::new(self.counter_values_buffer, subscriber_position_id);
 
+                let log_buffers = self.get_log_buffers(correlation_id, log_filename, entry.channel).expect("Get log_buffers failed");
                 let image = Arc::new(Image::create(
-                session_id,
-                correlation_id,
-                subscription_registration_id,
-                source_identity,
-                subscriber_position,
-                self.get_log_buffers(correlation_id, log_filename, entry.self.channel),
-                self.error_handler);
+                    session_id,
+                    correlation_id,
+                    subscription_registration_id,
+                    source_identity,
+                    &subscriber_position,
+                    log_buffers,
+                    self.error_handler));
 
                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                entry.self.on_available_image_handler(*image);
+                entry.on_available_image_handler(*image);
 
-                if let Ok(old_image_array) = subscription.add_image(image) {
-                    self.linger_resource(self.epoch_clock(), old_image_array);
-                }
+                self.linger_resource(self.epoch_clock(), subscription.add_image(image));
             }
         }
     }
@@ -1239,17 +1244,13 @@ impl ClientConductor {
         if let Some(subscr_defn) = self.subscription_by_registration_id.get(&subscription_registration_id) {
 
             if let Some(subscription) = subscr_defn.subscription.upgrade() {
-                let result = subscription.remove_image(correlation_id);
-                // TODO: rewrite when Subscription will be ready
-                Image::array_t oldImageArray = result.first;
-                const std::size_t index = result.second;
 
-                if (nullptr != oldImageArray)
-                {
-                    lingerResource(now_ms, oldImageArray);
+                // If Image was actually removed
+                if let Some(old_image_array) = subscription.remove_image(correlation_id) {
+                    self.linger_resource(now_ms, old_image_array);
 
                     let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                    entry.self.on_unavailable_image_handler(*oldImageArray[index]);
+                    entry.on_unavailable_image_handler(*oldImageArray[index]);
                 }
             }
         }
@@ -1374,14 +1375,12 @@ impl ClientConductor {
         self.lingering_image_lists.erase(arrayIt, self.lingering_image_lists.end());
     }
 
-    pub fn linger_resource(&mut self, now_ms: Moment, images: Image::array_t) {
+    pub fn linger_resource(&mut self, now_ms: Moment, images: ImageList) {
         self.lingering_image_lists.push(now_ms, images);
     }
 
-    pub fn linger_all_resources(&mut self, now_ms: Moment, images: Image::array_t) {
-        if (nullptr != images) {
-            self.linger_resource(now_ms, images);
-        }
+    pub fn linger_all_resources(&mut self, now_ms: Moment, images: ImageList) {
+        self.linger_resource(now_ms, images);
     }
 }
 
