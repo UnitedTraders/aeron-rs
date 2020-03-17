@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use crate::utils::memory_mapped_file::MemMappedFileError;
 use std::fmt;
 use std::fmt::Display;
+
+use crate::utils::memory_mapped_file::MemMappedFileError;
 
 #[derive(Debug)]
 pub enum AeronError {
