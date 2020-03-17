@@ -18,25 +18,19 @@ use std::env;
 
 use crate::cnc_file_descriptor;
 use crate::concurrent::counters::CountersReader;
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
 use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
 use crate::driver_proxy::DriverProxy;
+use crate::image::Image;
 use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
-use crate::utils::types::Index;
-
-struct Image {} // FIXME this is stab!
+use crate::utils::types::{Index, Moment};
 
 /**
  * Used to represent a null value for when some value is not yet set.
  */
 const NULL_VALUE: i32 = -1; // TODO replace on Option
-
-/**
- * Function called by Aeron to signal about occurred error.
- *
-*/
-type ErrorHandler = fn(error: &AeronError);
 
 /**
  * Function called by Aeron to deliver notification of an available image.
@@ -48,7 +42,7 @@ type ErrorHandler = fn(error: &AeronError);
  *
  * @param image that has become available.
  */
-type OnAvailableImage = fn(image: &Image);
+pub type OnAvailableImage = fn(image: &Image);
 
 /**
  * Function called by Aeron to deliver notification that an Image has become unavailable for polling.
@@ -60,7 +54,7 @@ type OnAvailableImage = fn(image: &Image);
  *
  * @param image that has become unavailable
  */
-type OnUnavailableImage = fn(image: &Image);
+pub type OnUnavailableImage = fn(image: &Image);
 
 /**
  * Function called by Aeron to deliver notification that the media driver has added a Publication successfully.
@@ -71,9 +65,9 @@ type OnUnavailableImage = fn(image: &Image);
  * @param channel of the Publication
  * @param stream_id within the channel of the Publication
  * @param session_id of the Publication
- * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::addPublication
+ * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::add_publication
  */
-type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, correlation_id: i64);
+pub type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification that the media driver has added a Subscription successfully.
@@ -83,9 +77,9 @@ type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, corre
  *
  * @param channel of the Subscription
  * @param stream_id within the channel of the Subscription
- * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::addSubscription
+ * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::add_subscription
  */
-type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
+pub type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification of a Counter being available.
@@ -98,7 +92,7 @@ type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
  * @param counter_id      that is available.
  */
 
-type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+pub type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
 
 /**
  * Function called by Aeron to deliver notification of counter being removed.
@@ -110,17 +104,16 @@ type OnAvailableCounter = fn(counters_reader: &CountersReader, registration_id: 
  * @param registration_id for the counter.
  * @param counter_id      that is unavailable.
  */
-type OnUnavailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+pub type OnUnavailableCounter = fn(counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
 
 /**
  * Function called when the Aeron client is closed to notify that the client or any of it associated resources
  * should not be used after this event.
  */
-type OnCloseClient = fn();
+pub type OnCloseClient = fn();
 
-const NULL_TIMEOUT: i64 = -1;
-const DEFAULT_MEDIA_DRIVER_TIMEOUT_MS: i64 = 10000;
-const DEFAULT_RESOURCE_LINGER_MS: i64 = 5000;
+const DEFAULT_MEDIA_DRIVER_TIMEOUT_MS: Moment = 10000;
+const DEFAULT_RESOURCE_LINGER_MS: Moment = 5000;
 
 /**
  * The Default handler for Aeron runtime exceptions.
@@ -131,7 +124,7 @@ const DEFAULT_RESOURCE_LINGER_MS: i64 = 5000;
  *
  * @see Context#errorHandler
  */
-fn default_error_handler(exception: &AeronError) {
+fn default_error_handler(exception: AeronError) {
     panic!("AeronError: {:?}", exception);
 }
 
@@ -155,7 +148,7 @@ fn default_on_close_client_handler() {}
  * It can also set up error handling as well as application callbacks for connection information from the
  * Media Driver.
  */
-struct Context {
+pub struct Context {
     dir_name: String,
     error_handler: ErrorHandler,
     on_new_publication_handler: OnNewPublication,
@@ -166,11 +159,17 @@ struct Context {
     on_available_counter_handler: OnAvailableCounter,
     on_unavailable_counter_handler: OnUnavailableCounter,
     on_close_client_handler: OnCloseClient,
-    media_driver_timeout: i64,
-    resource_linger_timeout: i64,
+    media_driver_timeout: Moment,
+    resource_linger_timeout: Moment,
     use_conductor_agent_invoker: bool,
     is_on_new_exclusive_publication_handler_set: bool,
     pre_touch_mapped_memory: bool,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Context {
@@ -213,6 +212,10 @@ impl Context {
         self
     }
 
+    pub fn aeron_dir(&self) -> String {
+        self.dir_name.clone()
+    }
+
     /**
      * Return the path to the CnC file used by the Aeron client for communication with the media driver.
      *
@@ -235,8 +238,12 @@ impl Context {
         self
     }
 
+    pub fn error_handler(&self) -> ErrorHandler {
+        self.error_handler
+    }
+
     /**
-     * Set the handler for successful Aeron::addPublication notifications.
+     * Set the handler for successful Aeron::add_publication notifications.
      *
      * @param handler called when add is completed successfully
      * @return reference to this Context instance
@@ -246,8 +253,12 @@ impl Context {
         self
     }
 
+    pub fn new_publication_handler(&self) -> OnNewPublication {
+        self.on_new_publication_handler
+    }
+
     /**
-     * Set the handler for successful Aeron::addExclusivePublication notifications.
+     * Set the handler for successful Aeron::add_exclusive_publication notifications.
      *
      * If not set, then will use new_publication_handler instead.
      *
@@ -260,8 +271,12 @@ impl Context {
         self
     }
 
+    pub fn new_exclusive_publication_handler(&self) -> OnNewPublication {
+        self.on_new_exclusive_publication_handler
+    }
+
     /**
-     * Set the handler for successful Aeron::addSubscription notifications.
+     * Set the handler for successful Aeron::add_subscription notifications.
      *
      * @param handler called when add is completed successfully
      * @return reference to this Context instance
@@ -269,6 +284,10 @@ impl Context {
     pub fn set_new_subscription_handler(&mut self, handler: OnNewSubscription) -> &Self {
         self.on_new_subscription_handler = handler;
         self
+    }
+
+    pub fn new_subscription_handler(&self) -> OnNewSubscription {
+        self.on_new_subscription_handler
     }
 
     /**
@@ -282,6 +301,10 @@ impl Context {
         self
     }
 
+    pub fn available_image_handler(&self) -> OnAvailableImage {
+        self.on_available_image_handler
+    }
+
     /**
      * Set the handler for inactive image notifications.
      *
@@ -291,6 +314,10 @@ impl Context {
     pub fn set_unavailable_image_handler(&mut self, handler: OnUnavailableImage) -> &Self {
         self.on_unavailable_image_handler = handler;
         self
+    }
+
+    pub fn unavailable_image_handler(&self) -> OnUnavailableImage {
+        self.on_unavailable_image_handler
     }
 
     /**
@@ -304,6 +331,10 @@ impl Context {
         self
     }
 
+    pub fn available_counter_handler(&self) -> OnAvailableCounter {
+        self.on_available_counter_handler
+    }
+
     /**
      * Set the handler for inactive counter notifications.
      *
@@ -313,6 +344,10 @@ impl Context {
     pub fn set_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) -> &Self {
         self.on_unavailable_counter_handler = handler;
         self
+    }
+
+    pub fn unavailable_counter_handler(&self) -> OnUnavailableCounter {
+        self.on_unavailable_counter_handler
     }
 
     /**
@@ -326,6 +361,10 @@ impl Context {
         self
     }
 
+    pub fn close_client_handler(&self) -> OnCloseClient {
+        self.on_close_client_handler
+    }
+
     /**
      * Set the amount of time, in milliseconds, that this client will wait until it determines the
      * Media Driver is unavailable. When this happens a DriverTimeoutException will be generated for the error handler.
@@ -334,7 +373,7 @@ impl Context {
      * @return reference to this Context instance
      * @see errorHandler
      */
-    pub fn set_media_driver_timeout(&mut self, value: i64) -> &Self {
+    pub fn set_media_driver_timeout(&mut self, value: Moment) -> &Self {
         self.media_driver_timeout = value;
         self
     }
@@ -346,7 +385,7 @@ impl Context {
      * @return value in number of milliseconds.
      * @see errorHandler
      */
-    pub fn media_driver_timeout(&self) -> i64 {
+    pub fn media_driver_timeout(&self) -> Moment {
         self.media_driver_timeout
     }
 
@@ -357,9 +396,13 @@ impl Context {
      * @param value Number of milliseconds.
      * @return reference to this Context instance
      */
-    pub fn set_resource_linger_timeout(&mut self, value: i64) -> &Self {
+    pub fn set_resource_linger_timeout(&mut self, value: Moment) -> &Self {
         self.resource_linger_timeout = value;
         self
+    }
+
+    pub fn resource_linger_timeout(&self) -> Moment {
+        self.resource_linger_timeout
     }
 
     /**
@@ -373,15 +416,23 @@ impl Context {
         self
     }
 
+    pub fn use_conductor_agent_invoker(&self) -> bool {
+        self.use_conductor_agent_invoker
+    }
+
     /**
      * Set whether memory mapped files should be pre-touched so they are pre-loaded to avoid later page faults.
      *
      * @param pre_touch_mapped_memory true to pre-touch memory otherwise false.
      * @return reference to this Context instance
      */
-    pub fn pre_touch_mapped_memory(&mut self, pre_touch_mapped_memory: bool) -> &Self {
+    pub fn set_pre_touch_mapped_memory(&mut self, pre_touch_mapped_memory: bool) -> &Self {
         self.pre_touch_mapped_memory = pre_touch_mapped_memory;
         self
+    }
+
+    pub fn pre_touch_mapped_memory(&self) -> bool {
+        self.pre_touch_mapped_memory
     }
 
     pub fn request_driver_termination(directory: &str, token_buffer: *mut u8, token_length: Index) -> Result<(), AeronError> {
@@ -401,7 +452,7 @@ impl Context {
             }
 
             let to_driver_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_file);
-            let ring_buffer = ManyToOneRingBuffer::new(to_driver_buffer).expect("Error creating ring buffer");
+            let ring_buffer = ManyToOneRingBuffer::new(to_driver_buffer).expect("ManyToOneRingBuffer creation failed");
             let driver_proxy = DriverProxy::new(&ring_buffer);
 
             driver_proxy.terminate_driver(token_buffer, token_length)?;

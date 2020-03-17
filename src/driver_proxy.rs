@@ -230,7 +230,7 @@ impl<'a> DriverProxy<'a> {
         Ok(correlation_id)
     }
 
-    pub fn add_counter(&self, type_id: i32, key: &mut [u8], key_length: Index, label: CString) -> Result<i64, AeronError> {
+    pub fn add_counter(&self, type_id: i32, key: &[u8], label: CString) -> Result<i64, AeronError> {
         let correlation_id = self.to_driver_command_buffer.next_correlation_id();
 
         self.write_command_to_driver(|buffer, length| {
@@ -239,7 +239,7 @@ impl<'a> DriverProxy<'a> {
             command.set_client_id(self.client_id);
             command.set_correlation_id(correlation_id);
             command.set_type_id(type_id);
-            command.set_key_buffer(key.as_ptr(), key_length);
+            command.set_key_buffer(key.as_ptr(), key.len() as i32);
             command.set_label(label.as_bytes_with_nul());
 
             *length = command.length();

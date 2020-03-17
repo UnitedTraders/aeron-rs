@@ -1,9 +1,32 @@
+/*
+ * Copyright 2020 UT OVERSEAS INC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use std::time::Duration;
 
 use crate::concurrent::atomics::cpu_pause;
+use crate::utils::types::Moment;
 
-trait Strategy {
-    fn set_idle(&mut self, work_count: i32);
+pub trait Strategy {
+    fn idle_opt(&self, work_count: i32);
+    fn idle(&self);
+    fn reset(&self);
+}
+
+pub trait StrategyMut {
+    fn idle_opt(&mut self, work_count: i32);
     fn idle(&mut self);
     fn reset(&mut self);
 }
@@ -13,7 +36,7 @@ const BACK_OFF_STATE_SPINNING: u8 = 1;
 const BACK_OFF_STATE_YIELDING: u8 = 2;
 const BACK_OFF_STATE_PARKING: u8 = 3;
 
-struct BackOffIdleStrategy {
+pub struct BackOffIdleStrategy {
     state: u8,
     spins: i32,
     max_spins: i32,
@@ -24,8 +47,8 @@ struct BackOffIdleStrategy {
     max_park_period_ns: u64,
 }
 
-impl Strategy for BackOffIdleStrategy {
-    fn set_idle(&mut self, work_count: i32) {
+impl StrategyMut for BackOffIdleStrategy {
+    fn idle_opt(&mut self, work_count: i32) {
         if work_count > 0 {
             self.reset();
         } else {
@@ -72,7 +95,7 @@ impl Strategy for BackOffIdleStrategy {
     }
 }
 
-struct BusySpinIdleStrategy {}
+pub struct BusySpinIdleStrategy {}
 
 impl BusySpinIdleStrategy {
     fn pause() {
@@ -81,79 +104,79 @@ impl BusySpinIdleStrategy {
 }
 
 impl Strategy for BusySpinIdleStrategy {
-    fn set_idle(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if work_count > 0 {
             return;
         }
         Self::pause();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         Self::pause();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         unimplemented!()
     }
 }
 
-struct NoOpIdleStrategy {}
+pub struct NoOpIdleStrategy {}
 
 impl Strategy for NoOpIdleStrategy {
-    fn set_idle(&mut self, _work_count: i32) {
+    fn idle_opt(&self, _work_count: i32) {
         unimplemented!();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         unimplemented!()
     }
 }
 
-struct SleepingIdleStrategy {
-    duration: Duration,
+pub struct SleepingIdleStrategy {
+    duration: Moment,
 }
 
 impl SleepingIdleStrategy {
-    pub fn new(duration: Duration) -> Self {
+    pub fn new(duration: Moment) -> Self {
         Self { duration }
     }
 }
 
 impl Strategy for SleepingIdleStrategy {
-    fn set_idle(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if 0 == work_count {
-            std::thread::sleep(self.duration);
+            std::thread::sleep(Duration::from_millis(self.duration));
         }
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
-        std::thread::sleep(self.duration)
+    fn reset(&self) {
+        std::thread::sleep(Duration::from_millis(self.duration))
     }
 }
 
-struct YieldingIdleStrategy {}
+pub struct YieldingIdleStrategy {}
 
 impl Strategy for YieldingIdleStrategy {
-    fn set_idle(&mut self, work_count: i32) {
+    fn idle_opt(&self, work_count: i32) {
         if 0 == work_count {
             return;
         }
         std::thread::yield_now();
     }
 
-    fn idle(&mut self) {
+    fn idle(&self) {
         unimplemented!();
     }
 
-    fn reset(&mut self) {
+    fn reset(&self) {
         std::thread::yield_now();
     }
 }

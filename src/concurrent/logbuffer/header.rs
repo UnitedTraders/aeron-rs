@@ -21,17 +21,13 @@ use crate::utils::bit_utils::align;
 use crate::utils::bit_utils::number_of_trailing_zeroes;
 use crate::utils::types::Index;
 
-// FIXME: this is temporary stub
-#[derive(Default)]
-pub struct Context {}
-
 /**
  * Represents the header of the data frame for accessing meta data fields.
  */
 // TODO: originally there was pointer *void on context. Need to check all types
 // which could be stored in this field and make it rusty.
 pub struct Header {
-    context: Context,
+    //context: Option<Arc<Image>>,
     buffer: Option<AtomicBuffer>,
     offset: Index,
     initial_term_id: i32,
@@ -39,9 +35,9 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(initial_term_id: i32, capacity: Index, context: Context) -> Self {
+    pub fn new(initial_term_id: i32, capacity: Index) -> Self {
         Self {
-            context,
+            //context: None,
             initial_term_id,
             offset: 0,
             position_bits_to_shift: number_of_trailing_zeroes(capacity),
@@ -188,16 +184,6 @@ impl Header {
         self.buffer
             .expect("Buffer not set")
             .get::<i64>(self.offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET)
-    }
-
-    /**
-     * Get a pointer to the context associated with this message. Only valid during poll handling. Is normally a
-     * pointer to an Image instance.
-     *
-     * @return a pointer to the context associated with this message.
-     */
-    pub fn context(&self) -> &Context {
-        &self.context
     }
 }
 

@@ -29,7 +29,7 @@ pub trait ReadablePosition {
     fn set_ordered(&self, value: i64);
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub(crate) struct UnsafeBufferPosition {
     buffer: AtomicBuffer,
     id: i32,

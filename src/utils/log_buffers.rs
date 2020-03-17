@@ -9,7 +9,7 @@ use crate::utils::types::Index;
 use std::ffi::OsString;
 use std::path::Path;
 
-pub(crate) struct LogBuffers {
+pub struct LogBuffers {
     memory_mapped_file: MemoryMappedFile,
     buffers: Vec<AtomicBuffer>,
 }
@@ -49,31 +49,26 @@ impl LogBuffers {
         })
     }
 
-    pub fn atomic_buffer(&self, _index: Index) -> AtomicBuffer {
-        self.memory_mapped_file.atomic_buffer(0, 0)
+    pub fn get_atomic_buffer(&self, index: Index) -> AtomicBuffer {
+        self.buffers[index as usize]
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
 
-    // #[test]
+    #[test]
     fn test_new() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let file_path = tmp_dir.path().join("mapped.file");
-        let tmp_file = File::create(file_path.clone()).unwrap();
+        let path = "test1.tst";
+        MemoryMappedFile::create_new(path, 0, 65536).expect("file not found");
 
-        tmp_file.set_len(10).unwrap();
+        let buffers = LogBuffers::from_existing(path).unwrap();
 
-        // tmp_file.sync_data();
-
-        let buffers = LogBuffers::from_existing(file_path).unwrap();
-        let _buffer = buffers.atomic_buffer(0);
+        let _buffer = buffers.get_atomic_buffer(0);
 
         // assert_eq!(file.memory_size(), 128);
 
-        assert_eq!(buffers.atomic_buffer(0).capacity(), 128)
+        assert_eq!(buffers.get_atomic_buffer(0).capacity(), 128)
     }
 }
