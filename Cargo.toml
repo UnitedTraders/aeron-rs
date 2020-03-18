@@ -9,6 +9,7 @@ cache_line_size="1.0.0"
 num-traits="0.2.11"
 lazy_static = "=1.4.0"
 memmap = "=0.7.0"
+rand = "=0.6"
 
 [dev-dependencies]
 tempfile = "3.1.0"
