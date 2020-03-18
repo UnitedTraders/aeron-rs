@@ -1,13 +1,16 @@
+use std::ffi::CString;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+
+use crate::client_conductor::ClientConductor;
 use crate::concurrent::logbuffer::term_reader::FragmentHandler;
 use crate::concurrent::logbuffer::term_scan::BlockHandler;
 use crate::image::{ControlledPollAction, Image, ImageList};
 use crate::utils::types::Index;
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
-use std::sync::Arc;
 
 pub struct Subscription {
-    // conductor: ClientConductor<>;
-    channel: String,
+    conductor: Arc<Mutex<ClientConductor>>,
+    channel: CString,
     channel_status_id: i32,
     round_robin_index: Index,
     //todo std::size_t
@@ -19,13 +22,30 @@ pub struct Subscription {
 }
 
 impl Subscription {
+    pub fn new(conductor: Arc<Mutex<ClientConductor>>,
+               registration_id: i64,
+               channel: CString,
+               stream_id: i32,
+               channel_status_id: i32) -> Self {
+        Self {
+            conductor,
+            channel,
+            channel_status_id,
+            round_robin_index: 0,
+            registration_id,
+            stream_id,
+            image_list: Default::default(),
+            is_closed: AtomicBool::from(false),
+        }
+    }
+
     /**
      * Media address for delivery to the channel.
      *
      * @return Media address for delivery to the channel.
      */
-    pub fn channel(&self) -> &str {
-        return &self.channel;
+    pub fn channel(&self) -> CString {
+        return self.channel.clone();
     }
 
     /**

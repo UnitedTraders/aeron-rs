@@ -26,6 +26,8 @@ use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
 use crate::utils::types::{Index, Moment};
+use std::sync::Arc;
+use std::ffi::CString;
 
 /**
  * Used to represent a null value for when some value is not yet set.
@@ -67,7 +69,7 @@ pub type OnUnavailableImage = fn(image: &Image);
  * @param session_id of the Publication
  * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::add_publication
  */
-pub type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, correlation_id: i64);
+pub type OnNewPublication = fn(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification that the media driver has added a Subscription successfully.
@@ -79,7 +81,7 @@ pub type OnNewPublication = fn(channel: &str, stream_id: i32, session_id: i32, c
  * @param stream_id within the channel of the Subscription
  * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::add_subscription
  */
-pub type OnNewSubscription = fn(channel: &str, stream_id: i32, correlation_id: i64);
+pub type OnNewSubscription = fn(channel: CString, stream_id: i32, correlation_id: i64);
 
 /**
  * Function called by Aeron to deliver notification of a Counter being available.
@@ -128,11 +130,11 @@ fn default_error_handler(exception: AeronError) {
     panic!("AeronError: {:?}", exception);
 }
 
-fn default_on_new_publication_handler(_channel: &str, _stream_id: i32, _session_id: i32, _correlation_id: i64) {}
+fn default_on_new_publication_handler(_channel: CString, _stream_id: i32, _session_id: i32, _correlation_id: i64) {}
 
 fn default_on_available_image_handler(_img: &Image) {}
 
-fn default_on_new_subscription_handler(_channel: &str, _stream_id: i32, _correlation_id: i64) {}
+fn default_on_new_subscription_handler(_channel: CString, _stream_id: i32, _correlation_id: i64) {}
 
 fn default_on_unavailable_image_handler(_img: &Image) {}
 
@@ -148,6 +150,7 @@ fn default_on_close_client_handler() {}
  * It can also set up error handling as well as application callbacks for connection information from the
  * Media Driver.
  */
+#[derive(Clone)]
 pub struct Context {
     dir_name: String,
     error_handler: ErrorHandler,
@@ -447,7 +450,7 @@ impl Context {
 
             let to_driver_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_file);
             let ring_buffer = ManyToOneRingBuffer::new(to_driver_buffer).expect("ManyToOneRingBuffer creation failed");
-            let driver_proxy = DriverProxy::new(&ring_buffer);
+            let driver_proxy = DriverProxy::new(Arc::new(ring_buffer));
 
             driver_proxy.terminate_driver(token_buffer, token_length)?;
         }

@@ -28,7 +28,8 @@ use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
 use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::ffi::CString;
 
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
@@ -67,23 +68,21 @@ pub enum ControlledPollAction {
 type ControlledPollFragmentHandler = fn(&AtomicBuffer, Index, Index, Header);
 
 pub struct Image {
-    term_buffers: Vec<AtomicBuffer>,
-    header: Header,
-    subscriber_position: UnsafeBufferPosition,
-
-    log_buffers: Arc<Mutex<LogBuffers>>,
-    source_identity: String,
-    is_closed: AtomicBool,
+    source_identity: CString,
+    log_buffers: Arc<LogBuffers>,
     exception_handler: ErrorHandler,
-    correlation_id: i64,
-    subscription_registration_id: i64,
-    join_position: i64,
-    final_position: i64,
-    session_id: i32,
+    term_buffers: Vec<AtomicBuffer>,
+    subscriber_position: UnsafeBufferPosition,
+    header: Header,
+    is_closed: AtomicBool,
+    is_eos: bool,
     term_length_mask: Index,
     position_bits_to_shift: i32,
-
-    is_eos: bool,
+    session_id: i32,
+    join_position: i64,
+    final_position: i64,
+    subscription_registration_id: i64,
+    correlation_id: i64,
 }
 
 enum ImageError {}
@@ -93,23 +92,22 @@ impl Image {
         session_id: i32,
         correlation_id: i64,
         subscription_registration_id: i64,
-        source_identity: String,
+        source_identity: CString,
         subscriber_position: &UnsafeBufferPosition,
-        log_buffers: Arc<Mutex<LogBuffers>>,
+        log_buffers: Arc<LogBuffers>,
         exception_handler: ErrorHandler,
     ) -> Image {
-        let log_buffers_guard = log_buffers.lock().expect("Can't get guard");
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(
-                &log_buffers_guard.get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                &log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
             ),
-            log_buffers_guard.get_atomic_buffer(0).capacity(),
+            log_buffers.atomic_buffer(0).capacity(),
         );
 
         let mut term_buffers: Vec<AtomicBuffer> = Vec::new();
 
         for i in 0..log_buffer_descriptor::PARTITION_COUNT {
-            term_buffers.push(log_buffers_guard.get_atomic_buffer(i))
+            term_buffers.push(log_buffers.atomic_buffer(i))
         }
 
         let capacity = term_buffers[0].capacity();
@@ -226,8 +224,8 @@ impl Image {
      *
      * @return source identity of the sending publisher as an abstract concept appropriate for the media.
      */
-    pub fn source_identity(&self) -> &str {
-        &self.source_identity
+    pub fn source_identity(&self) -> CString {
+        self.source_identity.clone()
     }
 
     /**
@@ -289,9 +287,7 @@ impl Image {
             >= log_buffer_descriptor::end_of_stream_position(
                 &self
                     .log_buffers
-                    .try_lock()
-                    .unwrap() //todo
-                    .get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                    .atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
             )
     }
 
@@ -630,7 +626,7 @@ impl Image {
         }
     }
 
-    pub fn log_buffers(&self) -> Arc<Mutex<LogBuffers>> {
+    pub fn log_buffers(&self) -> Arc<LogBuffers> {
         self.log_buffers.clone()
     }
 
@@ -642,9 +638,7 @@ impl Image {
                 >= log_buffer_descriptor::end_of_stream_position(
                     &self
                         .log_buffers
-                        .try_lock()
-                        .unwrap() //todo
-                        .get_atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                        .atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
                 );
             self.is_closed.store(true, Ordering::Release)
         }
@@ -681,8 +675,8 @@ mod tests {
         MemoryMappedFile::create_new("file", 0, 65536).unwrap();
 
         let log_buffers = LogBuffers::from_existing("file").unwrap();
-        let buffers = Arc::new(Mutex::new(log_buffers));
+        let buffers = Arc::new(log_buffers);
 
-        let _image = Image::create(0, 0, 0, "hi".into(), &unsafe_buffer_position, buffers, |_err| {});
+        let _image = Image::create(0, 0, 0, CString::new("hi").unwrap(), &unsafe_buffer_position, buffers, |_err| {});
     }
 }

@@ -18,12 +18,12 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::counters::CountersReader;
 use crate::utils::types::{Index, I64_SIZE};
 
-const CHANNEL_ENDPOINT_INITIALIZING: i64 = 0;
-const CHANNEL_ENDPOINT_ERRORED: i64 = -1;
-const CHANNEL_ENDPOINT_ACTIVE: i64 = 1;
-const CHANNEL_ENDPOINT_CLOSING: i64 = 2;
+pub const CHANNEL_ENDPOINT_INITIALIZING: i64 = 0;
+pub const CHANNEL_ENDPOINT_ERRORED: i64 = -1;
+pub const CHANNEL_ENDPOINT_ACTIVE: i64 = 1;
+pub const CHANNEL_ENDPOINT_CLOSING: i64 = 2;
 
-const NO_ID_ALLOCATED: i32 = -1;
+pub const NO_ID_ALLOCATED: i32 = -1;
 
 static mut STATIC_BUFFER_SLICE: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -37,7 +37,7 @@ fn static_buffer() -> AtomicBuffer {
 }
 
 #[derive(Debug)]
-struct StatusIndicatorReader {
+pub struct StatusIndicatorReader {
     buffer: AtomicBuffer,
     id: i32,
     offset: Index,

@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-use crate::utils::memory_mapped_file::MemMappedFileError;
-use std::fmt;
+use std::{fmt, io};
 use std::fmt::Display;
+use crate::concurrent::broadcast::BroadcastTransmitError;
 
 #[derive(Debug)]
 pub enum AeronError {
     GenericError(String),
     IllegalArgumentException(String),
     IllegalStateException(String),
-    MemMappedFileError(MemMappedFileError),
+    MemMappedFileError(io::Error),
     ConductorServiceTimeout(String),
     DriverTimeout(String),
     ReentrantException(String),
     RegistrationException(String),
     ChannelEndpointException((i64, String)), // correlation ID + error message
     ClientTimeoutException(String),
+    BroadcastTransmitError(BroadcastTransmitError),
 }
 
 impl Display for AeronError {
@@ -45,6 +46,7 @@ impl Display for AeronError {
             AeronError::RegistrationException(err) => write!(f, "RegistrationException: {:?}", err),
             AeronError::ChannelEndpointException(err) => write!(f, "ChannelEndpointException: {:?}", err),
             AeronError::ClientTimeoutException(err) => write!(f, "ClientTimeoutException: {:?}", err),
+            AeronError::BroadcastTransmitError(err) => write!(f, "BroadcastTransmitError: {:?}", err),
         }
     }
 }

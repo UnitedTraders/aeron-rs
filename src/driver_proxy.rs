@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use std::ffi::CString;
+use std::sync::Arc;
 
 use crate::command::control_protocol_events::AeronCommand;
 use crate::command::correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH};
@@ -28,15 +29,15 @@ use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
 use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 
-pub(crate) struct DriverProxy<'a> {
-    to_driver_command_buffer: &'a ManyToOneRingBuffer,
+pub struct DriverProxy {
+    to_driver_command_buffer: Arc<ManyToOneRingBuffer>,
     client_id: i64,
 }
 
-impl<'a> DriverProxy<'a> {
-    pub fn new(to_driver_command_buffer: &'a ManyToOneRingBuffer) -> Self {
+impl DriverProxy {
+    pub fn new(to_driver_command_buffer: Arc<ManyToOneRingBuffer>) -> Self {
         Self {
-            to_driver_command_buffer,
+            to_driver_command_buffer: to_driver_command_buffer.clone(),
             client_id: to_driver_command_buffer.next_correlation_id(),
         }
     }

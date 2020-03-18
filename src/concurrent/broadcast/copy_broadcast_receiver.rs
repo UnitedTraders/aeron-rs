@@ -22,6 +22,7 @@
 trait Handler {
     fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);
 }
+use std::sync::{Arc, Mutex};
 
 use super::broadcast_receiver::BroadcastReceiver;
 use super::BroadcastTransmitError;
@@ -29,14 +30,14 @@ use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use crate::utils::types::Index;
 
-pub struct CopyBroadcastReceiver<'a> {
-    receiver: &'a mut BroadcastReceiver,
+pub struct CopyBroadcastReceiver {
+    receiver: Arc<Mutex<BroadcastReceiver>>,
     scratch_buffer: AtomicBuffer,
     aligned_buffer: AlignedBuffer,
 }
 
-impl<'a> CopyBroadcastReceiver<'a> {
-    pub fn new(receiver: &'a mut BroadcastReceiver) -> Self {
+impl CopyBroadcastReceiver {
+    pub fn new(receiver: Arc<Mutex<BroadcastReceiver>>) -> Self {
         let scratch = AlignedBuffer::with_capacity(4096);
         Self {
             receiver,
@@ -50,14 +51,15 @@ impl<'a> CopyBroadcastReceiver<'a> {
         F: Fn(AeronCommand, AtomicBuffer, Index, Index),
     {
         let mut messages_received: usize = 0;
-        let last_seen_lapped_count = self.receiver.lapped_count();
+        let mut receiver = self.receiver.lock().expect("Mutex poisoned");
+        let last_seen_lapped_count = receiver.lapped_count();
 
-        if self.receiver.receive_next() {
-            if last_seen_lapped_count != self.receiver.lapped_count() {
+        if receiver.receive_next() {
+            if last_seen_lapped_count != receiver.lapped_count() {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);
             }
 
-            let length = self.receiver.length() as Index;
+            let length = receiver.length() as Index;
             if length > self.scratch_buffer.capacity() {
                 return Err(BroadcastTransmitError::BufferTooSmall {
                     need: length,
@@ -65,11 +67,11 @@ impl<'a> CopyBroadcastReceiver<'a> {
                 });
             }
 
-            let msg = AeronCommand::from_command_id(self.receiver.type_id());
+            let msg = AeronCommand::from_command_id(receiver.type_id());
 
-            self.scratch_buffer.put_bytes(0, self.receiver.buffer().as_slice());
+            self.scratch_buffer.put_bytes(0, receiver.buffer().as_slice());
 
-            if !self.receiver.validate() {
+            if !receiver.validate() {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);
             }
 

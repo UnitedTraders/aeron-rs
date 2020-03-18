@@ -277,7 +277,7 @@ pub fn default_sys_time_provider() -> u64 {
     0
 }
 
-pub(crate) struct CountersManager {
+pub struct CountersManager {
     reader: CountersReader,
     free_list: VecDeque<i32>,
     clock: SysTimeProvider,

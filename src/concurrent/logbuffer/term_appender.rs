@@ -32,7 +32,7 @@ use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
  * @param term_offset of the start of the message
  * @param length of the message in bytes
  */
-pub type OnReservedValueSupplier = fn(&AtomicBuffer, Index, Index) -> i64;
+pub type OnReservedValueSupplier = fn(AtomicBuffer, Index, Index) -> i64;
 
 pub const TERM_APPENDER_FAILED: Index = I32_SIZE - 2;
 
@@ -40,19 +40,19 @@ pub fn default_reserved_value_supplier(_term_buffer: AtomicBuffer, _term_offset:
     0
 }
 
-struct TermAppender<'a> {
-    term_buffer: &'a AtomicBuffer,
-    tail_buffer: &'a AtomicBuffer,
+pub struct TermAppender {
+    term_buffer: AtomicBuffer,
+    tail_buffer: AtomicBuffer,
     tail_offset: Index,
 }
 
-impl<'a> TermAppender<'a> {
+impl TermAppender {
     // Term buffer - for messages
     // Meta data buffer - for metadata used by Aeron for maintaining messages flow
     // Partition index - is number 0, 1 ... X which are indexes of this particular term appender
     // in the array of other appenders. All appenders share one metadata buffer therefore
     // each appender uses its own space inside metadata buffer known as tail_buffer.
-    pub fn new(term_buffer: &'a AtomicBuffer, meta_data_buffer: &'a AtomicBuffer, partition_index: Index) -> Self {
+    pub fn new(term_buffer: AtomicBuffer, meta_data_buffer: AtomicBuffer, partition_index: Index) -> Self {
         Self {
             term_buffer,
             tail_buffer: meta_data_buffer,
@@ -60,7 +60,7 @@ impl<'a> TermAppender<'a> {
         }
     }
 
-    pub fn term_buffer(&self) -> &AtomicBuffer {
+    pub fn term_buffer(&self) -> AtomicBuffer {
         self.term_buffer
     }
 
@@ -95,11 +95,11 @@ impl<'a> TermAppender<'a> {
         let mut resulting_offset = term_offset + aligned_length as i64;
         if resulting_offset > term_length as i64 {
             resulting_offset =
-                TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
+                TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let frame_offset = term_offset as Index;
-            header.write(self.term_buffer, frame_offset, frame_length, term_id);
-            buffer_claim.wrap_with_offset(self.term_buffer, frame_offset, frame_length);
+            header.write(&self.term_buffer, frame_offset, frame_length, term_id);
+            buffer_claim.wrap_with_offset(&self.term_buffer, frame_offset, frame_length);
         }
 
         Ok(resulting_offset as Index)
@@ -129,10 +129,10 @@ impl<'a> TermAppender<'a> {
 
         if resulting_offset > term_length as i64 {
             resulting_offset =
-                TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
+                TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let frame_offset = term_offset as Index;
-            header.write(self.term_buffer, frame_offset, frame_length, term_id);
+            header.write(&self.term_buffer, frame_offset, frame_length, term_id);
             self.term_buffer.copy_from(
                 frame_offset + data_frame_header::LENGTH,
                 msg_body_buffer,
@@ -144,7 +144,7 @@ impl<'a> TermAppender<'a> {
             self.term_buffer
                 .put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
-            frame_descriptor::set_frame_length_ordered(self.term_buffer, frame_offset, frame_length);
+            frame_descriptor::set_frame_length_ordered(&self.term_buffer, frame_offset, frame_length);
         }
 
         Ok(resulting_offset as Index)
@@ -173,10 +173,10 @@ impl<'a> TermAppender<'a> {
 
         if resulting_offset > term_length as i64 {
             resulting_offset =
-                TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
+                TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let frame_offset = term_offset as Index;
-            header.write(self.term_buffer, frame_offset, frame_length, term_id);
+            header.write(&self.term_buffer, frame_offset, frame_length, term_id);
 
             let mut offset = frame_offset + data_frame_header::LENGTH;
 
@@ -194,7 +194,7 @@ impl<'a> TermAppender<'a> {
             self.term_buffer
                 .put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
-            frame_descriptor::set_frame_length_ordered(self.term_buffer, frame_offset, frame_length);
+            frame_descriptor::set_frame_length_ordered(&self.term_buffer, frame_offset, frame_length);
         }
 
         Ok(resulting_offset as Index)
@@ -235,7 +235,7 @@ impl<'a> TermAppender<'a> {
 
         if resulting_offset > term_length as i64 {
             resulting_offset =
-                TermAppender::handle_end_of_log_condition(self.term_buffer, term_offset, header, term_length, term_id) as i64;
+                TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let mut flags: u8 = frame_descriptor::BEGIN_FRAG;
             let mut remaining: Index = length;
@@ -246,7 +246,7 @@ impl<'a> TermAppender<'a> {
                 let frame_length: Index = bytes_to_write + data_frame_header::LENGTH;
                 let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
-                header.write(self.term_buffer, frame_offset, frame_length, term_id);
+                header.write(&self.term_buffer, frame_offset, frame_length, term_id);
 
                 self.term_buffer.copy_from(
                     frame_offset + data_frame_header::LENGTH,
@@ -259,13 +259,13 @@ impl<'a> TermAppender<'a> {
                     flags |= frame_descriptor::END_FRAG;
                 }
 
-                frame_descriptor::set_frame_flags(self.term_buffer, frame_offset, flags);
+                frame_descriptor::set_frame_flags(&self.term_buffer, frame_offset, flags);
 
                 let reserved_value: i64 = reserved_value_supplier(self.term_buffer, frame_offset, frame_length);
                 self.term_buffer
                     .put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
-                frame_descriptor::set_frame_length_ordered(self.term_buffer, frame_offset, frame_length);
+                frame_descriptor::set_frame_length_ordered(&self.term_buffer, frame_offset, frame_length);
 
                 flags = 0;
                 frame_offset += aligned_length;
@@ -278,6 +278,105 @@ impl<'a> TermAppender<'a> {
         }
 
         Ok(resulting_offset as Index)
+    }
+
+    pub fn append_fragmented_message_bulk(
+        &mut self,
+        header: &HeaderWriter,
+        buffers: Vec<AtomicBuffer>,
+        length: Index,
+        max_payload_length: Index,
+        reserved_value_supplier: OnReservedValueSupplier,
+        active_term_id: i32,
+    ) -> Result<Index, AeronError> {
+        let num_max_payloads = length / max_payload_length;
+        let remaining_payload = length % max_payload_length;
+        let last_frame_length = if remaining_payload > 0 {
+            bit_utils::align(
+                remaining_payload + data_frame_header::LENGTH,
+                frame_descriptor::FRAME_ALIGNMENT,
+            )
+        } else {
+            0
+        };
+
+        let required_length = (num_max_payloads * (max_payload_length + data_frame_header::LENGTH)) + last_frame_length;
+        let raw_tail = self.get_and_add_raw_tail(required_length);
+        let term_offset = raw_tail & 0xFFFFFFFF;
+        let term_id = log_buffer_descriptor::term_id(raw_tail);
+
+        let term_length = self.term_buffer.capacity();
+
+        TermAppender::check_term(active_term_id, term_id)?;
+
+        let mut resulting_offset = term_offset + required_length as i64;
+        if resulting_offset > term_length as i64{
+            resulting_offset = TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
+        } else {
+            let mut flags = frame_descriptor::BEGIN_FRAG;
+            let mut remaining = length;
+            let mut frame_offset = term_offset as i32;
+            let mut current_buffer_offset = 0;
+
+            loop {
+                let bytes_to_write = std::cmp::min(remaining, max_payload_length);
+                let frame_length = bytes_to_write + data_frame_header::LENGTH;
+                let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
+
+                header.write(&self.term_buffer, frame_offset, frame_length, term_id);
+
+                let mut bytes_written = 0;
+                let mut payload_offset = frame_offset + data_frame_header::LENGTH;
+
+                let mut buffers_iter = buffers.iter();
+                let mut curr_buffer = buffers_iter.next().expect("At least one buffer must be supplied");
+
+                loop {
+                    let current_buffer_remaining = curr_buffer.capacity() - current_buffer_offset;
+                    let num_bytes = std::cmp::min(bytes_to_write - bytes_written, current_buffer_remaining);
+
+                    self.term_buffer.copy_from(payload_offset, curr_buffer, current_buffer_offset, num_bytes);
+
+                    bytes_written += num_bytes;
+                    payload_offset += num_bytes;
+                    current_buffer_offset += num_bytes;
+
+                    if current_buffer_remaining <= num_bytes {
+                        if let Some(next_buf) = buffers_iter.next() {
+                            curr_buffer = next_buf;
+                            current_buffer_offset = 0;
+                        } else {
+                            break; // all buffers appended
+                        }
+                    }
+
+                    if bytes_written >= bytes_to_write {
+                        break;
+                    }
+                }
+
+                if remaining <= max_payload_length {
+                    flags |= frame_descriptor::END_FRAG;
+                }
+
+                frame_descriptor::set_frame_flags(&self.term_buffer, frame_offset, flags);
+
+                let reserved_value = reserved_value_supplier(self.term_buffer, frame_offset, frame_length);
+                self.term_buffer.put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
+
+                frame_descriptor::set_frame_length_ordered(&self.term_buffer, frame_offset, frame_length);
+
+                flags = 0;
+                frame_offset += aligned_length;
+                remaining -= bytes_to_write;
+
+                if remaining <= 0 {
+                    break;
+                }
+            }
+        }
+    
+        Ok(resulting_offset as i32)
     }
 
     fn check_term(expected_term_id: i32, term_id: i32) -> Result<(), AeronError> {
@@ -351,7 +450,7 @@ mod tests {
             let ht_buff = AlignedBuffer::with_capacity(TERM_BUFFER_CAPACITY);
             let hidden_term_buffer = AtomicBuffer::from_aligned(&ht_buff);
 
-            let $term_appender = TermAppender::new(&hidden_term_buffer, &$hidden_metadata_buffer, PARTITION_INDEX);
+            let $term_appender = TermAppender::new(hidden_term_buffer, $hidden_metadata_buffer, PARTITION_INDEX);
             let $header_writer = HeaderWriter::new($hdr);
 
             $metadata_buffer.set_memory(0, $metadata_buffer.capacity(), 0);
@@ -368,7 +467,7 @@ mod tests {
         ((term_id as i64) << 32) | term_offset as i64
     }
 
-    fn reserved_value_supplier(_buf: &AtomicBuffer, _unused: Index, _unused1: Index) -> i64 {
+    fn reserved_value_supplier(_buf: AtomicBuffer, _unused: Index, _unused1: Index) -> i64 {
         RESERVED_VALUE
     }
 

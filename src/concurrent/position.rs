@@ -30,7 +30,7 @@ pub trait ReadablePosition {
 }
 
 #[derive(Clone)]
-pub(crate) struct UnsafeBufferPosition {
+pub struct UnsafeBufferPosition {
     buffer: AtomicBuffer,
     id: i32,
     offset: Index,

@@ -24,13 +24,13 @@ use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buff
 use crate::utils::bit_utils;
 use crate::utils::types::{Index, I64_SIZE};
 
-struct ExclusiveTermAppender<'a> {
-    term_buffer: &'a AtomicBuffer,
+pub struct ExclusiveTermAppender {
+    term_buffer: AtomicBuffer,
     tail_addr: *const i64,
 }
 
-impl<'a> ExclusiveTermAppender<'a> {
-    pub fn new(term_buffer: &'a AtomicBuffer, meta_data_buffer: &'a AtomicBuffer, partition_index: Index) -> Self {
+impl ExclusiveTermAppender {
+    pub fn new(term_buffer: AtomicBuffer, meta_data_buffer: AtomicBuffer, partition_index: Index) -> Self {
         // This check implemented as assert. Looks like out of bounds here can be reached only
         // due to a bug elsewhere. Therefore don't need more sophisticated error handling.
         meta_data_buffer.bounds_check(
@@ -46,7 +46,7 @@ impl<'a> ExclusiveTermAppender<'a> {
         }
     }
 
-    pub fn term_buffer(&self) -> &AtomicBuffer {
+    pub fn term_buffer(&self) -> AtomicBuffer {
         self.term_buffer
     }
 
@@ -70,10 +70,10 @@ impl<'a> ExclusiveTermAppender<'a> {
         self.put_raw_tail_ordered(term_id as i64, resulting_offset);
 
         if resulting_offset > term_length {
-            resulting_offset = Self::handle_end_of_log_condition(self.term_buffer, term_id, term_offset, header, term_length);
+            resulting_offset = Self::handle_end_of_log_condition(&self.term_buffer, term_id, term_offset, header, term_length);
         } else {
-            header.write(self.term_buffer, term_offset, frame_length, term_id);
-            buffer_claim.wrap_with_offset(self.term_buffer, term_offset, frame_length);
+            header.write(&self.term_buffer, term_offset, frame_length, term_id);
+            buffer_claim.wrap_with_offset(&self.term_buffer, term_offset, frame_length);
         }
 
         resulting_offset
@@ -98,9 +98,9 @@ impl<'a> ExclusiveTermAppender<'a> {
         self.put_raw_tail_ordered(term_id as i64, resulting_offset);
 
         if resulting_offset > term_length {
-            resulting_offset = Self::handle_end_of_log_condition(self.term_buffer, term_id, term_offset, header, term_length);
+            resulting_offset = Self::handle_end_of_log_condition(&self.term_buffer, term_id, term_offset, header, term_length);
         } else {
-            header.write(self.term_buffer, term_offset, frame_length, term_id);
+            header.write(&self.term_buffer, term_offset, frame_length, term_id);
             self.term_buffer
                 .copy_from(term_offset + data_frame_header::LENGTH, src_buffer, src_offset, length);
 
@@ -108,7 +108,7 @@ impl<'a> ExclusiveTermAppender<'a> {
             self.term_buffer
                 .put::<i64>(term_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
-            frame_descriptor::set_frame_length_ordered(self.term_buffer, term_offset, frame_length);
+            frame_descriptor::set_frame_length_ordered(&self.term_buffer, term_offset, frame_length);
         }
 
         resulting_offset
@@ -187,7 +187,7 @@ impl<'a> ExclusiveTermAppender<'a> {
         self.put_raw_tail_ordered(term_id as i64, resulting_offset);
 
         if resulting_offset > term_length {
-            resulting_offset = Self::handle_end_of_log_condition(self.term_buffer, term_id, term_offset, header, term_length);
+            resulting_offset = Self::handle_end_of_log_condition(&self.term_buffer, term_id, term_offset, header, term_length);
         } else {
             let mut flags = frame_descriptor::BEGIN_FRAG;
             let mut remaining = length;
@@ -198,7 +198,7 @@ impl<'a> ExclusiveTermAppender<'a> {
                 let frame_length = bytes_to_write + data_frame_header::LENGTH;
                 let aligned_length = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
-                header.write(self.term_buffer, offset, frame_length, term_id);
+                header.write(&self.term_buffer, offset, frame_length, term_id);
                 self.term_buffer.copy_from(
                     offset + data_frame_header::LENGTH,
                     src_buffer,
@@ -210,13 +210,13 @@ impl<'a> ExclusiveTermAppender<'a> {
                     flags |= frame_descriptor::END_FRAG;
                 }
 
-                frame_descriptor::set_frame_flags(self.term_buffer, offset, flags);
+                frame_descriptor::set_frame_flags(&self.term_buffer, offset, flags);
 
                 let reserved_value = reserved_value_supplier(self.term_buffer, offset, frame_length);
                 self.term_buffer
                     .put::<i64>(offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
-                frame_descriptor::set_frame_length_ordered(self.term_buffer, offset, frame_length);
+                frame_descriptor::set_frame_length_ordered(&self.term_buffer, offset, frame_length);
 
                 flags = 0;
                 offset += aligned_length;

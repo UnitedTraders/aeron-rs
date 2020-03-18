@@ -25,7 +25,7 @@ use crate::utils::types::Index;
  * When the buffer is filled with message data, use {@link #commit()} to make it available to subscribers.
  */
 #[derive(Default)]
-pub(crate) struct BufferClaim {
+pub struct BufferClaim {
     buffer: Option<AtomicBuffer>,
 }
 

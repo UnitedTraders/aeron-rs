@@ -15,10 +15,10 @@
  */
 use crate::concurrent::agent_runner::Agent;
 use crate::concurrent::logbuffer::term_reader::ErrorHandler;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct AgentInvoker<T: Agent> {
-    agent: Arc<T>,
+    agent: Arc<Mutex<T>>,
     exception_handler: ErrorHandler,
     is_started: bool,
     is_running: bool,
@@ -26,7 +26,7 @@ pub struct AgentInvoker<T: Agent> {
 }
 
 impl<T: Agent> AgentInvoker<T> {
-    pub fn new(agent: Arc<T>, exception_handler: ErrorHandler) -> Self {
+    pub fn new(agent: Arc<Mutex<T>>, exception_handler: ErrorHandler) -> Self {
         Self {
             agent,
             exception_handler,
@@ -71,7 +71,8 @@ impl<T: Agent> AgentInvoker<T> {
     pub fn start(&mut self) {
         if !self.is_started {
             self.is_started = true;
-            if let Err(error) = self.agent.on_start() {
+            let on_start_result = self.agent.lock().expect("Mutex poisoned").on_start();
+            if let Err(error) = on_start_result {
                 (self.exception_handler)(error);
                 self.close();
             } else {
@@ -91,7 +92,7 @@ impl<T: Agent> AgentInvoker<T> {
         let mut work_count = 0;
 
         if self.is_running {
-            match self.agent.do_work() {
+            match self.agent.lock().expect("Mutex poisoned").do_work() {
                 Err(error) => (self.exception_handler)(error),
                 Ok(wrk_cnt) => work_count = wrk_cnt,
             }
@@ -109,7 +110,7 @@ impl<T: Agent> AgentInvoker<T> {
         if !self.is_closed {
             self.is_running = false;
             self.is_closed = true;
-            if let Err(error) = self.agent.on_close() {
+            if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_close() {
                 (self.exception_handler)(error);
             }
         }

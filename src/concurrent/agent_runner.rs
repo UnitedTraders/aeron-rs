@@ -23,16 +23,16 @@ use std::thread;
 
 // The trait to be implemented by agents run within AgentRunner
 pub trait Agent {
-    fn on_start(&self) -> Result<(), AeronError>;
-    fn do_work(&self) -> Result<i32, AeronError>;
-    fn on_close(&self) -> Result<(), AeronError>;
+    fn on_start(&mut self) -> Result<(), AeronError>;
+    fn do_work(&mut self) -> Result<i32, AeronError>;
+    fn on_close(&mut self) -> Result<(), AeronError>;
 }
 
 pub struct AgentRunner<
     A: 'static + std::marker::Send + std::marker::Sync + Agent,
     I: 'static + std::marker::Send + std::marker::Sync + Strategy,
 > {
-    agent: Arc<A>,
+    agent: Arc<Mutex<A>>, // need mutable Agent here as AgentRunner will change Agent state while running it
     idle_strategy: Arc<I>,
     exception_handler: ErrorHandler,
     is_running: AtomicBool,
@@ -46,7 +46,7 @@ impl<
         I: 'static + std::marker::Send + std::marker::Sync + Strategy,
     > AgentRunner<A, I>
 {
-    pub fn new(agent: Arc<A>, idle_strategy: Arc<I>, exception_handler: ErrorHandler, name: &str) -> Self {
+    pub fn new(agent: Arc<Mutex<A>>, idle_strategy: Arc<I>, exception_handler: ErrorHandler, name: &str) -> Self {
         Self {
             agent,
             idle_strategy,
@@ -119,25 +119,26 @@ impl<
             .is_running
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
 
-        if let Err(error) = self.agent.on_start() {
+        if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_start() {
             (self.exception_handler)(error);
             self.is_running.store(false, Ordering::SeqCst);
         }
 
         while self.is_running.load(Ordering::SeqCst) {
-            match self.agent.do_work() {
+            match self.agent.lock().expect("Mutex poisoned").do_work() {
                 Ok(work_cnt) => self.idle_strategy.idle_opt(work_cnt),
                 Err(error) => (self.exception_handler)(error),
             }
         }
 
-        if let Err(error) = self.agent.on_close() {
+        if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_close() {
             (self.exception_handler)(error);
         }
     }
 
     /**
      * Close the agent and stop the associated thread from running. This method waits for the thread to join.
+     * Consumes self as join() consumes thread handle.
      */
     pub fn close(self) {
         // Atomically compare and set is_running value

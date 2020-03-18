@@ -26,12 +26,13 @@ use crate::command::publication_buffers_ready_flyweight::*;
 use crate::command::subscription_ready_flyweight::SubscriptionReadyFlyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
-use crate::concurrent::broadcast::BroadcastTransmitError;
 use crate::utils::types::Index;
+use std::sync::{Arc, Mutex};
+use crate::utils::errors::AeronError;
 
 pub trait DriverListener {
     fn on_new_publication(
-        &self,
+        &mut self,
         registration_id: i64,
         original_registration_id: i64,
         stream_id: i32,
@@ -42,7 +43,7 @@ pub trait DriverListener {
     );
 
     fn on_new_exclusive_publication(
-        &self,
+        &mut self,
         registration_id: i64,
         original_registration_id: i64,
         stream_id: i32,
@@ -52,16 +53,16 @@ pub trait DriverListener {
         log_filename: CString,
     );
 
-    fn on_subscription_ready(&self, registration_id: i64, channel_status_id: i32);
+    fn on_subscription_ready(&mut self, registration_id: i64, channel_status_id: i32);
 
-    fn on_operation_success(&self, correlation_id: i64);
+    fn on_operation_success(&mut self, correlation_id: i64);
 
-    fn on_channel_endpoint_error_response(&self, offending_command_correlation_id: i64, error_message: CString);
+    fn on_channel_endpoint_error_response(&mut self, offending_command_correlation_id: i64, error_message: CString);
 
-    fn on_error_response(&self, offending_command_correlation_id: i64, error_code: i32, error_message: CString);
+    fn on_error_response(&mut self, offending_command_correlation_id: i64, error_code: i32, error_message: CString);
 
     fn on_available_image(
-        &self,
+        &mut self,
         correlation_id: i64,
         session_id: i32,
         subscriber_position_id: i32,
@@ -70,124 +71,127 @@ pub trait DriverListener {
         source_identity: CString,
     );
 
-    fn on_unavailable_image(&self, correlation_id: i64, subscription_registration_id: i64);
+    fn on_unavailable_image(&mut self, correlation_id: i64, subscription_registration_id: i64);
 
-    fn on_available_counter(&self, registration_id: i64, counter_id: i32);
+    fn on_available_counter(&mut self, registration_id: i64, counter_id: i32);
 
-    fn on_unavailable_counter(&self, registration_id: i64, counter_id: i32);
+    fn on_unavailable_counter(&mut self, registration_id: i64, counter_id: i32);
 
-    fn on_client_timeout(&self, client_id: i64);
+    fn on_client_timeout(&mut self, client_id: i64);
 }
 
-pub struct DriverListenerAdapter<'a, T: DriverListener> {
-    broadcast_receiver: CopyBroadcastReceiver<'a>,
-    driver_listener: &'a T,
+pub struct DriverListenerAdapter<T: DriverListener> {
+    broadcast_receiver: Arc<Mutex<CopyBroadcastReceiver>>,
+    driver_listener: Arc<Mutex<T>>, // Driver listener is ClientConductor and we want it to be mutable
 }
 
-impl<'a, T: DriverListener> DriverListenerAdapter<'a, T> {
-    pub fn new(broadcast_receiver: CopyBroadcastReceiver<'a>, driver_listener: &'a T) -> Self {
+impl<T: DriverListener> DriverListenerAdapter<T> {
+    pub fn new(broadcast_receiver: Arc<Mutex<CopyBroadcastReceiver>>, driver_listener: Arc<Mutex<T>>) -> Self {
         Self {
             broadcast_receiver,
             driver_listener,
         }
     }
 
-    pub fn receive_messages(&mut self) -> Result<usize, BroadcastTransmitError> {
-        let this_driver_listener = self.driver_listener;
+    pub fn receive_messages(&mut self) -> Result<usize, AeronError> {
+        let this_mutexted_driver_listener = self.driver_listener.clone();
 
-        let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| match msg {
-            AeronCommand::ResponseOnPublicationReady => {
-                let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
+        let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| {
+            let mut this_driver_listener = this_mutexted_driver_listener.lock().expect("Mutex poisoned");
+            match msg {
+                AeronCommand::ResponseOnPublicationReady => {
+                    let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
-                this_driver_listener.on_new_publication(
-                    publication_ready.correlation_id(),
-                    publication_ready.registration_id(),
-                    publication_ready.stream_id(),
-                    publication_ready.session_id(),
-                    publication_ready.position_limit_counter_id(),
-                    publication_ready.channel_status_indicator_id(),
-                    publication_ready.log_file_name(),
-                );
-            }
-            AeronCommand::ResponseOnExclusivePublicationReady => {
-                let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
-
-                this_driver_listener.on_new_exclusive_publication(
-                    publication_ready.correlation_id(),
-                    publication_ready.registration_id(),
-                    publication_ready.stream_id(),
-                    publication_ready.session_id(),
-                    publication_ready.position_limit_counter_id(),
-                    publication_ready.channel_status_indicator_id(),
-                    publication_ready.log_file_name(),
-                );
-            }
-            AeronCommand::ResponseOnSubscriptionReady => {
-                let subscription_ready = SubscriptionReadyFlyweight::new(buffer, offset);
-
-                this_driver_listener.on_subscription_ready(
-                    subscription_ready.correlation_id(),
-                    subscription_ready.channel_status_indicator_id(),
-                );
-            }
-            AeronCommand::ResponseOnAvailableImage => {
-                let image_ready = ImageBuffersReadyFlyweight::new(buffer, offset);
-
-                this_driver_listener.on_available_image(
-                    image_ready.correlation_id(),
-                    image_ready.session_id(),
-                    image_ready.subscriber_position_id(),
-                    image_ready.subscription_registration_id(),
-                    image_ready.log_file_name(),
-                    image_ready.source_identity(),
-                );
-            }
-            AeronCommand::ResponseOnOperationSuccess => {
-                let operation_succeeded = OperationSucceededFlyweight::new(buffer, offset);
-
-                this_driver_listener.on_operation_success(operation_succeeded.correlation_id());
-            }
-            AeronCommand::ResponseOnUnavailableImage => {
-                let image_message = ImageMessageFlyweight::new(buffer, offset);
-
-                this_driver_listener
-                    .on_unavailable_image(image_message.correlation_id(), image_message.subscription_registration_id());
-            }
-            AeronCommand::ResponseOnError => {
-                let error_response = ErrorResponseFlyweight::new(buffer, offset);
-
-                let error_code = error_response.error_code();
-
-                if ERROR_CODE_CHANNEL_ENDPOINT_ERROR == error_code {
-                    this_driver_listener.on_channel_endpoint_error_response(
-                        error_response.offending_command_correlation_id(),
-                        error_response.error_message(),
-                    );
-                } else {
-                    this_driver_listener.on_error_response(
-                        error_response.offending_command_correlation_id(),
-                        error_code,
-                        error_response.error_message(),
+                    this_driver_listener.on_new_publication(
+                        publication_ready.correlation_id(),
+                        publication_ready.registration_id(),
+                        publication_ready.stream_id(),
+                        publication_ready.session_id(),
+                        publication_ready.position_limit_counter_id(),
+                        publication_ready.channel_status_indicator_id(),
+                        publication_ready.log_file_name(),
                     );
                 }
-            }
-            AeronCommand::ResponseOnCounterReady => {
-                let response = CounterUpdateFlyweight::new(buffer, offset);
-                this_driver_listener.on_available_counter(response.correlation_id(), response.counter_id());
-            }
-            AeronCommand::ResponseOnUnavailableCounter => {
-                let response = CounterUpdateFlyweight::new(buffer, offset);
-                this_driver_listener.on_unavailable_counter(response.correlation_id(), response.counter_id());
-            }
-            AeronCommand::ResponseOnClientTimeout => {
-                let response = ClientTimeoutFlyweight::new(buffer, offset);
-                this_driver_listener.on_client_timeout(response.client_id());
-            }
-            _ => {
-                unreachable!("Unexpected control protocol event: {}", msg as i32);
+                AeronCommand::ResponseOnExclusivePublicationReady => {
+                    let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
+
+                    this_driver_listener.on_new_exclusive_publication(
+                        publication_ready.correlation_id(),
+                        publication_ready.registration_id(),
+                        publication_ready.stream_id(),
+                        publication_ready.session_id(),
+                        publication_ready.position_limit_counter_id(),
+                        publication_ready.channel_status_indicator_id(),
+                        publication_ready.log_file_name(),
+                    );
+                }
+                AeronCommand::ResponseOnSubscriptionReady => {
+                    let subscription_ready = SubscriptionReadyFlyweight::new(buffer, offset);
+
+                    this_driver_listener.on_subscription_ready(
+                        subscription_ready.correlation_id(),
+                        subscription_ready.channel_status_indicator_id(),
+                    );
+                }
+                AeronCommand::ResponseOnAvailableImage => {
+                    let image_ready = ImageBuffersReadyFlyweight::new(buffer, offset);
+
+                    this_driver_listener.on_available_image(
+                        image_ready.correlation_id(),
+                        image_ready.session_id(),
+                        image_ready.subscriber_position_id(),
+                        image_ready.subscription_registration_id(),
+                        image_ready.log_file_name(),
+                        image_ready.source_identity(),
+                    );
+                }
+                AeronCommand::ResponseOnOperationSuccess => {
+                    let operation_succeeded = OperationSucceededFlyweight::new(buffer, offset);
+
+                    this_driver_listener.on_operation_success(operation_succeeded.correlation_id());
+                }
+                AeronCommand::ResponseOnUnavailableImage => {
+                    let image_message = ImageMessageFlyweight::new(buffer, offset);
+
+                    this_driver_listener
+                        .on_unavailable_image(image_message.correlation_id(), image_message.subscription_registration_id());
+                }
+                AeronCommand::ResponseOnError => {
+                    let error_response = ErrorResponseFlyweight::new(buffer, offset);
+
+                    let error_code = error_response.error_code();
+
+                    if ERROR_CODE_CHANNEL_ENDPOINT_ERROR == error_code {
+                        this_driver_listener.on_channel_endpoint_error_response(
+                            error_response.offending_command_correlation_id(),
+                            error_response.error_message(),
+                        );
+                    } else {
+                        this_driver_listener.on_error_response(
+                            error_response.offending_command_correlation_id(),
+                            error_code,
+                            error_response.error_message(),
+                        );
+                    }
+                }
+                AeronCommand::ResponseOnCounterReady => {
+                    let response = CounterUpdateFlyweight::new(buffer, offset);
+                    this_driver_listener.on_available_counter(response.correlation_id(), response.counter_id());
+                }
+                AeronCommand::ResponseOnUnavailableCounter => {
+                    let response = CounterUpdateFlyweight::new(buffer, offset);
+                    this_driver_listener.on_unavailable_counter(response.correlation_id(), response.counter_id());
+                }
+                AeronCommand::ResponseOnClientTimeout => {
+                    let response = ClientTimeoutFlyweight::new(buffer, offset);
+                    this_driver_listener.on_client_timeout(response.client_id());
+                }
+                _ => {
+                    unreachable!("Unexpected control protocol event: {}", msg as i32);
+                }
             }
         };
 
-        self.broadcast_receiver.receive(receive_handler)
+        self.broadcast_receiver.lock().expect("Mutex poisoned").receive(receive_handler).map_err(|err| AeronError::BroadcastTransmitError(err))
     }
 }

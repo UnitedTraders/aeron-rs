@@ -16,7 +16,7 @@ pub struct LogBuffers {
 
 impl LogBuffers {
     pub fn from_existing<P: AsRef<Path> + Into<OsString>>(file_path: P) -> Result<Self, AeronError> {
-        let log_len = MemoryMappedFile::file_size(&file_path).map_err(AeronError::MemMappedFileError)?;
+        let log_len = MemoryMappedFile::file_size(&file_path)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
 
@@ -49,7 +49,7 @@ impl LogBuffers {
         })
     }
 
-    pub fn get_atomic_buffer(&self, index: Index) -> AtomicBuffer {
+    pub fn atomic_buffer(&self, index: Index) -> AtomicBuffer {
         self.buffers[index as usize]
     }
 }
@@ -65,10 +65,10 @@ mod tests {
 
         let buffers = LogBuffers::from_existing(path).unwrap();
 
-        let _buffer = buffers.get_atomic_buffer(0);
+        let _buffer = buffers.atomic_buffer(0);
 
         // assert_eq!(file.memory_size(), 128);
 
-        assert_eq!(buffers.get_atomic_buffer(0).capacity(), 128)
+        assert_eq!(buffers.atomic_buffer(0).capacity(), 128)
     }
 }

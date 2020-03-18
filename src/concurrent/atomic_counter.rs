@@ -19,19 +19,32 @@ use crate::concurrent::counters::{CountersManager, CountersReader};
 use crate::utils::types::Index;
 use std::sync::{Arc, Mutex};
 
-struct AtomicCounter {
+pub struct AtomicCounter {
     buffer: AtomicBuffer,
     counter_id: i32,
-    counters_manager: Arc<Mutex<CountersManager>>, // TODO investigate do we really need shared ref here and mutex
+    counters_manager: Option<Arc<Mutex<CountersManager>>>, // TODO investigate do we really need shared ref here and mutex
     offset: Index,
 }
 
 impl AtomicCounter {
-    pub fn new(buffer: AtomicBuffer, counter_id: i32, counters_manager: Arc<Mutex<CountersManager>>) -> Self {
+    pub fn new(buffer: AtomicBuffer, counter_id: i32) -> Self {
         let selfy = Self {
             buffer,
             counter_id,
-            counters_manager,
+            counters_manager: None,
+            offset: CountersReader::counter_offset(counter_id),
+        };
+
+        selfy.buffer.put::<i64>(selfy.offset, 0);
+
+        selfy
+    }
+
+    pub fn new_opt(buffer: AtomicBuffer, counter_id: i32, counters_mgr: Arc<Mutex<CountersManager>>) -> Self {
+        let selfy = Self {
+            buffer,
+            counter_id,
+            counters_manager: Some(counters_mgr),
             offset: CountersReader::counter_offset(counter_id),
         };
 
@@ -95,9 +108,10 @@ impl AtomicCounter {
 
 impl Drop for AtomicCounter {
     fn drop(&mut self) {
-        self.counters_manager
-            .lock()
-            .expect("Can't lock mutex on counters_mgr")
-            .free(self.counter_id);
+        if let Some(mgr)  = &self.counters_manager {
+            mgr.lock()
+                .expect("Can't lock mutex on counters_mgr")
+                .free(self.counter_id);
+        }
     }
 }

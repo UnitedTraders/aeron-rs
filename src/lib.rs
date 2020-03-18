@@ -20,7 +20,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_safety_doc)]
 
-//pub mod aeron;
+pub mod aeron;
 pub mod buffer_builder;
 pub mod cnc_file_descriptor;
 pub mod command;
@@ -33,5 +33,6 @@ pub mod image;
 pub mod protocol;
 pub mod subscription;
 pub mod utils;
-//pub mod publication;
-//pub mod client_conductor;
+pub mod publication;
+pub mod client_conductor;
+pub mod counter;
