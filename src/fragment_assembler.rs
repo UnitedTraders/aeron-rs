@@ -26,7 +26,9 @@ use aeron_rs::utils::types::Index;
 
 const DEFAULT_FRAGMENT_ASSEMBLY_BUFFER_LENGTH: isize = 4096;
 
-type Fragment = dyn Fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>;
+trait Fragment: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError> {}
+
+impl<T: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>> Fragment for T {}
 
 /**
  * A handler that sits in a chain-of-responsibility pattern that reassembles fragmented messages
@@ -42,9 +44,9 @@ type Fragment = dyn Fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), Aeron
  * {@link #deleteSessionBuffer(std::int32_t)}.
  */
 struct FragmentAssembler {
-    delegate: Box<Fragment>,
+    delegate: Box<dyn Fragment>,
     builder_by_session_id_map: HashMap<i32, BufferBuilder>,
-    initial_buffer_length: Index,
+    initial_buffer_length: isize,
 }
 
 impl FragmentAssembler {
@@ -54,7 +56,7 @@ impl FragmentAssembler {
      * @param delegate            onto which whole messages are forwarded.
      * @param initialBufferLength to be used for each session.
      */
-    pub fn new(delegate: Box<Fragment>, initial_buffer_length: Option<Index>) -> Self {
+    pub fn new(delegate: Box<dyn Fragment>, initial_buffer_length: Option<isize>) -> Self {
         Self {
             delegate,
             builder_by_session_id_map: HashMap::new(),
@@ -70,8 +72,8 @@ impl FragmentAssembler {
      */
 
     // FIXME: Handle lifetimes
-    pub fn handler(&mut self) -> Box<Fragment> {
-        Box::new(|buffer, offset, length, header| self.on_fragment(buffer, offset, length, header))
+    pub fn handler(&mut self) -> impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError> + '_ {
+        move |buffer, offset, length, header| self.on_fragment(buffer, offset, length, header)
     }
 
     /**
@@ -88,22 +90,22 @@ impl FragmentAssembler {
     fn on_fragment(&mut self, buffer: &AtomicBuffer, offset: Index, length: Index, header: &Header) -> Result<(), AeronError> {
         let flags = header.flags();
         if (flags & frame_descriptor::UNFRAGMENTED) == frame_descriptor::UNFRAGMENTED {
-            (*self.delegate)(buffer, offset, length, header);
+            (*self.delegate)(buffer, offset, length, header)?;
         } else if (flags & frame_descriptor::BEGIN_FRAG) == frame_descriptor::BEGIN_FRAG {
             // FIXME: Check the logic to imitate C++ emplace
             let result = self
                 .builder_by_session_id_map
                 .insert(header.session_id(), BufferBuilder::new(self.initial_buffer_length));
             let mut builder = result.unwrap();
-            builder.reset().append(buffer, offset, length, header);
+            builder.reset().append(buffer, offset, length, header)?;
         } else if let Some(builder) = self.builder_by_session_id_map.get_mut(&header.session_id()) {
             if builder.limit() != data_frame_header::LENGTH {
-                builder.append(buffer, offset, length, header);
+                builder.append(buffer, offset, length, header)?;
                 if flags & frame_descriptor::END_FRAG == frame_descriptor::END_FRAG {
                     let msg_length = builder.limit() - data_frame_header::LENGTH;
                     let msg_buffer = AtomicBuffer::new(builder.buffer(), builder.limit());
 
-                    (*self.delegate)(&msg_buffer, data_frame_header::LENGTH, msg_length, header);
+                    (*self.delegate)(&msg_buffer, data_frame_header::LENGTH, msg_length, header)?;
 
                     builder.reset();
                 }

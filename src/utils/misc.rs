@@ -22,7 +22,7 @@ pub fn unix_time_ns() -> Moment {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Can't get UNIX epoch.");
 
-    since_the_epoch.as_secs() * 1000_000_000 + since_the_epoch.subsec_nanos() as u64
+    since_the_epoch.as_secs() * 1_000_000_000 + since_the_epoch.subsec_nanos() as u64
 }
 
 // Converts Aeron string in to Rust string

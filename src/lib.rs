@@ -22,17 +22,17 @@
 
 pub mod aeron;
 pub mod buffer_builder;
+pub mod client_conductor;
 pub mod cnc_file_descriptor;
 pub mod command;
 pub mod concurrent;
 pub mod context;
+pub mod counter;
 pub mod driver_listener_adapter;
 pub mod driver_proxy;
 pub mod heartbeat_timestamp;
 pub mod image;
 pub mod protocol;
+pub mod publication;
 pub mod subscription;
 pub mod utils;
-pub mod publication;
-pub mod client_conductor;
-pub mod counter;

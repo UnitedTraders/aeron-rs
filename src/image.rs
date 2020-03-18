@@ -15,7 +15,9 @@
  */
 
 use std::cmp::min;
+use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::header::Header;
@@ -23,13 +25,10 @@ use crate::concurrent::logbuffer::term_reader::{ErrorHandler, FragmentHandler, R
 use crate::concurrent::logbuffer::term_scan::{scan, BlockHandler};
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor, term_reader};
 use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-
 use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
 use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
-use std::sync::Arc;
-use std::ffi::CString;
 
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
@@ -118,7 +117,7 @@ impl Image {
         Self {
             term_buffers,
             header,
-            subscriber_position: subscriber_position.clone(),
+            subscriber_position: (*subscriber_position).clone(),
             log_buffers: log_buffers.clone(),
             source_identity,
             is_closed: AtomicBool::new(false),
@@ -427,7 +426,7 @@ impl Image {
 
     pub fn bounded_controlled_poll<F>(
         &mut self,
-        fragment_handler: &FragmentHandler<ControlledPollAction>,
+        fragment_handler: FragmentHandler<ControlledPollAction>,
         max_position: i64,
         fragment_limit: i32,
     ) -> i32 {
@@ -512,7 +511,7 @@ impl Image {
     pub fn controlled_peek(
         &mut self,
         initial_position: i64,
-        fragment_handler: &FragmentHandler<ControlledPollAction>,
+        fragment_handler: FragmentHandler<ControlledPollAction>,
         limit_position: i64,
     ) -> Result<i64, AeronError> {
         let mut resulting_position = initial_position;
@@ -653,14 +652,13 @@ pub struct ImageList {
 }
 
 impl ImageList {
-    pub fn image(&self, pos: isize) -> &mut Image {
+    pub fn image(&mut self, pos: isize) -> &mut Image {
         assert!(pos < self.length);
 
-        let image = unsafe {
+        unsafe {
             let img = self.ptr.offset(pos);
             &mut *img
-        };
-        image
+        }
     }
 }
 
@@ -677,6 +675,14 @@ mod tests {
         let log_buffers = LogBuffers::from_existing("file").unwrap();
         let buffers = Arc::new(log_buffers);
 
-        let _image = Image::create(0, 0, 0, CString::new("hi").unwrap(), &unsafe_buffer_position, buffers, |_err| {});
+        let _image = Image::create(
+            0,
+            0,
+            0,
+            CString::new("hi").unwrap(),
+            &unsafe_buffer_position,
+            buffers,
+            |_err| {},
+        );
     }
 }

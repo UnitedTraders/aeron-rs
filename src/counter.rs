@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::concurrent::atomic_counter::AtomicCounter;
 use crate::client_conductor::ClientConductor;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_counter::AtomicCounter;
 use crate::utils::errors::AeronError;
 
-pub struct Counter {          // inherits from AtomicCounter
+pub struct Counter {
+    // inherits from AtomicCounter
     atomic_counter: AtomicCounter,
     client_conductor: Arc<Mutex<ClientConductor>>,
     registration_id: i64,
@@ -30,7 +31,12 @@ pub struct Counter {          // inherits from AtomicCounter
 }
 
 impl Counter {
-    pub fn new(client_conductor: Arc<Mutex<ClientConductor>>, buffer: AtomicBuffer, registration_id: i64, counter_id: i32) -> Self {
+    pub fn new(
+        client_conductor: Arc<Mutex<ClientConductor>>,
+        buffer: AtomicBuffer,
+        registration_id: i64,
+        counter_id: i32,
+    ) -> Self {
         Self {
             atomic_counter: AtomicCounter::new(buffer, counter_id),
             client_conductor,
@@ -50,7 +56,6 @@ impl Counter {
     pub fn close(&self) {
         self.is_closed.store(true, Ordering::SeqCst);
     }
-
 
     pub fn state(&self) -> Result<i32, AeronError> {
         let cc = self.client_conductor.lock().expect("Mutex poisoned");
@@ -72,6 +77,10 @@ impl Counter {
 
 impl Drop for Counter {
     fn drop(&mut self) {
-        let _ignored = self.client_conductor.lock().expect("Mutex poisoned").release_counter(self.registration_id);
+        let _ignored = self
+            .client_conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .release_counter(self.registration_id);
     }
 }

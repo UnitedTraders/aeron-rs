@@ -16,15 +16,15 @@
 
 use core::slice;
 use std::ffi::OsString;
+use std::fs;
 use std::fs::OpenOptions;
 use std::path::Path;
-use std::fs;
 
 use memmap::MmapMut;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::Index;
 use crate::utils::errors::AeronError;
+use crate::utils::types::Index;
 
 #[derive(Debug)]
 struct FileHandle {
@@ -109,12 +109,7 @@ impl MemoryMappedFile {
         Self::from_file_handle(fd, offset, size, false)
     }
 
-    fn from_file_handle(
-        mut fd: FileHandle,
-        offset: Index,
-        mut length: Index,
-        _read_only: bool,
-    ) -> Result<Self, AeronError> {
+    fn from_file_handle(mut fd: FileHandle, offset: Index, mut length: Index, _read_only: bool) -> Result<Self, AeronError> {
         if 0 == length && 0 == offset {
             length = Self::file_size(&fd.file_path)? as Index;
         }
@@ -128,10 +123,7 @@ impl MemoryMappedFile {
         Ok(mmf)
     }
 
-    pub fn map_existing<P: AsRef<Path> + Into<OsString>>(
-        filename: P,
-        read_only: bool,
-    ) -> Result<MemoryMappedFile, AeronError> {
+    pub fn map_existing<P: AsRef<Path> + Into<OsString>>(filename: P, read_only: bool) -> Result<MemoryMappedFile, AeronError> {
         Self::map_existing_part(filename, 0, 0, read_only)
     }
 

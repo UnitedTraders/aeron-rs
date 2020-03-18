@@ -27,18 +27,18 @@ use crate::concurrent::agent_runner::AgentRunner;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
 use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+use crate::concurrent::counters::CountersReader;
 use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
 use crate::concurrent::strategies::SleepingIdleStrategy;
 use crate::context::{Context, OnAvailableCounter, OnAvailableImage, OnCloseClient, OnUnavailableCounter, OnUnavailableImage};
+use crate::counter::Counter;
 use crate::driver_proxy::DriverProxy;
+use crate::publication::{ExclusivePublication, Publication};
+use crate::subscription::Subscription;
 use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::misc::{semantic_version_major, unix_time_ms};
 use crate::utils::types::Moment;
-use crate::publication::{Publication, ExclusivePublication};
-use crate::subscription::Subscription;
-use crate::counter::Counter;
-use crate::concurrent::counters::CountersReader;
 
 /**
  * Aeron entry point for communicating to the Media Driver for creating {@link Publication}s and {@link Subscription}s.
@@ -79,7 +79,6 @@ const IDLE_SLEEP_MS_100: Moment = 100;
 const AGENT_NAME: &str = "client-conductor";
 
 impl Aeron {
-
     /**
      * Create an Aeron instance and connect to the media driver.
      * <p>
@@ -89,18 +88,22 @@ impl Aeron {
      */
 
     pub fn new(context: Context) -> Self {
-
         // Most of Aeron internal field will be represented as Arc's to avoid self referencing.
         let cnc_buf = Self::map_cnc_file(&context).expect("Error mapping CnC file");
         let local_to_driver_atomic_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_buf);
         let local_to_clients_atomic_buffer = cnc_file_descriptor::create_to_clients_buffer(&cnc_buf);
         let local_counters_metadata_buffer = cnc_file_descriptor::create_counter_metadata_buffer(&cnc_buf);
         let local_counters_value_buffer = cnc_file_descriptor::create_counter_values_buffer(&cnc_buf);
-        let local_to_driver_ring_buffer = Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer).expect("Failed to create RingBuffer"));
-        let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(BroadcastReceiver::new(local_to_clients_atomic_buffer).expect("Failed to create BroadcastReceiver")));
+        let local_to_driver_ring_buffer =
+            Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer).expect("Failed to create RingBuffer"));
+        let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(
+            BroadcastReceiver::new(local_to_clients_atomic_buffer).expect("Failed to create BroadcastReceiver"),
+        ));
         let local_driver_proxy = Arc::new(DriverProxy::new(local_to_driver_ring_buffer.clone()));
         let local_idle_strategy = Arc::new(SleepingIdleStrategy::new(IDLE_SLEEP_MS));
-        let local_copy_broadcast_receiver = Arc::new(Mutex::new(CopyBroadcastReceiver::new(local_to_clients_broadcast_receiver.clone())));
+        let local_copy_broadcast_receiver = Arc::new(Mutex::new(CopyBroadcastReceiver::new(
+            local_to_clients_broadcast_receiver.clone(),
+        )));
 
         let local_conductor = ClientConductor::new(
             unix_time_ms,
@@ -118,13 +121,14 @@ impl Aeron {
             context.media_driver_timeout(),
             context.resource_linger_timeout(),
             cnc_file_descriptor::client_liveness_timeout(&cnc_buf) as u64,
-            context.pre_touch_mapped_memory());
+            context.pre_touch_mapped_memory(),
+        );
 
         let use_agent_invoker = context.use_conductor_agent_invoker();
 
         let mut aeronchik = Self {
             random_engine: rand::thread_rng(),
-            session_id_distribution: Uniform::from(std::i32::MIN .. std::i32::MAX),
+            session_id_distribution: Uniform::from(std::i32::MIN..std::i32::MAX),
             context: context.clone(),
             cnc_buffer: cnc_buf,
             to_driver_atomic_buffer: local_to_driver_atomic_buffer,
@@ -139,7 +143,12 @@ impl Aeron {
             idle_strategy: local_idle_strategy.clone(),
 
             // Arc<Mutex> used here to avoid self reference of Aeron fields on each other and to be able to mutate conductor_runner
-            conductor_runner: Arc::new(Mutex::new(AgentRunner::new(local_conductor.clone(), local_idle_strategy.clone(), context.error_handler(), AGENT_NAME))),
+            conductor_runner: Arc::new(Mutex::new(AgentRunner::new(
+                local_conductor.clone(),
+                local_idle_strategy.clone(),
+                context.error_handler(),
+                AGENT_NAME,
+            ))),
             conductor_invoker: AgentInvoker::new(local_conductor.clone(), context.error_handler()),
         };
 
@@ -195,7 +204,10 @@ impl Aeron {
      * @return registration id for the publication
      */
     pub fn add_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").add_publication(channel, stream_id)
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_publication(channel, stream_id)
     }
 
     /**
@@ -216,7 +228,10 @@ impl Aeron {
      * @return Publication associated with the registration_id
      */
     pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Publication>, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").find_publication(registration_id)
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .find_publication(registration_id)
     }
 
     /**
@@ -227,7 +242,10 @@ impl Aeron {
      * @return registration id for the publication
      */
     pub fn add_exclusive_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").add_exclusive_publication(channel, stream_id)
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_exclusive_publication(channel, stream_id)
     }
 
     /**
@@ -247,8 +265,11 @@ impl Aeron {
      * @param registration_id of the ExclusivePublication returned by Aeron::add_exclusive_publication
      * @return ExclusivePublication associated with the registration_id
      */
-    pub fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError>  {
-        self.conductor.lock().expect("Mutex poisoned").find_exclusive_publication(registration_id)
+    pub fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .find_exclusive_publication(registration_id)
     }
 
     /**
@@ -263,7 +284,11 @@ impl Aeron {
      */
     pub fn add_subscription(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
         self.conductor.lock().expect("Mutex poisoned").add_subscription(
-            channel, stream_id, self.context.available_image_handler(), self.context.unavailable_image_handler())
+            channel,
+            stream_id,
+            self.context.available_image_handler(),
+            self.context.unavailable_image_handler(),
+        )
     }
 
     /**
@@ -277,13 +302,19 @@ impl Aeron {
      * @param unavailableImageHandler called when {@link Image}s go unavailable for consumption.
      * @return registration id for the subscription
      */
-    pub fn add_subscription_opt(&mut self,
-                                channel: CString,
-                                stream_id: i32,
-                                on_available_image_handler: OnAvailableImage,
-                                on_unavailable_image_handler: OnUnavailableImage) -> Result<i64, AeronError>
-    {
-        self.conductor.lock().expect("Mutex poisoned").add_subscription(channel, stream_id, on_available_image_handler, on_unavailable_image_handler)
+    pub fn add_subscription_opt(
+        &mut self,
+        channel: CString,
+        stream_id: i32,
+        on_available_image_handler: OnAvailableImage,
+        on_unavailable_image_handler: OnUnavailableImage,
+    ) -> Result<i64, AeronError> {
+        self.conductor.lock().expect("Mutex poisoned").add_subscription(
+            channel,
+            stream_id,
+            on_available_image_handler,
+            on_unavailable_image_handler,
+        )
     }
 
     /**
@@ -304,7 +335,10 @@ impl Aeron {
      * @return Subscription associated with the registration_id
      */
     pub fn find_subscription(&mut self, registration_id: i64) -> Result<Arc<Mutex<Subscription>>, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").find_subscription(registration_id)
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .find_subscription(registration_id)
     }
 
     /**
@@ -331,11 +365,11 @@ impl Aeron {
      * @param label       for the counter.
      * @return registration id for the Counter
      */
-    pub fn add_counter(&mut self,
-        type_id: i32,
-        key_buffer: &[u8],
-        label: &str) -> Result<i64, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").add_counter(type_id, key_buffer, label)
+    pub fn add_counter(&mut self, type_id: i32, key_buffer: &[u8], label: &str) -> Result<i64, AeronError> {
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_counter(type_id, key_buffer, label)
     }
 
     /**
@@ -364,8 +398,12 @@ impl Aeron {
      *
      * @param handler to be added to the available counters list.
      */
-    pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter){
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").add_available_counter_handler(handler);
+    pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) {
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_available_counter_handler(handler);
     }
 
     /**
@@ -374,7 +412,11 @@ impl Aeron {
      * @param handler to be removed from the available counters list.
      */
     pub fn remove_available_counter_handler(&mut self, handler: OnAvailableCounter) {
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").remove_available_counter_handler(handler);
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .remove_available_counter_handler(handler);
     }
 
     /**
@@ -383,7 +425,11 @@ impl Aeron {
      * @param handler to be added to the unavailable counters list.
      */
     pub fn add_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").add_unavailable_counter_handler(handler);
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_unavailable_counter_handler(handler);
     }
 
     /**
@@ -392,7 +438,11 @@ impl Aeron {
      * @param handler to be removed from the unavailable counters list.
      */
     pub fn remove_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").remove_unavailable_counter_handler(handler);
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .remove_unavailable_counter_handler(handler);
     }
 
     /**
@@ -401,7 +451,11 @@ impl Aeron {
      * @param handler to be added to the close client handlers list.
      */
     pub fn add_close_client_handler(&mut self, handler: OnCloseClient) {
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").add_close_client_handler(handler);
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_close_client_handler(handler);
     }
 
     /**
@@ -410,7 +464,11 @@ impl Aeron {
      * @param handler to be removed from the close client handlers list.
      */
     pub fn remove_close_client_handler(&mut self, handler: OnCloseClient) {
-        let _ignored = self.conductor.lock().expect("Mutex poisoned").remove_close_client_handler(handler);
+        let _ignored = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .remove_close_client_handler(handler);
     }
 
     /**
@@ -438,7 +496,7 @@ impl Aeron {
      */
     pub fn counters_reader(&self) -> Result<&CountersReader, AeronError> {
         Err(AeronError::GenericError(String::from("Unimplemented!"))) //FIXME: design the way to return CountersReader
-        //self.conductor.lock().expect("Mutex poisoned").counters_reader()
+                                                                      //self.conductor.lock().expect("Mutex poisoned").counters_reader()
     }
 
     /**
@@ -468,13 +526,11 @@ impl Aeron {
         String::from("aeron version 0.1")
     }
 
-
     pub fn map_cnc_file(context: &Context) -> Result<MemoryMappedFile, AeronError> {
         let start_ms = unix_time_ms();
-        
+
         loop {
             while MemoryMappedFile::file_size(context.cnc_file_name()).expect("file_size error") <= 0 {
-
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
                     return Err(AeronError::DriverTimeout(format!(
                         "CnC file not created: {}",
@@ -514,9 +570,7 @@ impl Aeron {
 
             while 0 == ring_buffer.consumer_heartbeat_time() {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
-                    return Err(AeronError::DriverTimeout(format!(
-                        "no driver heartbeat detected"
-                    )));
+                    return Err(AeronError::DriverTimeout(format!("no driver heartbeat detected")));
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_1));
@@ -525,9 +579,7 @@ impl Aeron {
             let time_ms = unix_time_ms();
             if (ring_buffer.consumer_heartbeat_time() as Moment) < time_ms - context.media_driver_timeout() {
                 if time_ms > start_ms + context.media_driver_timeout() {
-                    return Err(AeronError::DriverTimeout(format!(
-                        "no driver heartbeat detected"
-                    )));
+                    return Err(AeronError::DriverTimeout(format!("no driver heartbeat detected")));
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_100));
@@ -549,4 +601,3 @@ impl Drop for Aeron {
         }
     }
 }
-

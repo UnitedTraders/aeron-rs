@@ -4,8 +4,11 @@
 #![allow(clippy::too_many_arguments)]
 
 extern crate cache_line_size;
+mod channel_uri;
+mod channel_uri_string_builder;
 mod command;
 mod concurrent;
+mod fragment_assembler;
 mod protocol;
 mod utils;
 

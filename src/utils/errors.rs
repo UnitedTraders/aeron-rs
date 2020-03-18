@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use std::{fmt, io};
-use std::fmt::Display;
 use crate::concurrent::broadcast::BroadcastTransmitError;
+use std::fmt::Display;
+use std::{fmt, io};
 
 #[derive(Debug)]
 pub enum AeronError {

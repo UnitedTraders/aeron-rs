@@ -39,7 +39,7 @@ impl Drop for BufferBuilder {
 }
 
 impl BufferBuilder {
-    pub fn new(initial_length: Index) -> Self {
+    pub fn new(initial_length: isize) -> Self {
         let len = bit_utils::find_next_power_of_two_i64(initial_length as i64) as Index;
         Self {
             capacity: len,
@@ -69,7 +69,7 @@ impl BufferBuilder {
         Ok(())
     }
 
-    pub fn reset(&mut self) -> &BufferBuilder {
+    pub fn reset(&mut self) -> &mut BufferBuilder {
         self.limit = data_frame_header::LENGTH;
         self
     }

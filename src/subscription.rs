@@ -1,6 +1,6 @@
 use std::ffi::CString;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::client_conductor::ClientConductor;
 use crate::concurrent::logbuffer::term_reader::FragmentHandler;
@@ -22,11 +22,13 @@ pub struct Subscription {
 }
 
 impl Subscription {
-    pub fn new(conductor: Arc<Mutex<ClientConductor>>,
-               registration_id: i64,
-               channel: CString,
-               stream_id: i32,
-               channel_status_id: i32) -> Self {
+    pub fn new(
+        conductor: Arc<Mutex<ClientConductor>>,
+        registration_id: i64,
+        channel: CString,
+        stream_id: i32,
+        channel_status_id: i32,
+    ) -> Self {
         Self {
             conductor,
             channel,
@@ -54,7 +56,7 @@ impl Subscription {
      * @return Stream identity for scoping within the channel media address.
      */
     pub fn stream_id(&self) -> i32 {
-        return self.stream_id;
+        self.stream_id
     }
 
     /**
@@ -93,8 +95,7 @@ impl Subscription {
 
     #[inline]
     fn load_image_list(&self) -> ImageList {
-        let image_list = unsafe { *self.image_list.load(Ordering::Acquire) };
-        image_list
+        unsafe { *self.image_list.load(Ordering::Acquire) }
     }
 
     /**
@@ -108,7 +109,7 @@ impl Subscription {
     pub fn poll_end_of_streams(&self, end_of_stream_handler: EndOfStreamHandler) -> i32 {
         let mut num_end_of_streams = 0;
 
-        let image_list = self.load_image_list();
+        let mut image_list = self.load_image_list();
 
         let length = image_list.length;
 
@@ -121,7 +122,7 @@ impl Subscription {
             }
         }
 
-        return num_end_of_streams;
+        num_end_of_streams
     }
 
     /**
@@ -138,7 +139,7 @@ impl Subscription {
      */
 
     pub fn poll<T>(&mut self, fragment_handler: FragmentHandler<T>, fragment_limit: i32) -> i32 {
-        let image_list = self.load_image_list();
+        let mut image_list = self.load_image_list();
 
         let length = image_list.length;
 
@@ -165,7 +166,7 @@ impl Subscription {
             }
         }
 
-        return fragments_read;
+        fragments_read
     }
 
     /**
@@ -184,7 +185,7 @@ impl Subscription {
      * @see controlled_poll_fragment_handler_t
      */
     pub fn controlled_poll(&mut self, fragment_handler: FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
-        let image_list = self.load_image_list();
+        let mut image_list = self.load_image_list();
 
         let length = image_list.length;
 
@@ -215,7 +216,7 @@ impl Subscription {
             }
         }
 
-        return fragments_read;
+        fragments_read
     }
 
     /**
@@ -226,7 +227,7 @@ impl Subscription {
      * @return the number of bytes consumed.
      */
     pub fn block_poll(&mut self, block_handler: BlockHandler, block_length_limit: i32) -> i64 {
-        let image_list = self.load_image_list();
+        let mut image_list = self.load_image_list();
 
         let length = image_list.length;
 
@@ -236,7 +237,7 @@ impl Subscription {
             bytes_consumed += image_list.image(i).block_poll(block_handler, block_length_limit) as i64;
         }
 
-        return bytes_consumed;
+        bytes_consumed
     }
 
     /**
@@ -245,7 +246,7 @@ impl Subscription {
      * @return true if the subscription has more than one open image available.
      */
     pub fn is_connected(&self) -> bool {
-        let image_list = self.load_image_list();
+        let mut image_list = self.load_image_list();
 
         let length = image_list.length;
 
@@ -336,7 +337,7 @@ impl Subscription {
     // as it was just before adding this Image
     pub fn add_image(&mut self, _image: Arc<Image>) -> ImageList {
         ImageList {
-            ptr: 0 as *mut Image,
+            ptr: std::ptr::null_mut::<Image>(),
             length: 0,
         }
     }

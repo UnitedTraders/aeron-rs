@@ -310,8 +310,9 @@ impl TermAppender {
         TermAppender::check_term(active_term_id, term_id)?;
 
         let mut resulting_offset = term_offset + required_length as i64;
-        if resulting_offset > term_length as i64{
-            resulting_offset = TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
+        if resulting_offset > term_length as i64 {
+            resulting_offset =
+                TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
             let mut flags = frame_descriptor::BEGIN_FRAG;
             let mut remaining = length;
@@ -335,7 +336,8 @@ impl TermAppender {
                     let current_buffer_remaining = curr_buffer.capacity() - current_buffer_offset;
                     let num_bytes = std::cmp::min(bytes_to_write - bytes_written, current_buffer_remaining);
 
-                    self.term_buffer.copy_from(payload_offset, curr_buffer, current_buffer_offset, num_bytes);
+                    self.term_buffer
+                        .copy_from(payload_offset, curr_buffer, current_buffer_offset, num_bytes);
 
                     bytes_written += num_bytes;
                     payload_offset += num_bytes;
@@ -362,7 +364,8 @@ impl TermAppender {
                 frame_descriptor::set_frame_flags(&self.term_buffer, frame_offset, flags);
 
                 let reserved_value = reserved_value_supplier(self.term_buffer, frame_offset, frame_length);
-                self.term_buffer.put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
+                self.term_buffer
+                    .put::<i64>(frame_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
 
                 frame_descriptor::set_frame_length_ordered(&self.term_buffer, frame_offset, frame_length);
 
@@ -375,7 +378,7 @@ impl TermAppender {
                 }
             }
         }
-    
+
         Ok(resulting_offset as i32)
     }
 

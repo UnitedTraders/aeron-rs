@@ -26,9 +26,9 @@ use crate::command::publication_buffers_ready_flyweight::*;
 use crate::command::subscription_ready_flyweight::SubscriptionReadyFlyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 use std::sync::{Arc, Mutex};
-use crate::utils::errors::AeronError;
 
 pub trait DriverListener {
     fn on_new_publication(
@@ -192,6 +192,10 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
             }
         };
 
-        self.broadcast_receiver.lock().expect("Mutex poisoned").receive(receive_handler).map_err(|err| AeronError::BroadcastTransmitError(err))
+        self.broadcast_receiver
+            .lock()
+            .expect("Mutex poisoned")
+            .receive(receive_handler)
+            .map_err(|err| AeronError::BroadcastTransmitError(err))
     }
 }

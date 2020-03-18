@@ -16,18 +16,18 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-use crate::concurrent::logbuffer::header::HeaderWriter;
-use crate::concurrent::logbuffer::{log_buffer_descriptor, data_frame_header, frame_descriptor};
-use crate::utils::bit_utils::number_of_trailing_zeroes;
-use crate::utils::types::Index;
-use crate::concurrent::logbuffer::term_appender::{OnReservedValueSupplier, default_reserved_value_supplier, TermAppender};
-use crate::utils::errors::AeronError;
-use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-use crate::utils::log_buffers::LogBuffers;
 use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+use crate::concurrent::logbuffer::header::HeaderWriter;
+use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender};
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
 use crate::concurrent::status::status_indicator_reader;
+use crate::utils::bit_utils::number_of_trailing_zeroes;
+use crate::utils::errors::AeronError;
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::types::Index;
 use std::ffi::CString;
 
 const NOT_CONNECTED: i64 = -1;
@@ -78,15 +78,13 @@ pub struct Publication {
 
     // The LogBuffers object must be dropped when last ref to it goes out of scope.
     log_buffers: Arc<LogBuffers>,
-    
+
     // it was unique_ptr on TermAppender's
     appenders: [TermAppender; log_buffer_descriptor::PARTITION_COUNT as usize],
     header_writer: HeaderWriter,
 }
 
-
 impl Publication {
-
     pub fn new(
         conductor: Arc<Mutex<ClientConductor>>,
         channel: CString,
@@ -96,33 +94,47 @@ impl Publication {
         session_id: i32,
         publication_limit: UnsafeBufferPosition,
         channel_status_id: i32,
-        log_buffers: Arc<LogBuffers>) -> Self {
-
+        log_buffers: Arc<LogBuffers>,
+    ) -> Self {
         let log_md_buffer = log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX);
-    
+
         Self {
-                conductor,
-                log_meta_data_buffer: log_md_buffer.clone(),
-                channel,
-                registration_id,
-                original_registration_id,
-                log_buffers: log_buffers.clone(),
-                max_possible_position: (log_buffers.atomic_buffer(0).capacity() << 31) as i64,
-                stream_id,
-                session_id,
-                initial_term_id: log_buffer_descriptor::initial_term_id(&log_md_buffer),
-                max_payload_length: log_buffer_descriptor::mtu_length(&log_md_buffer) as Index - data_frame_header::LENGTH,
-                max_message_length: frame_descriptor::compute_max_message_length(log_buffers.atomic_buffer(0).capacity()),
-                position_bits_to_shift: number_of_trailing_zeroes(log_buffers.atomic_buffer(0).capacity()),
-                publication_limit,
-                channel_status_id,
-                is_closed: AtomicBool::from(false),
-                header_writer: HeaderWriter::new(log_buffer_descriptor::default_frame_header(&log_md_buffer)),
-                appenders: [TermAppender::new(log_buffers.atomic_buffer(0), log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX), 0),
-                TermAppender::new(log_buffers.atomic_buffer(1), log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX), 1),
-                TermAppender::new(log_buffers.atomic_buffer(2), log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX), 2)],
-            }
+            conductor,
+            log_meta_data_buffer: log_md_buffer.clone(),
+            channel,
+            registration_id,
+            original_registration_id,
+            log_buffers: log_buffers.clone(),
+            max_possible_position: (log_buffers.atomic_buffer(0).capacity() << 31) as i64,
+            stream_id,
+            session_id,
+            initial_term_id: log_buffer_descriptor::initial_term_id(&log_md_buffer),
+            max_payload_length: log_buffer_descriptor::mtu_length(&log_md_buffer) as Index - data_frame_header::LENGTH,
+            max_message_length: frame_descriptor::compute_max_message_length(log_buffers.atomic_buffer(0).capacity()),
+            position_bits_to_shift: number_of_trailing_zeroes(log_buffers.atomic_buffer(0).capacity()),
+            publication_limit,
+            channel_status_id,
+            is_closed: AtomicBool::from(false),
+            header_writer: HeaderWriter::new(log_buffer_descriptor::default_frame_header(&log_md_buffer)),
+            appenders: [
+                TermAppender::new(
+                    log_buffers.atomic_buffer(0),
+                    log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                    0,
+                ),
+                TermAppender::new(
+                    log_buffers.atomic_buffer(1),
+                    log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                    1,
+                ),
+                TermAppender::new(
+                    log_buffers.atomic_buffer(2),
+                    log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
+                    2,
+                ),
+            ],
         }
+    }
 
     /**
      * Media address for delivery to the channel.
@@ -147,7 +159,7 @@ impl Publication {
      *
      * @    the session id for this publication.
      */
-    pub fn session_id(&self) ->i32 {
+    pub fn session_id(&self) -> i32 {
         self.session_id
     }
 
@@ -242,7 +254,7 @@ impl Publication {
      * @    true if it has been closed otherwise false.
      */
     pub fn is_closed(&self) -> bool {
-        self.is_closed.load( Ordering::Acquire)
+        self.is_closed.load(Ordering::Acquire)
     }
 
     /**
@@ -252,15 +264,19 @@ impl Publication {
      */
     pub fn position(&self) -> i64 {
         let mut result = PUBLICATION_CLOSED;
-        
+
         if !self.is_closed() {
             let raw_tail = log_buffer_descriptor::raw_tail_volatile(&self.log_meta_data_buffer);
             let term_offset = log_buffer_descriptor::term_offset(raw_tail, self.term_buffer_length() as i64);
-            
+
             result = log_buffer_descriptor::compute_position(
-            log_buffer_descriptor::term_id(raw_tail), term_offset as Index, self.position_bits_to_shift, self.initial_term_id);
+                log_buffer_descriptor::term_id(raw_tail),
+                term_offset as Index,
+                self.position_bits_to_shift,
+                self.initial_term_id,
+            );
         }
-    
+
         result
     }
 
@@ -326,10 +342,10 @@ impl Publication {
         buffer: AtomicBuffer,
         offset: Index,
         length: Index,
-        reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError> 
-    {
+        reserved_value_supplier: OnReservedValueSupplier,
+    ) -> Result<i64, AeronError> {
         let mut new_position = PUBLICATION_CLOSED;
-        
+
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
@@ -337,27 +353,49 @@ impl Publication {
             let raw_tail = term_appender.raw_tail_volatile();
             let term_offset = raw_tail & 0xFFFFFFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
-            let position = log_buffer_descriptor::compute_term_begin_position(
-            term_id, self.position_bits_to_shift, self.initial_term_id) + term_offset;
-            
+            let position =
+                log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
+                    + term_offset;
+
             if term_count != (term_id - self.initial_term_id) {
                 return Ok(ADMIN_ACTION);
             }
-        
+
             if position < limit {
                 let resulting_offset = if length <= self.max_payload_length {
-                    term_appender.append_unfragmented_message(&self.header_writer, &buffer, offset, length, reserved_value_supplier, term_id)
+                    term_appender.append_unfragmented_message(
+                        &self.header_writer,
+                        &buffer,
+                        offset,
+                        length,
+                        reserved_value_supplier,
+                        term_id,
+                    )
                 } else {
                     self.check_max_message_length(length)?;
-                    term_appender.append_fragmented_message(&self.header_writer, &buffer, offset, length, self.max_payload_length, reserved_value_supplier, term_id)
+                    term_appender.append_fragmented_message(
+                        &self.header_writer,
+                        &buffer,
+                        offset,
+                        length,
+                        self.max_payload_length,
+                        reserved_value_supplier,
+                        term_id,
+                    )
                 };
-            
-                new_position = self.new_position(term_count, term_offset as i32, term_id, position as Index, resulting_offset.expect("Something wrong with resulting offset")); // FIXME: overflow of Index possible here
+
+                new_position = self.new_position(
+                    term_count,
+                    term_offset as i32,
+                    term_id,
+                    position as Index,
+                    resulting_offset.expect("Something wrong with resulting offset"),
+                ); // FIXME: overflow of Index possible here
             } else {
                 new_position = self.back_pressure_status(position, length);
             }
         }
-    
+
         Ok(new_position)
     }
 
@@ -418,17 +456,15 @@ impl Publication {
      * @    The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
-    pub fn offer_bulk(&mut self,
+    pub fn offer_bulk(
+        &mut self,
         buffers: Vec<AtomicBuffer>,
-        reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError>
-    {
+        reserved_value_supplier: OnReservedValueSupplier,
+    ) -> Result<i64, AeronError> {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
         if length > std::i32::MAX {
-            return Err(AeronError::IllegalStateException(format!(
-                "length overflow: {}",
-                length
-            )));
+            return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
         }
 
         let mut new_position = PUBLICATION_CLOSED;
@@ -438,10 +474,11 @@ impl Publication {
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
             let term_appender = &mut self.appenders[(log_buffer_descriptor::index_by_term_count(term_count as i64)) as usize];
             let raw_tail = term_appender.raw_tail_volatile();
-            let  term_offset = raw_tail & 0xFFFFFFFF;
+            let term_offset = raw_tail & 0xFFFFFFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
-            let position = log_buffer_descriptor::compute_term_begin_position(
-        term_id, self.position_bits_to_shift, self.initial_term_id) + term_offset;
+            let position =
+                log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
+                    + term_offset;
 
             if term_count != (term_id - self.initial_term_id) {
                 return Ok(ADMIN_ACTION);
@@ -454,7 +491,8 @@ impl Publication {
                         buffers,
                         length,
                         reserved_value_supplier,
-                        term_id)
+                        term_id,
+                    )
                 } else {
                     if length > self.max_message_length {
                         return Err(AeronError::IllegalArgumentException(format!(
@@ -469,12 +507,20 @@ impl Publication {
                         length,
                         self.max_payload_length,
                         reserved_value_supplier,
-                        term_id)
+                        term_id,
+                    )
                 };
 
-                new_position = self.new_position(term_count, term_offset as i32, term_id, position as Index, resulting_offset.expect("Error getting resulting_offset"));
+                new_position = self.new_position(
+                    term_count,
+                    term_offset as i32,
+                    term_id,
+                    position as Index,
+                    resulting_offset.expect("Error getting resulting_offset"),
+                );
             } else {
-                new_position = self.back_pressure_status(position, length as Index); // FIXME: possible Index overflow
+                new_position = self.back_pressure_status(position, length as Index);
+                // FIXME: possible Index overflow
             }
         }
 
@@ -516,7 +562,7 @@ impl Publication {
     pub fn try_claim(&mut self, length: Index, mut buffer_claim: BufferClaim) -> Result<i64, AeronError> {
         self.check_payload_length(length)?;
         let mut new_position = PUBLICATION_CLOSED;
-        
+
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
@@ -524,22 +570,28 @@ impl Publication {
             let raw_tail = term_appender.raw_tail_volatile();
             let term_offset = raw_tail & 0xFFFFFFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
-            let position = log_buffer_descriptor::compute_term_begin_position(
-            term_id, self.position_bits_to_shift, self.initial_term_id) + term_offset;
-            
+            let position =
+                log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
+                    + term_offset;
+
             if term_count != (term_id - self.initial_term_id) {
                 return Ok(ADMIN_ACTION);
             }
-            
+
             if position < limit {
                 let resulting_offset = term_appender.claim(&self.header_writer, length, &mut buffer_claim, term_id);
                 new_position = self.new_position(
-                    term_count, term_offset as i32, term_id, position as Index, resulting_offset.expect("Error getting resulting_offset"));
+                    term_count,
+                    term_offset as i32,
+                    term_id,
+                    position as Index,
+                    resulting_offset.expect("Error getting resulting_offset"),
+                );
             } else {
                 new_position = self.back_pressure_status(position, length);
             }
         }
-    
+
         Ok(new_position)
     }
 
@@ -551,12 +603,13 @@ impl Publication {
      */
     pub fn add_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from(
-                "Publication is closed",
-            )));
+            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
         }
-    
-        self.conductor.lock().expect("Mutex poisoned").add_destination(self.original_registration_id, endpoint_channel)
+
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_destination(self.original_registration_id, endpoint_channel)
     }
 
     /**
@@ -567,12 +620,13 @@ impl Publication {
      */
     pub fn remove_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from(
-                "Publication is closed",
-            )));
+            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
         }
-    
-        self.conductor.lock().expect("Mutex poisoned").remove_destination(self.original_registration_id, endpoint_channel)
+
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .remove_destination(self.original_registration_id, endpoint_channel)
     }
 
     /**
@@ -595,7 +649,10 @@ impl Publication {
      * @    true for added or false if not.
      */
     pub fn find_destination_response(&mut self, correlation_id: i64) -> Result<bool, AeronError> {
-        self.conductor.lock().expect("Mutex poisoned").find_destination_response(correlation_id)
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .find_destination_response(correlation_id)
     }
 
     /**
@@ -603,37 +660,32 @@ impl Publication {
      *
      * @    status code for this channel
      */
-    pub fn channel_status(&self) -> i64
-    {
+    pub fn channel_status(&self) -> i64 {
         if self.is_closed() {
             return status_indicator_reader::NO_ID_ALLOCATED as i64;
         }
-    
-        self.conductor.lock().expect("Mutex poisoned").channel_status(self.channel_status_id)
+
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .channel_status(self.channel_status_id)
     }
-    
+
     pub fn close(&self) {
         self.is_closed.store(true, Ordering::Release);
     }
 
-    fn new_position(
-        &self,
-        term_count: Index,
-        term_offset: Index,
-        term_id: i32,
-        position: Index,
-        resulting_offset: Index) -> i64
-    {
+    fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: Index, resulting_offset: Index) -> i64 {
         if resulting_offset > 0 {
             return ((position - term_offset) + resulting_offset) as i64;
         }
-        
-        if position + term_offset > self.max_possible_position as Index{
+
+        if position + term_offset > self.max_possible_position as Index {
             return MAX_POSITION_EXCEEDED;
         }
-        
+
         log_buffer_descriptor::rotate_log(&self.log_meta_data_buffer, term_count, term_id);
-    
+
         ADMIN_ACTION
     }
 
@@ -662,7 +714,6 @@ impl Publication {
 
     fn check_payload_length(&self, length: Index) -> Result<(), AeronError> {
         if length > self.max_payload_length {
-
             Err(AeronError::IllegalArgumentException(format!(
                 "encoded message exceeds max_payload_length of {}, length={}",
                 self.max_payload_length, length
@@ -671,13 +722,14 @@ impl Publication {
             Ok(())
         }
     }
-
 }
 
 impl Drop for Publication {
     fn drop(&mut self) {
         self.is_closed.store(true, Ordering::Release);
-        self.conductor.lock().expect("Mutex poisoned").release_publication(self.registration_id);
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .release_publication(self.registration_id);
     }
 }
-

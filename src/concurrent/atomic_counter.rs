@@ -108,10 +108,8 @@ impl AtomicCounter {
 
 impl Drop for AtomicCounter {
     fn drop(&mut self) {
-        if let Some(mgr)  = &self.counters_manager {
-            mgr.lock()
-                .expect("Can't lock mutex on counters_mgr")
-                .free(self.counter_id);
+        if let Some(mgr) = &self.counters_manager {
+            mgr.lock().expect("Can't lock mutex on counters_mgr").free(self.counter_id);
         }
     }
 }

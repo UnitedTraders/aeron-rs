@@ -26,8 +26,8 @@ use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
 use crate::utils::types::{Index, Moment};
-use std::sync::Arc;
 use std::ffi::CString;
+use std::sync::Arc;
 
 /**
  * Used to represent a null value for when some value is not yet set.
@@ -167,6 +167,12 @@ pub struct Context {
     use_conductor_agent_invoker: bool,
     is_on_new_exclusive_publication_handler_set: bool,
     pre_touch_mapped_memory: bool,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Context {

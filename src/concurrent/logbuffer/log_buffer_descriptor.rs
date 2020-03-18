@@ -25,7 +25,7 @@ use crate::utils::types::I64_SIZE;
 use crate::utils::types::{Index, I32_SIZE};
 
 pub(crate) const TERM_MIN_LENGTH: Index = 64 * 1024;
-const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
+pub const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
 const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
 const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
