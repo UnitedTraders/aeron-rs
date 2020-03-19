@@ -492,7 +492,7 @@ impl ClientConductor {
             Ok(lb.log_buffers.clone())
         } else {
             let touch = self.pre_touch_mapped_memory && !channel.to_string_lossy().contains("sparse=true");
-            let log_buffer = LogBuffers::from_existing(log_filename.to_str().expect("CString conv error") /*, touch*/)?; // FIXME: add touch param in to LogBuffers
+            let log_buffer = LogBuffers::from_existing(log_filename.to_str().expect("CString conv error"), touch)?;
 
             let log_buffers = Arc::new(log_buffer);
             self.log_buffers_by_registration_id

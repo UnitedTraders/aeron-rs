@@ -15,7 +15,7 @@ pub struct LogBuffers {
 }
 
 impl LogBuffers {
-    pub fn from_existing<P: AsRef<Path> + Into<OsString>>(file_path: P) -> Result<Self, AeronError> {
+    pub fn from_existing<P: AsRef<Path> + Into<OsString>>(file_path: P, pre_touch: bool) -> Result<Self, AeronError> {
         let log_len = MemoryMappedFile::file_size(&file_path)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
@@ -37,6 +37,14 @@ impl LogBuffers {
 
         for i in 0..PARTITION_COUNT {
             let buffer = memory_mapped_file.atomic_buffer(i * term_length, term_length);
+
+            if pre_touch {
+                let mut offset = 0;
+                while offset < term_length {
+                    let _ignored = buffer.get::<i32>(offset);
+                    offset += page_size;
+                }
+            }
 
             buffers.push(buffer)
         }
@@ -63,7 +71,7 @@ mod tests {
         let path = "test1.tst";
         MemoryMappedFile::create_new(path, 0, 65536).expect("file not found");
 
-        let buffers = LogBuffers::from_existing(path).unwrap();
+        let buffers = LogBuffers::from_existing(path, true).unwrap();
 
         let _buffer = buffers.atomic_buffer(0);
 

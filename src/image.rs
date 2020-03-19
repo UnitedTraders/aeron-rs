@@ -672,7 +672,7 @@ mod tests {
         let unsafe_buffer_position = UnsafeBufferPosition::new(AtomicBuffer::wrap_slice(&mut []), 0);
         MemoryMappedFile::create_new("file", 0, 65536).unwrap();
 
-        let log_buffers = LogBuffers::from_existing("file").unwrap();
+        let log_buffers = LogBuffers::from_existing("file", false).unwrap();
         let buffers = Arc::new(log_buffers);
 
         let _image = Image::create(
