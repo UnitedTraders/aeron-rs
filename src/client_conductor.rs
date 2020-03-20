@@ -51,11 +51,12 @@ type NanoClock = fn() -> Moment;
 const KEEPALIVE_TIMEOUT_MS: Moment = 500;
 const RESOURCE_TIMEOUT_MS: Moment = 1000;
 
+// MediaDriver
 #[derive(PartialEq, Debug)]
 enum RegistrationStatus {
-    AwaitingMediaDriver,
-    RegisteredMediaDriver,
-    ErroredMediaDriver,
+    Awaiting,
+    Registered,
+    Errored,
 }
 
 struct PublicationStateDefn {
@@ -89,7 +90,7 @@ impl PublicationStateDefn {
             publication_limit_counter_id: -1,
             channel_status_id: -1,
             error_code: -1,
-            status: RegistrationStatus::AwaitingMediaDriver,
+            status: RegistrationStatus::Awaiting,
         }
     }
 }
@@ -125,7 +126,7 @@ impl ExclusivePublicationStateDefn {
             publication_limit_counter_id: -1,
             channel_status_id: -1,
             error_code: -1,
-            status: RegistrationStatus::AwaitingMediaDriver,
+            status: RegistrationStatus::Awaiting,
         }
     }
 }
@@ -164,7 +165,7 @@ impl SubscriptionStateDefn {
             time_of_registration_ms: now_ms,
             stream_id,
             error_code: -1,
-            status: RegistrationStatus::AwaitingMediaDriver,
+            status: RegistrationStatus::Awaiting,
         }
     }
 }
@@ -189,7 +190,7 @@ impl CounterStateDefn {
             registration_id,
             time_of_registration_ms: now_ms,
             error_code: -1,
-            status: RegistrationStatus::AwaitingMediaDriver,
+            status: RegistrationStatus::Awaiting,
             counter_id: 0,
         }
     }
@@ -240,7 +241,7 @@ impl DestinationStateDefn {
             correlation_id,
             time_of_registration_ms: now_ms,
             error_code: -1,
-            status: RegistrationStatus::AwaitingMediaDriver,
+            status: RegistrationStatus::Awaiting,
         }
     }
 }
@@ -278,7 +279,7 @@ pub struct ClientConductor {
     is_in_callback: bool,
     driver_active: AtomicBool,
     is_closed: AtomicBool,
-    admin_lock: Mutex<bool>,
+    admin_lock: Mutex<()>,
     heartbeat_timestamp: Option<Box<AtomicCounter>>,
 
     time_of_last_do_work_ms: Moment,
@@ -331,12 +332,12 @@ impl ClientConductor {
             epoch_clock,
             driver_timeout_ms,
             resource_linger_timeout_ms,
-            inter_service_timeout_ms: inter_service_timeout_ns / 1000000,
+            inter_service_timeout_ms: inter_service_timeout_ns / 1_000_000,
             pre_touch_mapped_memory,
             is_in_callback: false,
             driver_active: AtomicBool::from(true),
             is_closed: AtomicBool::from(false),
-            admin_lock: Mutex::new(false),
+            admin_lock: Mutex::new(()),
             heartbeat_timestamp: None,
             time_of_last_do_work_ms: epoch_clock(),
             time_of_last_keepalive_ms: epoch_clock(),
@@ -557,7 +558,7 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
                     match state.status {
-                        RegistrationStatus::AwaitingMediaDriver => {
+                        RegistrationStatus::Awaiting => {
                             if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
                                 return Err(AeronError::ConductorServiceTimeout(format!(
                                     "no response from driver in {} ms",
@@ -565,7 +566,7 @@ impl ClientConductor {
                                 )));
                             }
                         }
-                        RegistrationStatus::RegisteredMediaDriver => {
+                        RegistrationStatus::Registered => {
                             let publication_limit =
                                 UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
 
@@ -593,7 +594,7 @@ impl ClientConductor {
                             }
                         }
 
-                        RegistrationStatus::ErroredMediaDriver => {
+                        RegistrationStatus::Errored => {
                             publication_to_remove = Some(registration_id);
                             error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
                         }
@@ -677,7 +678,7 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
                     match state.status {
-                        RegistrationStatus::AwaitingMediaDriver => {
+                        RegistrationStatus::Awaiting => {
                             if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
                                 return Err(AeronError::ConductorServiceTimeout(format!(
                                     "no response from driver in {} ms",
@@ -685,7 +686,7 @@ impl ClientConductor {
                                 )));
                             }
                         }
-                        RegistrationStatus::RegisteredMediaDriver => {
+                        RegistrationStatus::Registered => {
                             let publication_limit =
                                 UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
 
@@ -712,7 +713,7 @@ impl ClientConductor {
                             }
                         }
 
-                        RegistrationStatus::ErroredMediaDriver => {
+                        RegistrationStatus::Errored => {
                             publication_to_remove = Some(registration_id);
                             error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
                         }
@@ -802,14 +803,14 @@ impl ClientConductor {
                     Ok(subscription)
                 } else {
                     // subscription has been dropped already
-                    if RegistrationStatus::AwaitingMediaDriver == state.status {
+                    if RegistrationStatus::Awaiting == state.status {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
                             return Err(AeronError::DriverTimeout(format!(
                                 "no response from driver in {} ms",
                                 self.driver_timeout_ms
                             )));
                         }
-                    } else if RegistrationStatus::ErroredMediaDriver == state.status {
+                    } else if RegistrationStatus::Errored == state.status {
                         subscription_to_remove = Some(registration_id);
                         error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
                     }
@@ -906,14 +907,14 @@ impl ClientConductor {
                     Ok(counter)
                 } else {
                     // counter has been dropped already
-                    if RegistrationStatus::AwaitingMediaDriver == state.status {
+                    if RegistrationStatus::Awaiting == state.status {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
                             return Err(AeronError::DriverTimeout(format!(
                                 "no response from driver in {} ms",
                                 self.driver_timeout_ms
                             )));
                         }
-                    } else if RegistrationStatus::ErroredMediaDriver == state.status {
+                    } else if RegistrationStatus::Errored == state.status {
                         counter_to_remove = Some(registration_id);
                         error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
                     }
@@ -1056,7 +1057,7 @@ impl ClientConductor {
 
         let result = if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
             match state.status {
-                RegistrationStatus::AwaitingMediaDriver => {
+                RegistrationStatus::Awaiting => {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
                         Err(AeronError::ConductorServiceTimeout(format!(
                             "no response from driver in {} ms",
@@ -1066,8 +1067,8 @@ impl ClientConductor {
                         Ok(false)
                     }
                 }
-                RegistrationStatus::RegisteredMediaDriver => Ok(true),
-                RegistrationStatus::ErroredMediaDriver => Err(ClientConductor::return_registration_error(
+                RegistrationStatus::Registered => Ok(true),
+                RegistrationStatus::Errored => Err(ClientConductor::return_registration_error(
                     state.error_code,
                     &state.error_message,
                 )),
@@ -1158,7 +1159,7 @@ impl ClientConductor {
     pub fn close_all_resources(&mut self, now_ms: Moment) {
         self.is_closed.store(true, Ordering::Release);
 
-        for (_id, pub_defn) in &self.publication_by_registration_id {
+        for pub_defn in self.publication_by_registration_id.values() {
             if let Some(maybe_publication) = &pub_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
                     publication.close();
@@ -1167,7 +1168,7 @@ impl ClientConductor {
         }
         self.publication_by_registration_id.clear();
 
-        for (_id, pub_defn) in &self.exclusive_publication_by_registration_id {
+        for pub_defn in self.exclusive_publication_by_registration_id.values() {
             if let Some(maybe_publication) = &pub_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
                     publication.close();
@@ -1180,7 +1181,7 @@ impl ClientConductor {
 
         let mut images_to_linger: Vec<ImageList> = Vec::new();
 
-        for (_id, mut sub_defn) in &mut self.subscription_by_registration_id {
+        for sub_defn in self.subscription_by_registration_id.values_mut() {
             if let Some(maybe_subscription) = &sub_defn.subscription {
                 if let Some(subscription) = maybe_subscription.upgrade() {
                     if let Some(mut images) = subscription.lock().expect("Mutex poisoned").close_and_remove_images() {
@@ -1211,7 +1212,7 @@ impl ClientConductor {
 
         let mut counters_to_hold_until_cleared: Vec<Arc<Counter>> = Vec::default();
 
-        for (_id, mut cnt_defn) in &mut self.counter_by_registration_id {
+        for cnt_defn in self.counter_by_registration_id.values_mut() {
             if let Some(maybe_counter) = &cnt_defn.counter {
                 if let Some(counter) = maybe_counter.upgrade() {
                     counter.close();
@@ -1260,13 +1261,8 @@ impl ClientConductor {
 
         //remove outdated lingering Images
         let resource_linger_timeout_ms = self.resource_linger_timeout_ms;
-        self.lingering_image_lists.retain(|img| {
-            if now_ms - resource_linger_timeout_ms <= img.time_of_last_state_change_ms {
-                true
-            } else {
-                false
-            }
-        });
+        self.lingering_image_lists
+            .retain(|img| now_ms - resource_linger_timeout_ms <= img.time_of_last_state_change_ms);
     }
 
     pub fn linger_resource(&mut self, now_ms: Moment, images: ImageList) {
@@ -1327,7 +1323,7 @@ impl DriverListener for ClientConductor {
         );
 
         if let Some(state) = self.publication_by_registration_id.get_mut(&registration_id) {
-            state.status = RegistrationStatus::RegisteredMediaDriver;
+            state.status = RegistrationStatus::Registered;
             state.session_id = session_id;
             state.publication_limit_counter_id = publication_limit_counter_id;
             state.channel_status_id = channel_status_indicator_id;
@@ -1365,7 +1361,7 @@ impl DriverListener for ClientConductor {
         );
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get_mut(&registration_id) {
-            state.status = RegistrationStatus::RegisteredMediaDriver;
+            state.status = RegistrationStatus::Registered;
             state.session_id = session_id;
             state.publication_limit_counter_id = publication_limit_counter_id;
             state.channel_status_id = channel_status_indicator_id;
@@ -1383,7 +1379,7 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_subscription_ready");
 
         if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
-            state.status = RegistrationStatus::RegisteredMediaDriver;
+            state.status = RegistrationStatus::Registered;
 
             let subscr = Arc::new(Mutex::new(Subscription::new(
                 self.arced_self.as_ref().unwrap().clone(),
@@ -1407,8 +1403,8 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_operation_success");
 
         if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
-            if state.status == RegistrationStatus::AwaitingMediaDriver {
-                state.status = RegistrationStatus::RegisteredMediaDriver;
+            if state.status == RegistrationStatus::Awaiting {
+                state.status = RegistrationStatus::Registered;
             }
         }
     }
@@ -1507,14 +1503,14 @@ impl DriverListener for ClientConductor {
             .subscription_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            subscription.status = RegistrationStatus::ErroredMediaDriver;
+            subscription.status = RegistrationStatus::Errored;
             subscription.error_code = error_code;
             subscription.error_message = error_message;
             return;
         }
 
         if let Some(publication) = self.publication_by_registration_id.get_mut(&offending_command_correlation_id) {
-            publication.status = RegistrationStatus::ErroredMediaDriver;
+            publication.status = RegistrationStatus::Errored;
             publication.error_code = error_code;
             publication.error_message = error_message;
             return;
@@ -1524,14 +1520,14 @@ impl DriverListener for ClientConductor {
             .exclusive_publication_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            publication.status = RegistrationStatus::ErroredMediaDriver;
+            publication.status = RegistrationStatus::Errored;
             publication.error_code = error_code;
             publication.error_message = error_message;
             return;
         }
 
         if let Some(counter) = self.counter_by_registration_id.get_mut(&offending_command_correlation_id) {
-            counter.status = RegistrationStatus::ErroredMediaDriver;
+            counter.status = RegistrationStatus::Errored;
             counter.error_code = error_code;
             counter.error_message = error_message;
             return;
@@ -1541,7 +1537,7 @@ impl DriverListener for ClientConductor {
             .destination_state_by_correlation_id
             .get_mut(&offending_command_correlation_id)
         {
-            destination.status = RegistrationStatus::ErroredMediaDriver;
+            destination.status = RegistrationStatus::Errored;
             destination.error_code = error_code;
             destination.error_message = error_message;
             return;
@@ -1630,8 +1626,8 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_available_counter");
 
         if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
-            if state.status == RegistrationStatus::AwaitingMediaDriver {
-                state.status = RegistrationStatus::RegisteredMediaDriver;
+            if state.status == RegistrationStatus::Awaiting {
+                state.status = RegistrationStatus::Registered;
                 state.counter_id = counter_id;
 
                 let cnt = Arc::new(Counter::new(
@@ -1674,7 +1670,7 @@ impl DriverListener for ClientConductor {
 
 impl Drop for ClientConductor {
     fn drop(&mut self) {
-        for img in &self.lingering_image_lists {
+        for _img in &self.lingering_image_lists {
             // img.image_array.drop(); FIXME: check whether drop for Images is needed
         }
         let _res = self.driver_proxy.client_close();

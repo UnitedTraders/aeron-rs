@@ -196,6 +196,6 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
             .lock()
             .expect("Mutex poisoned")
             .receive(receive_handler)
-            .map_err(|err| AeronError::BroadcastTransmitError(err))
+            .map_err(AeronError::BroadcastTransmitError)
     }
 }

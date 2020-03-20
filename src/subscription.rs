@@ -47,7 +47,7 @@ impl Subscription {
      * @return Media address for delivery to the channel.
      */
     pub fn channel(&self) -> CString {
-        return self.channel.clone();
+        self.channel.clone()
     }
 
     /**

@@ -302,7 +302,7 @@ impl TermAppender {
 
         let required_length = (num_max_payloads * (max_payload_length + data_frame_header::LENGTH)) + last_frame_length;
         let raw_tail = self.get_and_add_raw_tail(required_length);
-        let term_offset = raw_tail & 0xFFFFFFFF;
+        let term_offset = raw_tail & 0xFFFF_FFFF;
         let term_id = log_buffer_descriptor::term_id(raw_tail);
 
         let term_length = self.term_buffer.capacity();

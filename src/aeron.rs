@@ -108,9 +108,9 @@ impl Aeron {
         let local_conductor = ClientConductor::new(
             unix_time_ms,
             local_driver_proxy.clone(),
-            local_copy_broadcast_receiver.clone(),
-            local_counters_metadata_buffer.clone(),
-            local_counters_value_buffer.clone(),
+            local_copy_broadcast_receiver,
+            local_counters_metadata_buffer,
+            local_counters_value_buffer,
             context.new_publication_handler(),
             context.new_exclusive_publication_handler(),
             context.new_subscription_handler(),
@@ -136,20 +136,20 @@ impl Aeron {
             counters_metadata_buffer: local_counters_metadata_buffer,
             counters_value_buffer: local_counters_value_buffer,
             to_driver_ring_buffer: local_to_driver_ring_buffer,
-            driver_proxy: local_driver_proxy.clone(),
+            driver_proxy: local_driver_proxy,
             to_clients_broadcast_receiver: local_to_clients_broadcast_receiver.clone(),
-            to_clients_copy_receiver: CopyBroadcastReceiver::new(local_to_clients_broadcast_receiver.clone()),
+            to_clients_copy_receiver: CopyBroadcastReceiver::new(local_to_clients_broadcast_receiver),
             conductor: local_conductor.clone(),
             idle_strategy: local_idle_strategy.clone(),
 
             // Arc<Mutex> used here to avoid self reference of Aeron fields on each other and to be able to mutate conductor_runner
             conductor_runner: Arc::new(Mutex::new(AgentRunner::new(
                 local_conductor.clone(),
-                local_idle_strategy.clone(),
+                local_idle_strategy,
                 context.error_handler(),
                 AGENT_NAME,
             ))),
-            conductor_invoker: AgentInvoker::new(local_conductor.clone(), context.error_handler()),
+            conductor_invoker: AgentInvoker::new(local_conductor, context.error_handler()),
         };
 
         if use_agent_invoker {
@@ -530,7 +530,7 @@ impl Aeron {
         let start_ms = unix_time_ms();
 
         loop {
-            while MemoryMappedFile::file_size(context.cnc_file_name()).expect("file_size error") <= 0 {
+            while MemoryMappedFile::file_size(context.cnc_file_name()).expect("file_size error") == 0 {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
                     return Err(AeronError::DriverTimeout(format!(
                         "CnC file not created: {}",
@@ -570,7 +570,7 @@ impl Aeron {
 
             while 0 == ring_buffer.consumer_heartbeat_time() {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
-                    return Err(AeronError::DriverTimeout(format!("no driver heartbeat detected")));
+                    return Err(AeronError::DriverTimeout("no driver heartbeat detected".to_string()));
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_1));
@@ -579,7 +579,7 @@ impl Aeron {
             let time_ms = unix_time_ms();
             if (ring_buffer.consumer_heartbeat_time() as Moment) < time_ms - context.media_driver_timeout() {
                 if time_ms > start_ms + context.media_driver_timeout() {
-                    return Err(AeronError::DriverTimeout(format!("no driver heartbeat detected")));
+                    return Err(AeronError::DriverTimeout("no driver heartbeat detected".to_string()));
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_100));

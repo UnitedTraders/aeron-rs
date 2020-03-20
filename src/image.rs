@@ -118,7 +118,7 @@ impl Image {
             term_buffers,
             header,
             subscriber_position: (*subscriber_position).clone(),
-            log_buffers: log_buffers.clone(),
+            log_buffers,
             source_identity,
             is_closed: AtomicBool::new(false),
             exception_handler,

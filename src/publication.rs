@@ -100,7 +100,7 @@ impl Publication {
 
         Self {
             conductor,
-            log_meta_data_buffer: log_md_buffer.clone(),
+            log_meta_data_buffer: log_md_buffer,
             channel,
             registration_id,
             original_registration_id,
@@ -263,21 +263,19 @@ impl Publication {
      * @    the current position to which the publication has advanced for this stream or {@link CLOSED}.
      */
     pub fn position(&self) -> i64 {
-        let mut result = PUBLICATION_CLOSED;
-
         if !self.is_closed() {
             let raw_tail = log_buffer_descriptor::raw_tail_volatile(&self.log_meta_data_buffer);
             let term_offset = log_buffer_descriptor::term_offset(raw_tail, self.term_buffer_length() as i64);
 
-            result = log_buffer_descriptor::compute_position(
+            log_buffer_descriptor::compute_position(
                 log_buffer_descriptor::term_id(raw_tail),
                 term_offset as Index,
                 self.position_bits_to_shift,
                 self.initial_term_id,
-            );
+            )
+        } else {
+            PUBLICATION_CLOSED
         }
-
-        result
     }
 
     /**
@@ -351,7 +349,7 @@ impl Publication {
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
             let term_appender = &self.appenders[log_buffer_descriptor::index_by_term_count(term_count as i64) as usize];
             let raw_tail = term_appender.raw_tail_volatile();
-            let term_offset = raw_tail & 0xFFFFFFFF;
+            let term_offset = raw_tail & 0xFFFF_FFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
             let position =
                 log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
@@ -463,7 +461,7 @@ impl Publication {
     ) -> Result<i64, AeronError> {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
-        if length > std::i32::MAX {
+        if length == std::i32::MAX {
             return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
         }
 
@@ -474,7 +472,7 @@ impl Publication {
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
             let term_appender = &mut self.appenders[(log_buffer_descriptor::index_by_term_count(term_count as i64)) as usize];
             let raw_tail = term_appender.raw_tail_volatile();
-            let term_offset = raw_tail & 0xFFFFFFFF;
+            let term_offset = raw_tail & 0xFFFF_FFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
             let position =
                 log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
@@ -568,7 +566,7 @@ impl Publication {
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
             let term_appender = &mut self.appenders[log_buffer_descriptor::index_by_term_count(term_count as i64) as usize];
             let raw_tail = term_appender.raw_tail_volatile();
-            let term_offset = raw_tail & 0xFFFFFFFF;
+            let term_offset = raw_tail & 0xFFFF_FFFF;
             let term_id = log_buffer_descriptor::term_id(raw_tail);
             let position =
                 log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
