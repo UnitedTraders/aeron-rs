@@ -66,6 +66,7 @@ pub enum ControlledPollAction {
  */
 type ControlledPollFragmentHandler = fn(&AtomicBuffer, Index, Index, Header);
 
+#[derive(Clone)]
 pub struct Image {
     source_identity: CString,
     log_buffers: Arc<LogBuffers>,
@@ -73,7 +74,7 @@ pub struct Image {
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
-    is_closed: AtomicBool,
+    is_closed: Arc<AtomicBool>, // to make Image clonable
     is_eos: bool,
     term_length_mask: Index,
     position_bits_to_shift: i32,
@@ -120,7 +121,7 @@ impl Image {
             subscriber_position: (*subscriber_position).clone(),
             log_buffers,
             source_identity,
-            is_closed: AtomicBool::new(false),
+            is_closed: Arc::new(AtomicBool::new(false)),
             exception_handler,
             correlation_id,
             subscription_registration_id,
@@ -640,24 +641,6 @@ impl Image {
                         .atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
                 );
             self.is_closed.store(true, Ordering::Release)
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct ImageList {
-    // images: Vec<Image>,
-    pub(crate) ptr: *mut Image,
-    pub length: isize,
-}
-
-impl ImageList {
-    pub fn image(&mut self, pos: isize) -> &mut Image {
-        assert!(pos < self.length);
-
-        unsafe {
-            let img = self.ptr.offset(pos);
-            &mut *img
         }
     }
 }

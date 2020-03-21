@@ -26,6 +26,7 @@ use crate::utils::types::Index;
  */
 // TODO: originally there was pointer *void on context. Need to check all types
 // which could be stored in this field and make it rusty.
+#[derive(Clone)]
 pub struct Header {
     //context: Option<Arc<Image>>,
     buffer: Option<AtomicBuffer>,
