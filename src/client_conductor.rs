@@ -38,7 +38,7 @@ use crate::driver_listener_adapter::{DriverListener, DriverListenerAdapter};
 use crate::driver_proxy::DriverProxy;
 use crate::exclusive_publication::ExclusivePublication;
 use crate::heartbeat_timestamp;
-use crate::image::{Image, ImageList};
+use crate::image::Image;
 use crate::publication::Publication;
 use crate::subscription::Subscription;
 use crate::utils::errors::AeronError;
@@ -198,12 +198,12 @@ impl CounterStateDefn {
 }
 
 struct ImageListLingerDefn {
-    image_array: ImageList,
+    image_array: Vec<Image>,
     time_of_last_state_change_ms: Moment,
 }
 
 impl ImageListLingerDefn {
-    pub fn new(now_ms: Moment, image_array: ImageList) -> Self {
+    pub fn new(now_ms: Moment, image_array: Vec<Image>) -> Self {
         Self {
             image_array,
             time_of_last_state_change_ms: now_ms,
@@ -834,7 +834,7 @@ impl ClientConductor {
         result
     }
 
-    pub fn release_subscription(&mut self, registration_id: i64, mut images: ImageList) {
+    pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in release_subscription"); FIXME is it needed?
         self.verify_driver_is_active_via_error_handler();
 
@@ -843,13 +843,12 @@ impl ClientConductor {
             is_remove_subscription = true;
             let _result = self.driver_proxy.remove_subscription(registration_id);
 
-            for index in 0..images.length {
+            for image in images.iter_mut() {
                 // close the image
-                let image = images.image(index);
                 image.close();
 
                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                (subscription.on_unavailable_image_handler)(image);
+                (subscription.on_unavailable_image_handler)(&image);
             }
         }
 
@@ -1179,21 +1178,19 @@ impl ClientConductor {
 
         let mut subscriptions_to_hold_until_cleared: Vec<Arc<Mutex<Subscription>>> = Vec::default();
 
-        let mut images_to_linger: Vec<ImageList> = Vec::new();
+        let mut images_to_linger: Vec<Vec<Image>> = Vec::new();
 
         for sub_defn in self.subscription_by_registration_id.values_mut() {
             if let Some(maybe_subscription) = &sub_defn.subscription {
                 if let Some(subscription) = maybe_subscription.upgrade() {
                     if let Some(mut images) = subscription.lock().expect("Mutex poisoned").close_and_remove_images() {
-                        images_to_linger.push(images);
-
-                        for index in 0..images.length {
-                            let image = images.image(index);
+                        for image in images.iter_mut() {
                             image.close();
 
                             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                            (sub_defn.on_unavailable_image_handler)(image);
+                            (sub_defn.on_unavailable_image_handler)(&image);
                         }
+                        images_to_linger.push(images);
                     }
 
                     if let Some(cache) = &sub_defn.subscription_cache {
@@ -1265,11 +1262,11 @@ impl ClientConductor {
             .retain(|img| now_ms - resource_linger_timeout_ms <= img.time_of_last_state_change_ms);
     }
 
-    pub fn linger_resource(&mut self, now_ms: Moment, images: ImageList) {
+    pub fn linger_resource(&mut self, now_ms: Moment, images: Vec<Image>) {
         self.lingering_image_lists.push(ImageListLingerDefn::new(now_ms, images));
     }
 
-    pub fn linger_all_resources(&mut self, now_ms: Moment, images: ImageList) {
+    pub fn linger_all_resources(&mut self, now_ms: Moment, images: Vec<Image>) {
         self.linger_resource(now_ms, images);
     }
 }
@@ -1413,7 +1410,7 @@ impl DriverListener for ClientConductor {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_channel_endpoint_error_response");
 
         let mut subscription_to_remove: Vec<i64> = Vec::new();
-        let mut linger_images: Vec<ImageList> = Vec::new();
+        let mut linger_images: Vec<Vec<Image>> = Vec::new();
 
         for (reg_id, subscr_defn) in &mut self.subscription_by_registration_id {
             if let Some(maybe_subscription) = &subscr_defn.subscription {
@@ -1426,16 +1423,13 @@ impl DriverListener for ClientConductor {
                         )));
 
                         if let Some(mut images) = subscription.close_and_remove_images() {
-                            linger_images.push(images);
-
-                            for index in 0..images.length {
-                                let image = images.image(index);
+                            for image in images.iter_mut() {
                                 image.close();
 
                                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                                (subscr_defn.on_unavailable_image_handler)(image);
+                                (subscr_defn.on_unavailable_image_handler)(&image);
                             }
-
+                            linger_images.push(images);
                             subscription_to_remove.push(*reg_id);
                         }
                     }
@@ -1564,7 +1558,7 @@ impl DriverListener for ClientConductor {
             .get_log_buffers(correlation_id, log_filename, channel)
             .expect("Get log_buffers failed");
 
-        let mut linger_images: Option<ImageList> = None;
+        let mut linger_images: Option<Vec<Image>> = None;
 
         if let Some(subscr_defn) = self.subscription_by_registration_id.get_mut(&subscription_registration_id) {
             if let Some(maybe_subscription) = &subscr_defn.subscription {
@@ -1583,7 +1577,7 @@ impl DriverListener for ClientConductor {
                     let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
                     (subscr_defn.on_available_image_handler)(&image);
 
-                    linger_images = Some(subscription.lock().expect("Mutex poisoned").add_image(Arc::new(image)));
+                    linger_images = Some(subscription.lock().expect("Mutex poisoned").add_image(image));
                 }
             }
         }
@@ -1597,17 +1591,19 @@ impl DriverListener for ClientConductor {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_unavailable_image");
         let now_ms = (self.epoch_clock)();
 
-        let mut linger_images: Option<ImageList> = None;
+        let mut linger_images: Option<Vec<Image>> = None;
 
         if let Some(subscr_defn) = self.subscription_by_registration_id.get(&subscription_registration_id) {
             if let Some(maybe_subscription) = &subscr_defn.subscription {
                 if let Some(subscription) = maybe_subscription.upgrade() {
                     // If Image was actually removed
-                    if let Some((mut old_image_array, index)) =
+                    if let Some((old_image_array, index)) =
                         subscription.lock().expect("Mutex poisoned").remove_image(correlation_id)
                     {
                         let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                        (subscr_defn.on_unavailable_image_handler)(old_image_array.image(index as isize));
+                        (subscr_defn.on_unavailable_image_handler)(
+                            old_image_array.get(index as usize).expect("Bug in image handling"),
+                        );
                         linger_images = Some(old_image_array);
                     }
                 }

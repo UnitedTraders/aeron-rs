@@ -26,7 +26,7 @@ use crate::utils::types::{Index, I32_SIZE};
 
 pub(crate) const TERM_MIN_LENGTH: Index = 64 * 1024;
 pub const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
-const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
+pub(crate) const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
 const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
 pub const PARTITION_COUNT: Index = 3;
@@ -123,15 +123,15 @@ struct LogMetaDataDefn {
 
 lazy_static! {
     pub static ref TERM_TAIL_COUNTER_OFFSET: Index = offset_of!(LogMetaDataDefn, term_tail_counters);
-    static ref LOG_ACTIVE_TERM_COUNT_OFFSET: Index = offset_of!(LogMetaDataDefn, active_term_count);
-    static ref LOG_END_OF_STREAM_POSITION_OFFSET: Index = offset_of!(LogMetaDataDefn, end_of_stream_position);
-    static ref LOG_IS_CONNECTED_OFFSET: Index = offset_of!(LogMetaDataDefn, is_connected);
-    static ref LOG_ACTIVE_TRANSPORT_COUNT: Index = offset_of!(LogMetaDataDefn, active_transport_count);
-    static ref LOG_INITIAL_TERM_ID_OFFSET: Index = offset_of!(LogMetaDataDefn, initial_term_id);
-    static ref LOG_DEFAULT_FRAME_HEADER_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, default_frame_header_length);
-    static ref LOG_MTU_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, mtu_length);
-    static ref LOG_TERM_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, term_length);
-    static ref LOG_PAGE_SIZE_OFFSET: Index = offset_of!(LogMetaDataDefn, page_size);
+    pub static ref LOG_ACTIVE_TERM_COUNT_OFFSET: Index = offset_of!(LogMetaDataDefn, active_term_count);
+    pub static ref LOG_END_OF_STREAM_POSITION_OFFSET: Index = offset_of!(LogMetaDataDefn, end_of_stream_position);
+    pub static ref LOG_IS_CONNECTED_OFFSET: Index = offset_of!(LogMetaDataDefn, is_connected);
+    pub static ref LOG_ACTIVE_TRANSPORT_COUNT: Index = offset_of!(LogMetaDataDefn, active_transport_count);
+    pub static ref LOG_INITIAL_TERM_ID_OFFSET: Index = offset_of!(LogMetaDataDefn, initial_term_id);
+    pub static ref LOG_DEFAULT_FRAME_HEADER_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, default_frame_header_length);
+    pub static ref LOG_MTU_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, mtu_length);
+    pub static ref LOG_TERM_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, term_length);
+    pub static ref LOG_PAGE_SIZE_OFFSET: Index = offset_of!(LogMetaDataDefn, page_size);
 }
 
 const LOG_DEFAULT_FRAME_HEADER_OFFSET: Index = std::mem::size_of::<LogMetaDataDefn>() as Index;

@@ -10,12 +10,31 @@ use std::ffi::OsString;
 use std::path::Path;
 
 pub struct LogBuffers {
-    memory_mapped_file: MemoryMappedFile,
-    buffers: Vec<AtomicBuffer>,
+    memory_mapped_file: Option<MemoryMappedFile>,
+    buffers: [AtomicBuffer; log_buffer_descriptor::PARTITION_COUNT as usize + 1],
 }
 
 impl LogBuffers {
+    pub unsafe fn new(address: *mut u8, log_length: isize, term_length: i32) -> Self {
+        assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
+
+        Self {
+            memory_mapped_file: None,
+            buffers: [
+                AtomicBuffer::new(address, term_length),
+                AtomicBuffer::new(address.offset(term_length as isize), term_length),
+                AtomicBuffer::new(address.offset(2 * term_length as isize), term_length),
+                AtomicBuffer::new(
+                    address.offset(log_length - log_buffer_descriptor::LOG_META_DATA_LENGTH as isize),
+                    log_buffer_descriptor::LOG_META_DATA_LENGTH,
+                ),
+            ],
+        }
+    }
+
     pub fn from_existing<P: AsRef<Path> + Into<OsString>>(file_path: P, pre_touch: bool) -> Result<Self, AeronError> {
+        assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
+
         let log_len = MemoryMappedFile::file_size(&file_path)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
@@ -52,31 +71,17 @@ impl LogBuffers {
         buffers.push(meta_buffer);
 
         Ok(Self {
-            memory_mapped_file,
-            buffers,
+            memory_mapped_file: Some(memory_mapped_file),
+            buffers: [
+                *buffers.get(0).expect("Log buffers get(0) failed"),
+                *buffers.get(1).expect("Log buffers get(0) failed"),
+                *buffers.get(2).expect("Log buffers get(0) failed"),
+                *buffers.get(3).expect("Log buffers get(0) failed"),
+            ],
         })
     }
 
     pub fn atomic_buffer(&self, index: Index) -> AtomicBuffer {
         self.buffers[index as usize]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new() {
-        let path = "test1.tst";
-        MemoryMappedFile::create_new(path, 0, 65536).expect("file not found");
-
-        let buffers = LogBuffers::from_existing(path, true).unwrap();
-
-        let _buffer = buffers.atomic_buffer(0);
-
-        // assert_eq!(file.memory_size(), 128);
-
-        assert_eq!(buffers.atomic_buffer(0).capacity(), 128)
     }
 }

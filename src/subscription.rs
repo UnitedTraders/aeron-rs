@@ -1,11 +1,14 @@
 use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_vec::AtomicVec;
 use crate::concurrent::logbuffer::term_reader::FragmentHandler;
 use crate::concurrent::logbuffer::term_scan::BlockHandler;
-use crate::image::{ControlledPollAction, Image, ImageList};
+use crate::concurrent::status::status_indicator_reader;
+use crate::image::{ControlledPollAction, Image};
+use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 
 pub struct Subscription {
@@ -17,7 +20,7 @@ pub struct Subscription {
     registration_id: i64,
     stream_id: i32,
 
-    image_list: AtomicPtr<ImageList>,
+    image_list: AtomicVec<Image>,
     is_closed: AtomicBool,
 }
 
@@ -36,7 +39,7 @@ impl Subscription {
             round_robin_index: 0,
             registration_id,
             stream_id,
-            image_list: Default::default(),
+            image_list: AtomicVec::new(),
             is_closed: AtomicBool::from(false),
         }
     }
@@ -77,25 +80,56 @@ impl Subscription {
         self.channel_status_id
     }
 
-    pub fn add_destination(&self, _endpoint_channel: impl AsRef<String>) {
+    pub fn add_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
         if self.is_closed() {
-            panic!("Subscription is closed");
-        }
-        // self.m_conductor.addRcvDestination(registration_id, endpoint_channel);
-        // } todo
-    }
-
-    pub fn remove_destination(&self, _endpoint_channel: impl AsRef<String>) {
-        if self.is_closed() {
-            panic!("Subscription is closed"); //todo
+            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
         }
 
-        // m_conductor.removeRcvDestination(registration_id, endpoint_channel); todo
+        if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
+            self.conductor
+                .lock()
+                .expect("Mutex poisoned")
+                .add_rcv_destination(self.registration_id, endpoint_channel_cstr)
+        } else {
+            Err(AeronError::GenericError(String::from(
+                "String to CString conversion failed for endpoint_channel",
+            )))
+        }
     }
 
-    #[inline]
-    fn load_image_list(&self) -> ImageList {
-        unsafe { *self.image_list.load(Ordering::Acquire) }
+    pub fn remove_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
+        if self.is_closed() {
+            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
+        }
+
+        if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
+            self.conductor
+                .lock()
+                .expect("Mutex poisoned")
+                .remove_rcv_destination(self.registration_id, endpoint_channel_cstr)
+        } else {
+            Err(AeronError::GenericError(String::from(
+                "String to CString conversion failed for endpoint_channel",
+            )))
+        }
+    }
+
+    pub fn find_destination_response(&self, correlation_id: i64) -> Result<bool, AeronError> {
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .find_destination_response(correlation_id)
+    }
+
+    pub fn channel_status(&self) -> i64 {
+        if self.is_closed() {
+            return status_indicator_reader::NO_ID_ALLOCATED as i64;
+        }
+
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .channel_status(self.channel_status_id)
     }
 
     /**
@@ -109,13 +143,9 @@ impl Subscription {
     pub fn poll_end_of_streams(&self, end_of_stream_handler: EndOfStreamHandler) -> i32 {
         let mut num_end_of_streams = 0;
 
-        let mut image_list = self.load_image_list();
+        let image_list = self.image_list.load();
 
-        let length = image_list.length;
-
-        for i in 0..length {
-            let image = image_list.image(i);
-
+        for image in image_list.iter() {
             if image.is_end_of_stream() {
                 num_end_of_streams += 1;
                 end_of_stream_handler(image);
@@ -139,30 +169,33 @@ impl Subscription {
      */
 
     pub fn poll<T>(&mut self, fragment_handler: FragmentHandler<T>, fragment_limit: i32) -> i32 {
-        let mut image_list = self.load_image_list();
+        let image_list = self.image_list.load_mut();
 
-        let length = image_list.length;
-
-        // Image *images = imageList->m_images;
         let mut fragments_read = 0;
 
-        let mut starting_index = self.round_robin_index as isize;
+        let mut starting_index = self.round_robin_index as usize;
         self.round_robin_index += 1;
 
-        if starting_index >= length {
+        if starting_index >= image_list.len() {
             self.round_robin_index = 0;
             starting_index = 0;
         }
 
-        for i in starting_index..length {
+        for i in starting_index..image_list.len() {
             if fragments_read < fragment_limit {
-                fragments_read += image_list.image(i).poll(fragment_handler, fragment_limit - fragments_read);
+                fragments_read += image_list
+                    .get_mut(i)
+                    .expect("Error getting element from Image vec")
+                    .poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
-        for i in 0..starting_index {
+        for i in 0..image_list.len() {
             if fragments_read < fragment_limit {
-                fragments_read += image_list.image(i).poll(fragment_handler, fragment_limit - fragments_read);
+                fragments_read += image_list
+                    .get_mut(i)
+                    .expect("Error getting element from Image vec")
+                    .poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
 
@@ -185,25 +218,23 @@ impl Subscription {
      * @see controlled_poll_fragment_handler_t
      */
     pub fn controlled_poll(&mut self, fragment_handler: FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
-        let mut image_list = self.load_image_list();
+        let image_list = self.image_list.load_mut();
 
-        let length = image_list.length;
-
-        // Image *images = imageList->m_images;
         let mut fragments_read = 0;
 
-        let mut starting_index = self.round_robin_index as isize;
+        let mut starting_index = self.round_robin_index as usize;
         self.round_robin_index += 1;
 
-        if starting_index >= length {
+        if starting_index >= image_list.len() {
             self.round_robin_index = 0;
             starting_index = 0;
         }
 
-        for i in starting_index..length {
+        for i in starting_index..image_list.len() {
             if fragments_read < fragment_limit {
                 fragments_read += image_list
-                    .image(i)
+                    .get_mut(i)
+                    .expect("Error getting element from Image vec")
                     .controlled_poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
@@ -211,7 +242,8 @@ impl Subscription {
         for i in 0..starting_index {
             if fragments_read < fragment_limit {
                 fragments_read += image_list
-                    .image(i)
+                    .get_mut(i)
+                    .expect("Error getting element from Image vec")
                     .controlled_poll(fragment_handler, fragment_limit - fragments_read);
             }
         }
@@ -227,14 +259,12 @@ impl Subscription {
      * @return the number of bytes consumed.
      */
     pub fn block_poll(&mut self, block_handler: BlockHandler, block_length_limit: i32) -> i64 {
-        let mut image_list = self.load_image_list();
-
-        let length = image_list.length;
+        let image_list = self.image_list.load();
 
         let mut bytes_consumed: i64 = 0;
 
-        for i in 0..length {
-            bytes_consumed += image_list.image(i).block_poll(block_handler, block_length_limit) as i64;
+        for image in image_list {
+            bytes_consumed += image.block_poll(block_handler, block_length_limit) as i64;
         }
 
         bytes_consumed
@@ -246,11 +276,11 @@ impl Subscription {
      * @return true if the subscription has more than one open image available.
      */
     pub fn is_connected(&self) -> bool {
-        let mut image_list = self.load_image_list();
+        let image_list = self.image_list.load();
 
-        let length = image_list.length;
+        let length = image_list.len();
 
-        (0..length).any(|idx| !image_list.image(idx).is_closed())
+        (0..length).any(|idx| !image_list.get(idx).expect("Error getting element from Image vec").is_closed())
     }
 
     /**
@@ -258,69 +288,47 @@ impl Subscription {
      *
      * @return count of images associated with this subscription.
      */
-    pub fn image_count(&self) -> isize {
-        self.load_image_list().length
+    pub fn image_count(&self) -> usize {
+        let image_list = self.image_list.load();
+        image_list.len()
     }
 
-    // /**
-    //  * Return the {@link Image} associated with the given sessionId.
-    //  *
-    //  * This method generates a new copy of the Image overlaying the logbuffer.
-    //  * It is up to the application to not use the Image if it becomes unavailable.
-    //  *
-    //  * @param sessionId associated with the Image.
-    //  * @return Image associated with the given sessionId or nullptr if no Image exist.
-    //  */
-    // pub fn imageBySessionId(&self, sessionId: i32) -> Option<&mut Image> {
-    //     let list = self.load_image_list();
-    //
-    //     let mut index = -1;
-    //
-    //     for i in 0..list.length {
-    //         if list.image(i).session_id() == sessionId {
-    //             index = i;
-    //             break;
-    //         }
-    //     }
-    //
-    //     if index != -1 {
-    //         Some(list.image(index))
-    //     } else {
-    //         None
-    //     }
-    // }
+    /**
+     * Return the {@link Image} associated with the given session_id.
+     *
+     * This method generates a new copy of the Image overlaying the logbuffer.
+     * It is up to the application to not use the Image if it becomes unavailable.
+     *
+     * @param session_id associated with the Image.
+     * @return Image associated with the given session_id or nullptr if no Image exist.
+     */
+    pub fn image_by_session_id(&self, session_id: i32) -> Option<&Image> {
+        let list = self.image_list.load();
+        list.iter().find(|img| img.session_id() == session_id)
+    }
 
-    // /**
-    //  * Get the image at the given index from the images array.
-    //  *
-    //  * This is only valid until the image list changes.
-    //  *
-    //  * @param index in the array
-    //  * @return image at given index or exception if out of range.
-    //  */
-    // pub fn imageAtIndex(&self, index: isize) -> &mut Image {
-    //     let list = self.load_image_list();
-    //     let x = list.image(index);
-    //     return x;
-    // }
+    /**
+     * Get the image at the given index from the images array.
+     *
+     * This is only valid until the image list changes.
+     *
+     * @param index in the array
+     * @return image at given index or exception if out of range.
+     */
+
+    pub fn image_at_index(&self, index: usize) -> Option<&Image> {
+        let list = self.image_list.load();
+        list.get(index)
+    }
 
     // /**
     //  * Get a std::vector of active {@link Image}s that match this subscription.
     //  *
     //  * @return a std::vector of active {@link Image}s that match this subscription.
     //  */
-    // inline std::shared_ptr < std::vector < Image > > images() const
-    // {
-    // std::shared_ptr < std::vector < Image >> result(new std::vector < Image >());
-    //
-    // forEachImage(
-    // [ & ](Image & image)
-    // {
-    // result -> push_back(Image(image));
-    // });
-    //
-    // return result;
-    // }
+    pub fn images(&self) -> &Vec<Image> {
+        self.image_list.load()
+    }
 
     /**
      * Has this object been closed and should no longer be used?
@@ -331,29 +339,37 @@ impl Subscription {
         self.is_closed.load(Ordering::Acquire)
     }
 
-    // FIXME: stubs for compilation of other files only
-
-    // Adds image to the subscription and returns ImageList
-    // as it was just before adding this Image
-    pub fn add_image(&mut self, _image: Arc<Image>) -> ImageList {
-        ImageList {
-            ptr: std::ptr::null_mut::<Image>(),
-            length: 0,
-        }
+    // Adds image to the subscription and returns Images
+    // as they were just before adding this Image
+    pub fn add_image(&mut self, image: Image) -> Vec<Image> {
+        self.image_list.add(image)
     }
 
-    // Removes image with given correlation_id and returns old ImageArray (as of before removal)
-    // and index of removed element. So effectively it return the Image deleted.
+    // Removes image with given correlation_id and returns old Images (as of before removal)
+    // and index of removed element.
     // Returns None if Image was not removed (e.g. was not found).
-    pub fn remove_image(&mut self, _correlation_id: i64) -> Option<(ImageList, Index)> {
-        None
+    pub fn remove_image(&mut self, correlation_id: i64) -> Option<(Vec<Image>, Index)> {
+        self.image_list.remove(|image| {
+            if image.correlation_id() == correlation_id {
+                image.close();
+                true
+            } else {
+                false
+            }
+        })
     }
 
-    // Removes all images and returns old ImageArray if subscription is not closed.
+    // Removes all images and returns old Images if subscription is not closed.
     // Returns None if subscription is closed.
-    pub fn close_and_remove_images(&mut self) -> Option<ImageList> {
-        None
+    pub fn close_and_remove_images(&mut self) -> Option<Vec<Image>> {
+        if !self.is_closed.swap(true, Ordering::SeqCst) {
+            let image_list = self.image_list.load_val();
+            self.image_list.store(Vec::new());
+            Some(image_list)
+        } else {
+            None
+        }
     }
 }
 
-type EndOfStreamHandler = fn(&mut Image);
+type EndOfStreamHandler = fn(&Image);
