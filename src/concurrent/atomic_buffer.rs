@@ -113,7 +113,6 @@ impl AtomicBuffer {
         unsafe { *(self.at(position) as *mut T) }
     }
 
-    // TODO: Change to mutable reference
     #[inline]
     pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);

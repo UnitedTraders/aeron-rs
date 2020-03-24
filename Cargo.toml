@@ -10,6 +10,7 @@ num-traits="0.2.11"
 lazy_static = "=1.4.0"
 memmap = "=0.7.0"
 rand = "=0.6"
+nix = "0.17.0"
 
 [dev-dependencies]
 tempfile = "3.1.0"

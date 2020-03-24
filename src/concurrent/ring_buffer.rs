@@ -203,7 +203,7 @@ impl ManyToOneRingBuffer {
     /// Read from the ring buffer until either wrap-around or `msg_count_max` messages have been
     /// processed.
     /// Returns the number of messages processed.
-    pub fn read<F: FnMut(AeronCommand, &AtomicBuffer)>(&self, mut handler: F, msg_count_limit: i32) -> i32 {
+    pub fn read<F: FnMut(AeronCommand, AtomicBuffer)>(&self, mut handler: F, msg_count_limit: i32) -> i32 {
         let head: i64 = self.buffer.get(self.head_position); // non - volatile read?
         let head_index = head as Index & (self.capacity - 1);
         let contiguous_block_len = self.capacity - head_index;
@@ -230,7 +230,7 @@ impl ManyToOneRingBuffer {
                 record_descriptor::encoded_msg_offset(record_index),
                 record_len - record_descriptor::HEADER_LENGTH,
             );
-            handler(msg_type, &view)
+            handler(msg_type, view)
         }
 
         // todo: move to a guard, or prevent corruption on panic
@@ -245,7 +245,7 @@ impl ManyToOneRingBuffer {
 
     // Read all messages
     #[inline]
-    pub fn read_all<F: FnMut(AeronCommand, &AtomicBuffer)>(&self, handler: F) -> i32 {
+    pub fn read_all<F: FnMut(AeronCommand, AtomicBuffer)>(&self, handler: F) -> i32 {
         self.read(handler, std::i32::MAX)
     }
 
