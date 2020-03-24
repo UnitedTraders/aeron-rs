@@ -70,10 +70,8 @@ impl FragmentAssembler {
      *
      * @return fragment_handler_t composed with the FragmentAssembler instance
      */
-
-    // FIXME: Handle lifetimes
-    pub fn handler(&mut self) -> impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError> + '_ {
-        move |buffer, offset, length, header| self.on_fragment(buffer, offset, length, header)
+    pub fn handler(&mut self) -> impl Fragment + '_ {
+        move |buffer: &AtomicBuffer, offset, length, header: &Header| self.on_fragment(buffer, offset, length, header)
     }
 
     /**

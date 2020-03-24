@@ -30,6 +30,7 @@ pub mod context;
 pub mod counter;
 pub mod driver_listener_adapter;
 pub mod driver_proxy;
+pub mod exclusive_publication;
 pub mod heartbeat_timestamp;
 pub mod image;
 pub mod protocol;

@@ -69,7 +69,6 @@ mod record_descriptor {
 
     pub const HEADER_LENGTH: Index = I32_SIZE * 2;
     pub const ALIGNMENT: Index = HEADER_LENGTH;
-    // pub const PADDING_MSG_TYPE_ID: i32 = -1;
 
     #[inline]
     pub fn length_offset(record_offset: Index) -> Index {
@@ -455,7 +454,7 @@ mod tests {
 
             let ring_buffer = ManyToOneRingBuffer::new(ab).unwrap();
 
-            Test {
+            Self {
                 ab,
                 src_ab,
                 ring_buffer,
@@ -484,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    fn ring_buffer_capacity_not_two_power() {
+    fn ring_buffer_capacity_not_power_of_two() {
         let test_buffer = AlignedBuffer::with_capacity(ODD_BUFFER_SZ);
         let ab = AtomicBuffer::from_aligned(&test_buffer);
         let ring_res = ManyToOneRingBuffer::new(ab);

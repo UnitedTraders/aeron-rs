@@ -84,7 +84,7 @@ impl ExclusiveTermAppender {
         term_id: i32,
         term_offset: Index,
         header: &HeaderWriter,
-        src_buffer: &AtomicBuffer,
+        src_buffer: AtomicBuffer,
         src_offset: Index,
         length: Index,
         reserved_value_supplier: OnReservedValueSupplier,
@@ -102,7 +102,7 @@ impl ExclusiveTermAppender {
         } else {
             header.write(&self.term_buffer, term_offset, frame_length, term_id);
             self.term_buffer
-                .copy_from(term_offset + data_frame_header::LENGTH, src_buffer, src_offset, length);
+                .copy_from(term_offset + data_frame_header::LENGTH, &src_buffer, src_offset, length);
 
             let reserved_value = reserved_value_supplier(self.term_buffer, term_offset, frame_length);
             self.term_buffer
@@ -162,7 +162,7 @@ impl ExclusiveTermAppender {
         term_id: i32,
         term_offset: Index,
         header: &HeaderWriter,
-        src_buffer: &AtomicBuffer,
+        src_buffer: AtomicBuffer,
         src_offset: Index,
         length: Index,
         max_payload_length: Index,
@@ -201,7 +201,7 @@ impl ExclusiveTermAppender {
                 header.write(&self.term_buffer, offset, frame_length, term_id);
                 self.term_buffer.copy_from(
                     offset + data_frame_header::LENGTH,
-                    src_buffer,
+                    &src_buffer,
                     src_offset + (length - remaining),
                     bytes_to_write,
                 );

@@ -36,9 +36,10 @@ use crate::context::{
 use crate::counter::Counter;
 use crate::driver_listener_adapter::{DriverListener, DriverListenerAdapter};
 use crate::driver_proxy::DriverProxy;
+use crate::exclusive_publication::ExclusivePublication;
 use crate::heartbeat_timestamp;
 use crate::image::{Image, ImageList};
-use crate::publication::{ExclusivePublication, Publication};
+use crate::publication::Publication;
 use crate::subscription::Subscription;
 use crate::utils::errors::AeronError;
 use crate::utils::errors::AeronError::{ChannelEndpointException, ClientTimeoutException};
@@ -101,7 +102,7 @@ struct ExclusivePublicationStateDefn {
     publication: Option<Weak<ExclusivePublication>>,
     channel: CString,
     registration_id: i64,
-    original_registration_id: i64,
+    // original_registration_id: i64,
     time_of_registration_ms: Moment,
     stream_id: i32,
     session_id: i32,
@@ -121,7 +122,7 @@ impl ExclusivePublicationStateDefn {
             registration_id,
             time_of_registration_ms: now_ms,
             stream_id,
-            original_registration_id: -1,
+            // original_registration_id: -1,
             session_id: -1,
             publication_limit_counter_id: -1,
             channel_status_id: -1,
@@ -660,7 +661,7 @@ impl ClientConductor {
     }
 
     // TODO: looks like it could be made generic together with find_publication()
-    pub fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
+    pub(crate) fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
         let _guard = self
             .admin_lock
             .lock()
@@ -695,7 +696,6 @@ impl ClientConductor {
                                     self.arced_self.as_ref().unwrap().clone(),
                                     state.channel.clone(),
                                     state.registration_id,
-                                    state.original_registration_id,
                                     state.stream_id,
                                     state.session_id,
                                     publication_limit,

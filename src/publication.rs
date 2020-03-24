@@ -30,11 +30,11 @@ use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
 use std::ffi::CString;
 
-const NOT_CONNECTED: i64 = -1;
-const BACK_PRESSURED: i64 = -2;
-const ADMIN_ACTION: i64 = -3;
-const PUBLICATION_CLOSED: i64 = -4;
-const MAX_POSITION_EXCEEDED: i64 = -5;
+pub(crate) const NOT_CONNECTED: i64 = -1;
+pub(crate) const BACK_PRESSURED: i64 = -2;
+pub(crate) const ADMIN_ACTION: i64 = -3;
+pub(crate) const PUBLICATION_CLOSED: i64 = -4;
+pub(crate) const MAX_POSITION_EXCEEDED: i64 = -5;
 
 pub trait BulkPubSize {
     const SIZE: usize;
@@ -42,7 +42,7 @@ pub trait BulkPubSize {
 
 // FIXME: this is temporary solution to introduce ExclusivePublication
 // It needs to be carefully ported thereafter
-pub type ExclusivePublication = Publication;
+// pub type ExclusivePublication = Publication;
 
 /**
  * @example basic_publisher.rs
