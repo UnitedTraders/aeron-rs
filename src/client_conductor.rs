@@ -388,6 +388,10 @@ impl ClientConductor {
         }
     }
 
+    pub fn counter_values_buffer(&self) -> AtomicBuffer {
+        self.counter_values_buffer
+    }
+
     fn on_heartbeat_check_timeouts(&mut self) -> Result<i64, AeronError> {
         let now_ms = (self.epoch_clock)();
         let mut result: i64 = 0;

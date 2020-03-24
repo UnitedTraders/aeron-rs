@@ -731,3 +731,114 @@ impl Drop for Publication {
             .release_publication(self.registration_id);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::CString;
+    use std::sync::{Arc, Mutex};
+
+    use lazy_static::lazy_static;
+
+    use crate::client_conductor::ClientConductor;
+    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
+    use crate::concurrent::position::UnsafeBufferPosition;
+    use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
+    use crate::publication::Publication;
+    use crate::utils::log_buffers::LogBuffers;
+    use crate::utils::types::{Index, I64_SIZE};
+
+    lazy_static! {
+        pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
+    }
+    const STREAM_ID: i32 = 10;
+    const SESSION_ID: i32 = 200;
+    const PUBLICATION_LIMIT_COUNTER_ID: i32 = 0;
+
+    const CORRELATION_ID: i64 = 100;
+    const ORIGINAL_REGISTRATION_ID: i64 = 100;
+    const TERM_ID_1: i32 = 1;
+
+    #[inline]
+    fn raw_tail_value(term_id: i32, position: i64) -> i64 {
+        (term_id as i64 * (1_i64 << 32)) as i64 | position
+    }
+
+    #[inline]
+    fn term_tail_counter_offset(index: i32) -> Index {
+        *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (index * I64_SIZE)
+    }
+
+    struct PublicationTest {
+        src: AlignedBuffer,
+        log: AlignedBuffer,
+
+        conductor: Arc<Mutex<ClientConductor>>,
+        term_buffers: [AtomicBuffer; 3],
+        log_meta_data_buffer: AtomicBuffer,
+        src_buffer: AtomicBuffer,
+
+        log_buffers: Arc<LogBuffers>,
+        publication_limit: UnsafeBufferPosition,
+        channel_status_indicator: StatusIndicatorReader,
+        publication: Publication,
+    }
+
+    impl PublicationTest {
+        pub fn new(conductor: Arc<Mutex<ClientConductor>>) -> Self {
+            let log = AlignedBuffer::with_capacity(TERM_MIN_LENGTH * 3 + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+            let src = AlignedBuffer::with_capacity(1024);
+            let src_buffer = AtomicBuffer::from_aligned(&src);
+            let log_buffers =
+                Arc::new(unsafe { LogBuffers::new(log.ptr, log.len as isize, log_buffer_descriptor::TERM_MIN_LENGTH) });
+
+            let conductor_guard = conductor.lock().expect("Conductor mutex is poisoned");
+            let publication_limit =
+                UnsafeBufferPosition::new(conductor_guard.counter_values_buffer(), PUBLICATION_LIMIT_COUNTER_ID);
+            let channel_status_indicator = StatusIndicatorReader::new(conductor_guard.counter_values_buffer(), NO_ID_ALLOCATED);
+            drop(conductor_guard);
+
+            let log_meta_data_buffer = log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_MTU_LENGTH_OFFSET, 3 * src_buffer.capacity());
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_TERM_LENGTH_OFFSET, TERM_MIN_LENGTH);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_PAGE_SIZE_OFFSET, AERON_PAGE_MIN_SIZE);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_INITIAL_TERM_ID_OFFSET, TERM_ID_1);
+
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_ACTIVE_TERM_COUNT_OFFSET, 0);
+            log_meta_data_buffer.put(term_tail_counter_offset(0), (TERM_ID_1 as i64) << 32);
+
+            for i in 1..log_buffer_descriptor::PARTITION_COUNT {
+                let expected_term_id = (TERM_ID_1 + i) - log_buffer_descriptor::PARTITION_COUNT;
+                log_meta_data_buffer.put(term_tail_counter_offset(i), (expected_term_id as i64) << 32);
+            }
+
+            Self {
+                src,
+                log,
+                conductor: conductor.clone(),
+                term_buffers: [
+                    log_buffers.atomic_buffer(0),
+                    log_buffers.atomic_buffer(1),
+                    log_buffers.atomic_buffer(2),
+                ],
+
+                log_meta_data_buffer,
+                src_buffer,
+                log_buffers: log_buffers.clone(),
+                publication_limit: publication_limit.clone(),
+                channel_status_indicator,
+                publication: Publication::new(
+                    conductor,
+                    (*CHANNEL).clone(),
+                    CORRELATION_ID,
+                    ORIGINAL_REGISTRATION_ID,
+                    STREAM_ID,
+                    SESSION_ID,
+                    publication_limit,
+                    NO_ID_ALLOCATED,
+                    log_buffers,
+                ),
+            }
+        }
+    }
+}
