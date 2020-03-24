@@ -719,7 +719,6 @@ impl Drop for ExclusivePublication {
 }
 
 #[cfg(test)]
-
 mod tests {
     use std::ffi::CString;
     use std::sync::{Arc, Mutex};
@@ -727,8 +726,8 @@ mod tests {
     use lazy_static::lazy_static;
 
     use crate::client_conductor::ClientConductor;
-    use crate::concurrent::atomic_buffer::AtomicBuffer;
-    use crate::concurrent::logbuffer::log_buffer_descriptor;
+    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
     use crate::concurrent::position::UnsafeBufferPosition;
     use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
     use crate::exclusive_publication::ExclusivePublication;
@@ -756,9 +755,12 @@ mod tests {
     }
 
     struct ExclusivePublicationTest {
+        src: AlignedBuffer,
+        log: AlignedBuffer,
+
         conductor: Arc<Mutex<ClientConductor>>,
         term_buffers: [AtomicBuffer; 3],
-        log_metadata_buffer: AtomicBuffer,
+        log_meta_data_buffer: AtomicBuffer,
         src_buffer: AtomicBuffer,
 
         log_buffers: Arc<LogBuffers>,
@@ -768,17 +770,55 @@ mod tests {
     }
 
     impl ExclusivePublicationTest {
-        pub fn create_pub(&mut self) {
-            self.publication = ExclusivePublication::new(
-                self.conductor.clone(),
-                (*CHANNEL).clone(),
-                CORRELATION_ID,
-                STREAM_ID,
-                SESSION_ID,
-                self.publication_limit.clone(),
-                NO_ID_ALLOCATED,
-                self.log_buffers.clone(),
-            )
+        pub fn new(conductor: Arc<Mutex<ClientConductor>>) -> Self {
+            let log = AlignedBuffer::with_capacity(TERM_MIN_LENGTH * 3 + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+            let src = AlignedBuffer::with_capacity(1024);
+            let src_buffer = AtomicBuffer::from_aligned(&src);
+            let log_buffers =
+                Arc::new(unsafe { LogBuffers::new(log.ptr, log.len as isize, log_buffer_descriptor::TERM_MIN_LENGTH) });
+
+            let conductor_guard = conductor.lock().expect("Conductor mutex is poisoned");
+            let publication_limit =
+                UnsafeBufferPosition::new(conductor_guard.counter_values_buffer(), PUBLICATION_LIMIT_COUNTER_ID);
+            let channel_status_indicator = StatusIndicatorReader::new(conductor_guard.counter_values_buffer(), NO_ID_ALLOCATED);
+            drop(conductor_guard);
+
+            let log_meta_data_buffer = log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_MTU_LENGTH_OFFSET, 3 * src_buffer.capacity());
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_TERM_LENGTH_OFFSET, TERM_MIN_LENGTH);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_PAGE_SIZE_OFFSET, AERON_PAGE_MIN_SIZE);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_INITIAL_TERM_ID_OFFSET, TERM_ID_1);
+
+            let index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
+            log_meta_data_buffer.put(*log_buffer_descriptor::LOG_ACTIVE_TERM_COUNT_OFFSET, 0);
+            log_meta_data_buffer.put(term_tail_counter_offset(index), (TERM_ID_1 as i64) << 32);
+
+            Self {
+                src,
+                log,
+                conductor: conductor.clone(),
+                term_buffers: [
+                    log_buffers.atomic_buffer(0),
+                    log_buffers.atomic_buffer(1),
+                    log_buffers.atomic_buffer(2),
+                ],
+
+                log_meta_data_buffer,
+                src_buffer,
+                log_buffers: log_buffers.clone(),
+                publication_limit: publication_limit.clone(),
+                channel_status_indicator,
+                publication: ExclusivePublication::new(
+                    conductor,
+                    (*CHANNEL).clone(),
+                    CORRELATION_ID,
+                    STREAM_ID,
+                    SESSION_ID,
+                    publication_limit,
+                    NO_ID_ALLOCATED,
+                    log_buffers,
+                ),
+            }
         }
     }
 
