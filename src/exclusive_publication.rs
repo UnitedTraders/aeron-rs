@@ -477,7 +477,7 @@ impl ExclusivePublication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // pub fn offer_bulk(
-    //     &self,
+    //     &mut self,
     //     buffers: Vec<AtomicBuffer>,
     //     reserved_value_supplier: OnReservedValueSupplier,
     // ) -> Result<i64, AeronError> {
@@ -491,41 +491,33 @@ impl ExclusivePublication {
     //
     //     if !self.is_closed() {
     //         let limit = self.publication_limit.get_volatile();
-    //         let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
-    //         let term_appender = &self.appenders[log_buffer_descriptor::index_by_term_count(term_count as i64)];
-    //         let raw_tail = term_appender.raw_tail_volatile();
-    //         let term_offset = raw_tail & 0xFFFF_FFFF;
-    //         let term_id = log_buffer_descriptor::term_id(raw_tail);
-    //         let position =
-    //             log_buffer_descriptor::compute_term_begin_position(term_id, self.position_bits_to_shift, self.initial_term_id)
-    //                 + term_offset;
-    //
-    //         if term_count != (term_id - self.initial_term_id) {
-    //             return Ok(ADMIN_ACTION);
-    //         }
+    //         let term_appender: &ExclusiveTermAppender = &self.appenders[self.active_partition_index];
+    //         let position = self.term_begin_position + self.term_offset;
     //
     //         if position < limit {
-    //             let resulting_offset = if length <= self.max_payload_length as usize {
+    //             let resulting_offset = if length <= self.max_payload_length {
     //                 term_appender.append_unfragmented_message_bulk(
+    //                     self.term_id,
+    //                     self.term_offset,
     //                     &self.header_writer,
     //                     buffers,
     //                     length,
     //                     reserved_value_supplier,
-    //                     term_id,
     //                 )
     //             } else {
     //                 self.check_max_message_length(length)?;
-    //                 term_appender.append_fragmented_message_bulk(
+    //                 term_appender.append_unfragmented_message_bulk(
+    //                     self.term_id,
+    //                     self.term_offset,
     //                     &self.header_writer,
     //                     buffers,
     //                     length,
     //                     self.max_payload_length,
     //                     reserved_value_supplier,
-    //                     term_id,
     //                 )
     //             };
     //
-    //             new_position = self.new_position(term_count, term_offset, term_id, position as Index, resulting_offset);
+    //             new_position = self.new_position(resulting_offset);
     //         } else {
     //             new_position = self.back_pressure_status(position, length as Index);
     //             // FIXME: possible Index overflow
