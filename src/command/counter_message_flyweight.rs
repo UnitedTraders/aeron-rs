@@ -57,13 +57,13 @@ const COUNTER_MESSAGE_LENGTH: Index = std::mem::size_of::<CounterMessageDefn>() 
 
 pub(crate) struct CounterMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
-    m_struct: CounterMessageDefn,
+    m_struct: *mut CounterMessageDefn, // This is actually part of above field memory space
 }
 
 impl CounterMessageFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
-        let m_struct = correlated_message_flyweight.flyweight.get::<CounterMessageDefn>(0);
+        let m_struct = correlated_message_flyweight.flyweight.overlay_struct::<CounterMessageDefn>(0);
         Self {
             correlated_message_flyweight,
             m_struct,
@@ -72,12 +72,14 @@ impl CounterMessageFlyweight {
 
     #[inline]
     pub fn type_id(&self) -> i32 {
-        self.m_struct.type_id
+        unsafe { (*self.m_struct).type_id }
     }
 
     #[inline]
     pub fn set_type_id(&mut self, value: i32) {
-        self.m_struct.type_id = value;
+        unsafe {
+            (*self.m_struct).type_id = value;
+        }
     }
 
     #[inline]

@@ -47,13 +47,13 @@ const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as
 
 pub(crate) struct RemoveMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
-    m_struct: RemoveMessageDefn,
+    m_struct: *mut RemoveMessageDefn, // This is actually part of above field memory space
 }
 
 impl RemoveMessageFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
-        let m_struct = correlated_message_flyweight.flyweight.get::<RemoveMessageDefn>(0);
+        let m_struct = correlated_message_flyweight.flyweight.overlay_struct::<RemoveMessageDefn>(0);
         Self {
             correlated_message_flyweight,
             m_struct,
@@ -62,12 +62,14 @@ impl RemoveMessageFlyweight {
 
     #[inline]
     pub fn registration_id(&self) -> i64 {
-        self.m_struct.registration_id
+        unsafe { (*self.m_struct).registration_id }
     }
 
     #[inline]
     pub fn set_registration_id(&mut self, value: i64) {
-        self.m_struct.registration_id = value;
+        unsafe {
+            (*self.m_struct).registration_id = value;
+        }
     }
 
     #[inline]

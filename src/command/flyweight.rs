@@ -84,6 +84,7 @@ impl<T: Copy> Flyweight<T> {
         self.buffer.put::<U>(self.base_offset + offset, value);
     }
 
+    #[inline]
     pub fn overlay_struct<U>(&self, offset: Index) -> *mut U {
         self.buffer.overlay_struct::<U>(self.base_offset + offset)
     }

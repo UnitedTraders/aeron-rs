@@ -48,13 +48,15 @@ const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>(
 
 pub(crate) struct TerminateDriverFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
-    m_struct: TerminateDriverDefn,
+    m_struct: *mut TerminateDriverDefn, // This is actually part of above field memory space
 }
 
 impl TerminateDriverFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
-        let m_struct = correlated_message_flyweight.flyweight.get::<TerminateDriverDefn>(0);
+        let m_struct = correlated_message_flyweight
+            .flyweight
+            .overlay_struct::<TerminateDriverDefn>(0);
         Self {
             correlated_message_flyweight,
             m_struct,
@@ -68,12 +70,14 @@ impl TerminateDriverFlyweight {
 
     #[inline]
     pub fn token_length(&self) -> i32 {
-        self.m_struct.token_length
+        unsafe { (*self.m_struct).token_length }
     }
 
     #[inline]
     pub fn set_token_buffer(&mut self, token_buffer: *const u8, token_length: Index) {
-        self.m_struct.token_length = token_length;
+        unsafe {
+            (*self.m_struct).token_length = token_length;
+        }
         if token_length > 0 {
             unsafe {
                 self.correlated_message_flyweight.flyweight.put_bytes(
@@ -86,7 +90,7 @@ impl TerminateDriverFlyweight {
 
     #[inline]
     pub fn length(&self) -> Index {
-        TERMINATE_DRIVER_LENGTH + self.m_struct.token_length as Index
+        unsafe { TERMINATE_DRIVER_LENGTH + (*self.m_struct).token_length as Index }
     }
 
     // Parent Getters

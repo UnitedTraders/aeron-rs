@@ -58,13 +58,15 @@ struct SubscriptionMessageDefn {
 
 pub(crate) struct SubscriptionMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
-    m_struct: SubscriptionMessageDefn,
+    m_struct: *mut SubscriptionMessageDefn,
 }
 
 impl SubscriptionMessageFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let correlated_message_flyweight = CorrelatedMessageFlyweight::new(buffer, offset);
-        let m_struct = correlated_message_flyweight.flyweight.get::<SubscriptionMessageDefn>(0);
+        let m_struct = correlated_message_flyweight
+            .flyweight
+            .overlay_struct::<SubscriptionMessageDefn>(0);
         Self {
             correlated_message_flyweight,
             m_struct,
@@ -73,22 +75,26 @@ impl SubscriptionMessageFlyweight {
 
     #[inline]
     pub fn registration_correlation_id(&self) -> i64 {
-        self.m_struct.registration_correlation_id
+        unsafe { (*self.m_struct).registration_correlation_id }
     }
 
     #[inline]
     pub fn stream_id(&self) -> i32 {
-        self.m_struct.stream_id
+        unsafe { (*self.m_struct).stream_id }
     }
 
     #[inline]
     pub fn set_registration_correlation_id(&mut self, value: i64) {
-        self.m_struct.registration_correlation_id = value;
+        unsafe {
+            (*self.m_struct).registration_correlation_id = value;
+        }
     }
 
     #[inline]
     pub fn set_stream_id(&mut self, value: i32) {
-        self.m_struct.stream_id = value;
+        unsafe {
+            (*self.m_struct).stream_id = value;
+        }
     }
 
     #[inline]
@@ -107,7 +113,7 @@ impl SubscriptionMessageFlyweight {
 
     #[inline]
     pub fn length(&self) -> Index {
-        offset_of!(SubscriptionMessageDefn, channel_data) + self.m_struct.channel_length as Index
+        unsafe { offset_of!(SubscriptionMessageDefn, channel_data) + (*self.m_struct).channel_length as Index }
     }
 
     // Parent Getters

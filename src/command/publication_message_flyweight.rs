@@ -54,7 +54,7 @@ pub struct PublicationMessageDefn {
 }
 
 pub(crate) struct PublicationMessageFlyweight {
-    inherited_correlated_message_flyweight: CorrelatedMessageFlyweight,
+    correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut PublicationMessageDefn, // This is actually part of above field memory space
 }
 
@@ -65,7 +65,7 @@ impl PublicationMessageFlyweight {
             .flyweight
             .overlay_struct::<PublicationMessageDefn>(0);
         Self {
-            inherited_correlated_message_flyweight: correlated_message_flyweight,
+            correlated_message_flyweight,
             m_struct,
         }
     }
@@ -84,14 +84,14 @@ impl PublicationMessageFlyweight {
 
     #[inline]
     pub fn channel(&self) -> CString {
-        self.inherited_correlated_message_flyweight
+        self.correlated_message_flyweight
             .flyweight
             .string_get(offset_of!(PublicationMessageDefn, channel_length))
     }
 
     #[inline]
     pub fn set_channel(&mut self, value: &[u8]) {
-        self.inherited_correlated_message_flyweight
+        self.correlated_message_flyweight
             .flyweight
             .string_put(offset_of!(PublicationMessageDefn, channel_length), value);
     }
@@ -105,23 +105,23 @@ impl PublicationMessageFlyweight {
 
     #[inline]
     pub fn client_id(&self) -> i64 {
-        self.inherited_correlated_message_flyweight.client_id()
+        self.correlated_message_flyweight.client_id()
     }
 
     #[inline]
     pub fn correlation_id(&self) -> i64 {
-        self.inherited_correlated_message_flyweight.correlation_id()
+        self.correlated_message_flyweight.correlation_id()
     }
 
     // Parent Setters
 
     #[inline]
     pub fn set_client_id(&mut self, value: i64) {
-        self.inherited_correlated_message_flyweight.set_client_id(value);
+        self.correlated_message_flyweight.set_client_id(value);
     }
 
     #[inline]
     pub fn set_correlation_id(&mut self, value: i64) {
-        self.inherited_correlated_message_flyweight.set_correlation_id(value);
+        self.correlated_message_flyweight.set_correlation_id(value);
     }
 }
