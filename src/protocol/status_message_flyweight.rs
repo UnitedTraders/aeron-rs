@@ -59,13 +59,13 @@ struct StatusMessageDefn {
 
 struct StatusMessageFlyweight {
     header_flyweight: HeaderFlyweight,
-    m_struct: StatusMessageDefn,
+    m_struct: *mut StatusMessageDefn, // This is actually part of above field memory space
 }
 
 impl StatusMessageFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let header_flyweight = HeaderFlyweight::new(buffer, offset);
-        let m_struct = header_flyweight.flyweight.get::<StatusMessageDefn>(0);
+        let m_struct = header_flyweight.flyweight.overlay_struct::<StatusMessageDefn>(0);
         Self {
             header_flyweight,
             m_struct,
@@ -75,53 +75,63 @@ impl StatusMessageFlyweight {
     // Getters
     #[inline]
     pub fn session_id(&self) -> i32 {
-        self.m_struct.session_id
+        unsafe { (*self.m_struct).session_id }
     }
 
     #[inline]
     pub fn stream_id(&self) -> i32 {
-        self.m_struct.stream_id
+        unsafe { (*self.m_struct).stream_id }
     }
 
     #[inline]
     pub fn consumption_term_id(&self) -> i32 {
-        self.m_struct.consumption_term_id
+        unsafe { (*self.m_struct).consumption_term_id }
     }
 
     #[inline]
     pub fn consumption_term_offset(&self) -> i32 {
-        self.m_struct.consumption_term_offset
+        unsafe { (*self.m_struct).consumption_term_offset }
     }
 
     #[inline]
     pub fn receiver_window(&self) -> i32 {
-        self.m_struct.receiver_window
+        unsafe { (*self.m_struct).receiver_window }
     }
 
     // Setters
     #[inline]
     pub fn set_session_id(&mut self, value: i32) {
-        self.m_struct.session_id = value;
+        unsafe {
+            (*self.m_struct).session_id = value;
+        }
     }
 
     #[inline]
     pub fn set_stream_id(&mut self, value: i32) {
-        self.m_struct.stream_id = value;
+        unsafe {
+            (*self.m_struct).stream_id = value;
+        }
     }
 
     #[inline]
     pub fn set_consumption_term_id(&mut self, value: i32) {
-        self.m_struct.consumption_term_id = value;
+        unsafe {
+            (*self.m_struct).consumption_term_id = value;
+        }
     }
 
     #[inline]
     pub fn set_consumption_term_offset(&mut self, value: i32) {
-        self.m_struct.consumption_term_offset = value;
+        unsafe {
+            (*self.m_struct).consumption_term_offset = value;
+        }
     }
 
     #[inline]
     pub fn set_receiver_window(&mut self, value: i32) {
-        self.m_struct.receiver_window = value;
+        unsafe {
+            (*self.m_struct).receiver_window = value;
+        }
     }
 
     #[inline]

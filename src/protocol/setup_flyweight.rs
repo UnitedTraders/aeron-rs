@@ -41,13 +41,13 @@ struct SetupDefn {
 
 struct SetupFlyweight {
     header_flyweight: HeaderFlyweight,
-    m_struct: SetupDefn,
+    m_struct: *mut SetupDefn, // This is actually part of above field memory space
 }
 
 impl SetupFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let header_flyweight = HeaderFlyweight::new(buffer, offset);
-        let m_struct = header_flyweight.flyweight.get::<SetupDefn>(0);
+        let m_struct = header_flyweight.flyweight.overlay_struct::<SetupDefn>(0);
         Self {
             header_flyweight,
             m_struct,
@@ -57,73 +57,87 @@ impl SetupFlyweight {
     // Getters
     #[inline]
     pub fn term_offset(&self) -> i32 {
-        self.m_struct.term_offset
+        unsafe { (*self.m_struct).term_offset }
     }
 
     #[inline]
     pub fn session_id(&self) -> i32 {
-        self.m_struct.session_id
+        unsafe { (*self.m_struct).session_id }
     }
 
     #[inline]
     pub fn stream_id(&self) -> i32 {
-        self.m_struct.stream_id
+        unsafe { (*self.m_struct).stream_id }
     }
 
     #[inline]
     pub fn initial_term_id(&self) -> i32 {
-        self.m_struct.initial_term_id
+        unsafe { (*self.m_struct).initial_term_id }
     }
 
     #[inline]
     pub fn action_term_id(&self) -> i32 {
-        self.m_struct.action_term_id
+        unsafe { (*self.m_struct).action_term_id }
     }
 
     #[inline]
     pub fn term_length(&self) -> i32 {
-        self.m_struct.term_length
+        unsafe { (*self.m_struct).term_length }
     }
 
     #[inline]
     pub fn mtu(&self) -> i32 {
-        self.m_struct.mtu
+        unsafe { (*self.m_struct).mtu }
     }
 
     // Setters
     #[inline]
     pub fn set_term_offset(&mut self, value: i32) {
-        self.m_struct.term_offset = value;
+        unsafe {
+            (*self.m_struct).term_offset = value;
+        }
     }
 
     #[inline]
     pub fn set_session_id(&mut self, value: i32) {
-        self.m_struct.session_id = value;
+        unsafe {
+            (*self.m_struct).session_id = value;
+        }
     }
 
     #[inline]
     pub fn set_stream_id(&mut self, value: i32) {
-        self.m_struct.stream_id = value;
+        unsafe {
+            (*self.m_struct).stream_id = value;
+        }
     }
 
     #[inline]
     pub fn set_initial_term_id(&mut self, value: i32) {
-        self.m_struct.initial_term_id = value;
+        unsafe {
+            (*self.m_struct).initial_term_id = value;
+        }
     }
 
     #[inline]
     pub fn set_action_term_id(&mut self, value: i32) {
-        self.m_struct.action_term_id = value;
+        unsafe {
+            (*self.m_struct).action_term_id = value;
+        }
     }
 
     #[inline]
     pub fn set_term_length(&mut self, value: i32) {
-        self.m_struct.term_length = value;
+        unsafe {
+            (*self.m_struct).term_length = value;
+        }
     }
 
     #[inline]
     pub fn set_mtu(&mut self, value: i32) {
-        self.m_struct.mtu = value;
+        unsafe {
+            (*self.m_struct).mtu = value;
+        }
     }
 
     #[inline]

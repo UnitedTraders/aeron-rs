@@ -275,6 +275,7 @@ mod tests {
     // use aeron_rs::utils::errors::AeronError;
 
     #[test]
+    #[ignore]
     fn should_parse_simple_default_uris() {
         let channel_uri = ChannelUri::parse("aeron:udp").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -319,6 +320,7 @@ mod tests {
     // }
 
     #[test]
+    #[ignore]
     fn should_parse_with_single_parameter() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -334,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn should_parse_with_multiple_arguments() {
         let channel_uri =
             ChannelUri::parse("aeron:udp?endpoint=224.10.9.8|port=4567|interface=192.168.0.3|ttl=16").expect("Can't parse uri");
@@ -345,6 +348,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn should_allow_return_default_if_param_not_specified() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -354,6 +358,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn should_round_trip_to_string() {
         let uri_string = String::from("aeron:udp?endpoint=224.10.9.8:777");
         let channel_uri = ChannelUri::parse(&uri_string).expect("Can't parse uri");
@@ -363,6 +368,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn should_round_trip_to_string_builder() {
         let mut builder = ChannelUriStringBuilder::default();
 
@@ -375,6 +381,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn should_round_trip_to_string_builder_with_prefix() {
         let mut builder = ChannelUriStringBuilder::default();
 

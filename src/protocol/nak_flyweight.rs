@@ -39,13 +39,13 @@ struct NakDefn {
 
 struct NakFlyweight {
     header_flyweight: HeaderFlyweight,
-    m_struct: NakDefn,
+    m_struct: *mut NakDefn, // This is actually part of above field memory space
 }
 
 impl NakFlyweight {
     pub fn new(buffer: AtomicBuffer, offset: Index) -> Self {
         let header_flyweight = HeaderFlyweight::new(buffer, offset);
-        let m_struct = header_flyweight.flyweight.get::<NakDefn>(0);
+        let m_struct = header_flyweight.flyweight.overlay_struct::<NakDefn>(0);
         Self {
             header_flyweight,
             m_struct,
@@ -55,43 +55,51 @@ impl NakFlyweight {
     // Getters
     #[inline]
     pub fn stream_id(&self) -> i32 {
-        self.m_struct.stream_id
+        unsafe { (*self.m_struct).stream_id }
     }
 
     #[inline]
     pub fn term_id(&self) -> i32 {
-        self.m_struct.term_id
+        unsafe { (*self.m_struct).term_id }
     }
 
     #[inline]
     pub fn term_offset(&self) -> i32 {
-        self.m_struct.term_id
+        unsafe { (*self.m_struct).term_id }
     }
 
     #[inline]
     pub fn length(&self) -> i32 {
-        self.m_struct.length
+        unsafe { (*self.m_struct).length }
     }
 
     // Setters
     #[inline]
     pub fn set_stream_id(&mut self, value: i32) {
-        self.m_struct.stream_id = value;
+        unsafe {
+            (*self.m_struct).stream_id = value;
+        }
     }
 
     #[inline]
     pub fn set_term_id(&mut self, value: i32) {
-        self.m_struct.term_id = value;
+        unsafe {
+            (*self.m_struct).term_id = value;
+        }
     }
 
     #[inline]
     pub fn set_term_offset(&mut self, value: i32) {
-        self.m_struct.term_id = value;
+        unsafe {
+            (*self.m_struct).term_id = value;
+        }
     }
 
     #[inline]
     pub fn set_length(&mut self, value: i32) {
-        self.m_struct.length = value;
+        unsafe {
+            (*self.m_struct).length = value;
+        }
     }
 
     #[inline]
