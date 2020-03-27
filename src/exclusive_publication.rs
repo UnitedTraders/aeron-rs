@@ -564,14 +564,10 @@ impl ExclusivePublication {
         self.check_payload_length(length)?;
         let mut new_position = PUBLICATION_CLOSED;
 
-        assert!(!self.is_closed());
-
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
             let term_appender = &mut self.appenders[self.active_partition_index as usize];
             let position = self.term_begin_position + self.term_offset as i64;
-
-            assert!(position < limit);
 
             if position < limit {
                 let resulting_offset =
@@ -719,12 +715,25 @@ mod tests {
 
     use crate::client_conductor::ClientConductor;
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::broadcast::broadcast_buffer_descriptor;
+    use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
+    use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+    use crate::concurrent::counters::CountersReader;
+    use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+    use crate::concurrent::logbuffer::data_frame_header::LENGTH;
+    use crate::concurrent::logbuffer::frame_descriptor;
     use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
-    use crate::concurrent::position::UnsafeBufferPosition;
+    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+    use crate::concurrent::ring_buffer;
+    use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
     use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
+    use crate::driver_proxy::DriverProxy;
     use crate::exclusive_publication::ExclusivePublication;
+    use crate::publication::{ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED};
+    use crate::utils::errors::AeronError;
     use crate::utils::log_buffers::LogBuffers;
-    use crate::utils::types::{Index, I64_SIZE};
+    use crate::utils::misc::unix_time_ms;
+    use crate::utils::types::{Index, Moment, I64_SIZE};
 
     lazy_static! {
         pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
@@ -736,6 +745,20 @@ mod tests {
     const CORRELATION_ID: i64 = 100;
     const TERM_ID_1: i32 = 1;
 
+    const DRIVER_TIMEOUT_MS: Moment = 10 * 1000;
+    const RESOURCE_LINGER_TIMEOUT_MS: Moment = 5 * 1000;
+    const INTER_SERVICE_TIMEOUT_NS: Moment = 5 * 1000 * 1000 * 1000;
+    const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
+    const PRE_TOUCH_MAPPED_MEMORY: bool = false;
+
+    const LOG_FILE_LENGTH: i32 = ((TERM_MIN_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+
+    const CAPACITY: i32 = 1024;
+    const MANY_TO_ONE_RING_BUFFER_LENGTH: i32 = CAPACITY + ring_buffer::TRAILER_LENGTH;
+    const BROADCAST_BUFFER_LENGTH: i32 = CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH;
+    const COUNTER_VALUES_BUFFER_LENGTH: i32 = 1024 * 1024;
+    const COUNTER_METADATA_BUFFER_LENGTH: i32 = 4 * 1024 * 1024;
+
     #[inline]
     fn raw_tail_value(term_id: i32, position: i64) -> i64 {
         (term_id as i64 * (1_i64 << 32)) as i64 | position
@@ -746,11 +769,37 @@ mod tests {
         *log_buffer_descriptor::TERM_TAIL_COUNTER_OFFSET + (index * I64_SIZE)
     }
 
+    fn on_new_publication_handler(_channel: CString, _stream_id: i32, _session_id: i32, _correlation_id: i64) {}
+
+    fn on_new_exclusive_publication_handler(_channel: CString, _stream_id: i32, _session_id: i32, _correlation_id: i64) {}
+
+    fn on_new_subscription_handler(_channel: CString, _stream_id: i32, _correlation_id: i64) {}
+
+    fn error_handler(err: AeronError) {
+        println!("Got error: {:?}", err);
+    }
+
+    fn on_available_counter_handler(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {}
+
+    fn on_unavailable_counter_handler(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {}
+
+    fn on_close_client_handler() {}
+
     struct ExclusivePublicationTest {
         src: AlignedBuffer,
         log: AlignedBuffer,
 
         conductor: Arc<Mutex<ClientConductor>>,
+        to_driver: AlignedBuffer,
+        to_clients: AlignedBuffer,
+        counter_metadata: AlignedBuffer,
+        counter_values: AlignedBuffer,
+
+        to_driver_buffer: AtomicBuffer,
+        to_clients_buffer: AtomicBuffer,
+
+        many_to_one_ring_buffer: Arc<ManyToOneRingBuffer>,
+
         term_buffers: [AtomicBuffer; 3],
         log_meta_data_buffer: AtomicBuffer,
         src_buffer: AtomicBuffer,
@@ -762,12 +811,50 @@ mod tests {
     }
 
     impl ExclusivePublicationTest {
-        pub fn new(conductor: Arc<Mutex<ClientConductor>>) -> Self {
+        pub fn new() -> Self {
             let log = AlignedBuffer::with_capacity(TERM_MIN_LENGTH * 3 + log_buffer_descriptor::LOG_META_DATA_LENGTH);
             let src = AlignedBuffer::with_capacity(1024);
             let src_buffer = AtomicBuffer::from_aligned(&src);
             let log_buffers =
                 Arc::new(unsafe { LogBuffers::new(log.ptr, log.len as isize, log_buffer_descriptor::TERM_MIN_LENGTH) });
+
+            let to_driver = AlignedBuffer::with_capacity(MANY_TO_ONE_RING_BUFFER_LENGTH);
+            let to_clients = AlignedBuffer::with_capacity(BROADCAST_BUFFER_LENGTH);
+            let counter_metadata = AlignedBuffer::with_capacity(BROADCAST_BUFFER_LENGTH);
+            let counter_values = AlignedBuffer::with_capacity(COUNTER_METADATA_BUFFER_LENGTH);
+
+            let to_driver_buffer = AtomicBuffer::from_aligned(&to_driver);
+            let to_clients_buffer = AtomicBuffer::from_aligned(&to_clients);
+            let counters_metadata_buffer = AtomicBuffer::from_aligned(&counter_metadata);
+            let counters_values_buffer = AtomicBuffer::from_aligned(&counter_values);
+
+            let local_to_driver_ring_buffer =
+                Arc::new(ManyToOneRingBuffer::new(to_driver_buffer).expect("Failed to create RingBuffer"));
+            let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(
+                BroadcastReceiver::new(to_clients_buffer).expect("Failed to create BroadcastReceiver"),
+            ));
+            let local_driver_proxy = Arc::new(DriverProxy::new(local_to_driver_ring_buffer.clone()));
+            let local_copy_broadcast_receiver =
+                Arc::new(Mutex::new(CopyBroadcastReceiver::new(local_to_clients_broadcast_receiver)));
+
+            let conductor = ClientConductor::new(
+                unix_time_ms,
+                local_driver_proxy,
+                local_copy_broadcast_receiver,
+                counters_metadata_buffer,
+                counters_values_buffer,
+                on_new_publication_handler,
+                on_new_exclusive_publication_handler,
+                on_new_subscription_handler,
+                error_handler,
+                on_available_counter_handler,
+                on_unavailable_counter_handler,
+                on_close_client_handler,
+                DRIVER_TIMEOUT_MS,
+                RESOURCE_LINGER_TIMEOUT_MS,
+                INTER_SERVICE_TIMEOUT_MS,
+                PRE_TOUCH_MAPPED_MEMORY,
+            );
 
             let conductor_guard = conductor.lock().expect("Conductor mutex is poisoned");
             let publication_limit =
@@ -789,6 +876,13 @@ mod tests {
                 src,
                 log,
                 conductor: conductor.clone(),
+                to_driver,
+                to_clients,
+                counter_metadata,
+                counter_values,
+                to_driver_buffer,
+                to_clients_buffer,
+                many_to_one_ring_buffer: local_to_driver_ring_buffer,
                 term_buffers: [
                     log_buffers.atomic_buffer(0),
                     log_buffers.atomic_buffer(1),
@@ -812,41 +906,184 @@ mod tests {
                 ),
             }
         }
+
+        fn create_pub(&mut self) {
+            self.publication = ExclusivePublication::new(
+                self.conductor.clone(),
+                (*CHANNEL).clone(),
+                CORRELATION_ID,
+                STREAM_ID,
+                SESSION_ID,
+                self.publication_limit.clone(),
+                NO_ID_ALLOCATED,
+                self.log_buffers.clone(),
+            );
+        }
     }
 
     #[test]
-    fn should_report_initial_position() {}
+    fn should_report_initial_position() {
+        let test = ExclusivePublicationTest::new();
+        assert_eq!(test.publication.position(), 0);
+    }
 
     #[test]
-    fn should_report_max_message_length() {}
+    fn should_report_max_message_length() {
+        let test = ExclusivePublicationTest::new();
+        assert_eq!(
+            test.publication.max_message_length(),
+            frame_descriptor::compute_max_message_length(TERM_MIN_LENGTH)
+        );
+    }
 
     #[test]
-    fn should_report_correct_term_buffer_length() {}
+    fn should_report_correct_term_buffer_length() {
+        let test = ExclusivePublicationTest::new();
+        assert_eq!(test.publication.term_buffer_length(), TERM_MIN_LENGTH);
+    }
 
     #[test]
-    fn should_report_that_publication_has_not_been_connected_yet() {}
+    fn should_report_that_publication_has_not_been_connected_yet() {
+        let test = ExclusivePublicationTest::new();
+        log_buffer_descriptor::set_is_connected(&test.log_meta_data_buffer, false);
+        assert!(!test.publication.is_connected());
+    }
 
     #[test]
-    fn should_ensure_the_publication_is_open_before_reading_position() {}
+    fn should_report_that_publication_has_been_connected_yet() {
+        let test = ExclusivePublicationTest::new();
+        log_buffer_descriptor::set_is_connected(&test.log_meta_data_buffer, true);
+        assert!(test.publication.is_connected());
+    }
 
     #[test]
-    fn should_ensure_the_publication_is_open_before_offer() {}
+    fn should_ensure_the_publication_is_open_before_reading_position() {
+        let test = ExclusivePublicationTest::new();
+        test.publication.close();
+        assert_eq!(test.publication.position(), PUBLICATION_CLOSED);
+    }
 
     #[test]
-    fn should_ensure_the_publication_is_open_before_claim() {}
+    fn should_ensure_the_publication_is_open_before_offer() {
+        let mut test = ExclusivePublicationTest::new();
+        test.publication.close();
+        assert!(test.publication.is_closed());
+        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), PUBLICATION_CLOSED);
+    }
 
     #[test]
-    fn should_offer_amessage_upon_construction() {}
+    fn should_ensure_the_publication_is_open_before_claim() {
+        let mut test = ExclusivePublicationTest::new();
+        let buffer_claim = BufferClaim::default();
+
+        test.publication.close();
+        assert!(test.publication.is_closed());
+        assert_eq!(test.publication.try_claim(1024, buffer_claim).unwrap(), PUBLICATION_CLOSED);
+    }
 
     #[test]
-    fn should_fail_to_offer_amessage_when_limited() {}
+    fn should_offer_a_message_upon_construction() {
+        let mut test = ExclusivePublicationTest::new();
+        let expected_position = test.src_buffer.capacity() + LENGTH;
+        test.publication_limit.set(2 * test.src_buffer.capacity() as i64);
+
+        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), expected_position as i64);
+        assert_eq!(test.publication.position(), expected_position as i64);
+    }
 
     #[test]
-    fn should_fail_to_offer_when_append_fails() {}
+    fn should_fail_to_offer_a_message_when_limited() {
+        let mut test = ExclusivePublicationTest::new();
+
+        test.publication_limit.set(0);
+        test.create_pub();
+
+        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), NOT_CONNECTED);
+    }
 
     #[test]
-    fn should_rotate_when_append_trips() {}
+    fn should_fail_to_offer_when_append_fails() {
+        let mut test = ExclusivePublicationTest::new();
+        let active_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
+        let initial_position = TERM_MIN_LENGTH;
+
+        test.log_meta_data_buffer.put(
+            term_tail_counter_offset(active_index),
+            raw_tail_value(TERM_ID_1, initial_position as i64),
+        );
+        test.publication_limit.set(i32::max_value() as i64);
+        test.create_pub();
+
+        assert_eq!(test.publication.position(), initial_position as i64);
+        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
+    }
 
     #[test]
-    fn should_rotate_when_claim_trips() {}
+    fn should_rotate_when_append_trips() {
+        let mut test = ExclusivePublicationTest::new();
+        let active_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
+        let initial_position = TERM_MIN_LENGTH - LENGTH;
+
+        test.log_meta_data_buffer.put(
+            term_tail_counter_offset(active_index),
+            raw_tail_value(TERM_ID_1, initial_position as i64),
+        );
+        test.publication_limit.set(i32::max_value() as i64);
+        test.create_pub();
+
+        assert_eq!(test.publication.position(), initial_position as i64);
+        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
+
+        let next_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1 + 1);
+        assert_eq!(
+            test.log_meta_data_buffer
+                .get::<i32>(*log_buffer_descriptor::LOG_ACTIVE_TERM_COUNT_OFFSET),
+            1
+        );
+        assert_eq!(
+            test.log_meta_data_buffer.get::<i64>(term_tail_counter_offset(next_index)),
+            ((TERM_ID_1 + 1) as i64) << 32
+        );
+
+        assert!(
+            test.publication.offer(test.src_buffer).unwrap() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
+        );
+        assert!(test.publication.position() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
+    }
+
+    #[test]
+    fn should_rotate_when_claim_trips() {
+        let mut test = ExclusivePublicationTest::new();
+        let active_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
+        let initial_position = TERM_MIN_LENGTH - LENGTH;
+
+        test.log_meta_data_buffer.put(
+            term_tail_counter_offset(active_index),
+            raw_tail_value(TERM_ID_1, initial_position as i64),
+        );
+        test.publication_limit.set(i32::max_value() as i64);
+        test.create_pub();
+
+        let buffer_claim = BufferClaim::default();
+
+        assert_eq!(test.publication.position(), initial_position as i64);
+        assert_eq!(test.publication.try_claim(1024, buffer_claim).unwrap(), ADMIN_ACTION);
+
+        let next_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1 + 1);
+        assert_eq!(
+            test.log_meta_data_buffer
+                .get::<i32>(*log_buffer_descriptor::LOG_ACTIVE_TERM_COUNT_OFFSET),
+            1
+        );
+        assert_eq!(
+            test.log_meta_data_buffer.get::<i64>(term_tail_counter_offset(next_index)),
+            ((TERM_ID_1 + 1) as i64) << 32
+        );
+
+        assert!(
+            test.publication.try_claim(1024, buffer_claim).unwrap()
+                > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
+        );
+        assert!(test.publication.position() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
+    }
 }
