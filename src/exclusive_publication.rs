@@ -714,7 +714,7 @@ impl Drop for ExclusivePublication {
         self.conductor
             .lock()
             .expect("Mutex poisoned")
-            .release_publication(self.registration_id);
+            .release_exclusive_publication(self.registration_id);
     }
 }
 

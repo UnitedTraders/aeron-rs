@@ -272,7 +272,7 @@ pub struct ClientConductor {
     on_unavailable_counter_handlers: Vec<OnUnavailableCounter>,
     on_close_client_handlers: Vec<OnCloseClient>,
 
-    epoch_clock: EpochClock,
+    epoch_clock: Box<dyn Fn() -> Moment>,
     driver_timeout_ms: Moment,
     resource_linger_timeout_ms: Moment,
     inter_service_timeout_ms: Moment,
@@ -280,7 +280,7 @@ pub struct ClientConductor {
     is_in_callback: bool,
     driver_active: AtomicBool,
     is_closed: AtomicBool,
-    admin_lock: Mutex<()>,
+    //admin_lock: Mutex<()>,
     heartbeat_timestamp: Option<Box<AtomicCounter>>,
 
     time_of_last_do_work_ms: Moment,
@@ -330,7 +330,7 @@ impl ClientConductor {
             on_available_counter_handlers: vec![],
             on_unavailable_counter_handlers: vec![],
             on_close_client_handlers: vec![],
-            epoch_clock,
+            epoch_clock: Box::new(epoch_clock),
             driver_timeout_ms,
             resource_linger_timeout_ms,
             inter_service_timeout_ms: inter_service_timeout_ns / 1_000_000,
@@ -338,7 +338,7 @@ impl ClientConductor {
             is_in_callback: false,
             driver_active: AtomicBool::from(true),
             is_closed: AtomicBool::from(false),
-            admin_lock: Mutex::new(()),
+            //admin_lock: Mutex::new(()),
             heartbeat_timestamp: None,
             time_of_last_do_work_ms: epoch_clock(),
             time_of_last_keepalive_ms: epoch_clock(),
@@ -358,6 +358,30 @@ impl ClientConductor {
         another_selfy_mut.arced_self = Some(arc_selfy.clone());
 
         arc_selfy
+    }
+
+    pub fn set_epoch_clock_provider(&mut self, new_provider: Box<dyn Fn() -> Moment>) {
+        self.epoch_clock = new_provider;
+    }
+
+    pub fn set_error_handler(&mut self, new_handler: ErrorHandler) {
+        self.error_handler = new_handler;
+    }
+
+    pub fn set_on_new_publication_handler(&mut self, new_handler: OnNewPublication) {
+        self.on_new_publication_handler = new_handler;
+    }
+
+    pub fn set_on_new_subscription_handler(&mut self, new_handler: OnNewSubscription) {
+        self.on_new_subscription_handler = new_handler;
+    }
+
+    pub fn add_on_available_counter_handler(&mut self, handler: OnAvailableCounter) {
+        self.on_available_counter_handlers.push(handler);
+    }
+
+    pub fn add_on_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
+        self.on_unavailable_counter_handlers.push(handler);
     }
 
     pub fn counters_reader(&self) -> Result<&CountersReader, AeronError> {
@@ -413,10 +437,7 @@ impl ClientConductor {
             if now_ms > self.driver_proxy.time_of_last_driver_keepalive() as Moment + self.driver_timeout_ms {
                 self.driver_active.store(false, Ordering::SeqCst);
 
-                let err = AeronError::ConductorServiceTimeout(format!(
-                    "driver has been inactive for over {} ms",
-                    self.driver_timeout_ms
-                ));
+                let err = AeronError::DriverTimeout(format!("driver has been inactive for over {} ms", self.driver_timeout_ms));
 
                 (self.error_handler)(err);
             }
@@ -528,10 +549,12 @@ impl ClientConductor {
     }
     */
     pub fn add_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_publication");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -547,78 +570,87 @@ impl ClientConductor {
     }
 
     pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Publication>, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_publication");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        // These two tricky fields are needed to avoid double mut borrows of publication_by_registration_id
         let mut publication_to_remove: Option<i64> = None;
-        let mut error_to_return: AeronError = AeronError::GenericError(String::from("Doesn't matter"));
 
         let result = if let Some(state) = self.publication_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one and use it
+            // try to upgrade weak ptr to strong one.
             if let Some(maybe_publication) = &state.publication {
+                // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    match state.status {
-                        RegistrationStatus::Awaiting => {
-                            if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                                return Err(AeronError::ConductorServiceTimeout(format!(
-                                    "no response from driver in {} ms",
-                                    self.driver_timeout_ms
-                                )));
-                            }
-                        }
-                        RegistrationStatus::Registered => {
-                            let publication_limit =
-                                UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
-
-                            if let Some(buffers) = &state.buffers {
-                                let self_for_pub = self.arced_self.as_ref().unwrap();
-                                let publication = Publication::new(
-                                    self_for_pub.clone(),
-                                    state.channel.clone(),
-                                    state.registration_id,
-                                    state.original_registration_id,
-                                    state.stream_id,
-                                    state.session_id,
-                                    publication_limit,
-                                    state.channel_status_id,
-                                    buffers.clone(),
-                                );
-
-                                let new_pub = Arc::new(publication);
-                                state.publication = Some(Arc::downgrade(&new_pub));
-                            } else {
-                                return Err(AeronError::GenericError(format!(
-                                    "buffers was not set for Publication with registration_id {}",
-                                    state.registration_id
-                                )));
-                            }
-                        }
-
-                        RegistrationStatus::Errored => {
-                            publication_to_remove = Some(registration_id);
-                            error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
-                        }
-                    }
                     Ok(publication)
                 } else {
                     Err(AeronError::GenericError(String::from("publication already dropped")))
                 }
             } else {
-                Err(AeronError::GenericError(String::from("publication is None")))
+                // Otherwise fill in the state.publication
+                match state.status {
+                    RegistrationStatus::Awaiting => {
+                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                            Err(AeronError::ConductorServiceTimeout(format!(
+                                "no response from driver in {} ms",
+                                self.driver_timeout_ms
+                            )))
+                        } else {
+                            Err(AeronError::GenericError(format!(
+                                "publication not ready yet, status {:?}",
+                                state.status
+                            )))
+                        }
+                    }
+                    RegistrationStatus::Registered => {
+                        let publication_limit =
+                            UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
+
+                        if let Some(buffers) = &state.buffers {
+                            let self_for_pub = self.arced_self.as_ref().unwrap();
+                            let publication = Publication::new(
+                                self_for_pub.clone(),
+                                state.channel.clone(),
+                                state.registration_id,
+                                state.original_registration_id,
+                                state.stream_id,
+                                state.session_id,
+                                publication_limit,
+                                state.channel_status_id,
+                                buffers.clone(),
+                            );
+
+                            let new_pub = Arc::new(publication);
+                            state.publication = Some(Arc::downgrade(&new_pub));
+                            Ok(new_pub)
+                        } else {
+                            Err(AeronError::GenericError(format!(
+                                "buffers was not set for Publication with registration_id {}",
+                                state.registration_id
+                            )))
+                        }
+                    }
+
+                    RegistrationStatus::Errored => {
+                        publication_to_remove = Some(registration_id);
+                        Err(ClientConductor::return_registration_error(
+                            state.error_code,
+                            &state.error_message,
+                        ))
+                    }
+                }
             }
         } else {
             // error, publication not found
-            Err(AeronError::GenericError(String::from("publication not found")))
+            return Err(AeronError::GenericError(String::from("publication not found")));
         };
 
         if let Some(id) = publication_to_remove {
             self.publication_by_registration_id.remove(&id);
-            return Err(error_to_return);
         }
 
         result
@@ -632,24 +664,32 @@ impl ClientConductor {
         ))
     }
 
-    pub fn release_publication(&mut self, registration_id: i64) {
+    pub fn release_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in release_publication");
+            */
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.publication_by_registration_id.get(&registration_id) {
             let _result = self.driver_proxy.remove_publication(registration_id);
             self.publication_by_registration_id.remove(&registration_id);
+        } else {
+            return Err(AeronError::GenericError(String::from("Unknown registration_id")));
         }
+
+        Ok(())
     }
 
     pub fn add_exclusive_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_exclusive_publication");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -664,88 +704,99 @@ impl ClientConductor {
         Ok(registration_id)
     }
 
-    // TODO: looks like it could be made generic together with find_publication()
     pub(crate) fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_exclusive_publication");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
-
-        // These two tricky fields are needed to avoid double mut borrows of publication_by_registration_id
         let mut publication_to_remove: Option<i64> = None;
-        let mut error_to_return: AeronError = AeronError::GenericError(String::from("Doesn't matter"));
 
         let result = if let Some(state) = self.exclusive_publication_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one and use it
-
+            // try to upgrade weak ptr to strong one.
             if let Some(maybe_publication) = &state.publication {
+                // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    match state.status {
-                        RegistrationStatus::Awaiting => {
-                            if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                                return Err(AeronError::ConductorServiceTimeout(format!(
-                                    "no response from driver in {} ms",
-                                    self.driver_timeout_ms
-                                )));
-                            }
-                        }
-                        RegistrationStatus::Registered => {
-                            let publication_limit =
-                                UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
-
-                            if let Some(buffers) = &state.buffers {
-                                let publication = ExclusivePublication::new(
-                                    self.arced_self.as_ref().unwrap().clone(),
-                                    state.channel.clone(),
-                                    state.registration_id,
-                                    state.stream_id,
-                                    state.session_id,
-                                    publication_limit,
-                                    state.channel_status_id,
-                                    buffers.clone(),
-                                );
-
-                                let new_pub = Arc::new(publication);
-                                state.publication = Some(Arc::downgrade(&new_pub));
-                            } else {
-                                return Err(AeronError::GenericError(format!(
-                                    "buffers was not set for ExclusivePublication with registration_id {}",
-                                    state.registration_id
-                                )));
-                            }
-                        }
-
-                        RegistrationStatus::Errored => {
-                            publication_to_remove = Some(registration_id);
-                            error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
-                        }
-                    }
                     Ok(publication)
                 } else {
-                    Err(AeronError::GenericError(String::from("publication already dropped")))
+                    Err(AeronError::GenericError(String::from(
+                        "exclusive publication already dropped",
+                    )))
                 }
             } else {
-                Err(AeronError::GenericError(String::from("exclusive publication is None")))
+                // Otherwise fill in the state.publication
+                match state.status {
+                    RegistrationStatus::Awaiting => {
+                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                            Err(AeronError::ConductorServiceTimeout(format!(
+                                "no response from driver in {} ms",
+                                self.driver_timeout_ms
+                            )))
+                        } else {
+                            Err(AeronError::GenericError(format!(
+                                "exclusive publication not ready yet, status {:?}",
+                                state.status
+                            )))
+                        }
+                    }
+                    RegistrationStatus::Registered => {
+                        let publication_limit =
+                            UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
+
+                        if let Some(buffers) = &state.buffers {
+                            let publication = ExclusivePublication::new(
+                                self.arced_self.as_ref().unwrap().clone(),
+                                state.channel.clone(),
+                                state.registration_id,
+                                state.stream_id,
+                                state.session_id,
+                                publication_limit,
+                                state.channel_status_id,
+                                buffers.clone(),
+                            );
+
+                            let new_pub = Arc::new(publication);
+                            state.publication = Some(Arc::downgrade(&new_pub));
+                            Ok(new_pub)
+                        } else {
+                            Err(AeronError::GenericError(format!(
+                                "buffers was not set for exclusive Publication with registration_id {}",
+                                state.registration_id
+                            )))
+                        }
+                    }
+
+                    RegistrationStatus::Errored => {
+                        publication_to_remove = Some(registration_id);
+                        Err(ClientConductor::return_registration_error(
+                            state.error_code,
+                            &state.error_message,
+                        ))
+                    }
+                }
             }
         } else {
-            Err(AeronError::GenericError(String::from("publication not found")))
+            // error, publication not found
+            return Err(AeronError::GenericError(String::from("exclusive publication not found")));
         };
 
         if let Some(id) = publication_to_remove {
             self.exclusive_publication_by_registration_id.remove(&id);
-            return Err(error_to_return);
         }
 
         result
     }
 
     pub fn release_exclusive_publication(&mut self, registration_id: i64) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in release_exclusive_publication");
+            */
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.publication_by_registration_id.get(&registration_id) {
@@ -761,10 +812,12 @@ impl ClientConductor {
         on_available_image_handler: OnAvailableImage,
         on_unavailable_image_handler: OnUnavailableImage,
     ) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_subscription");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -787,44 +840,57 @@ impl ClientConductor {
     }
 
     pub fn find_subscription(&mut self, registration_id: i64) -> Result<Arc<Mutex<Subscription>>, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_subscription");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
         // These two tricky fields are needed to avoid double mut borrows of publication_by_registration_id
         let mut subscription_to_remove: Option<i64> = None;
-        let mut error_to_return: AeronError = AeronError::GenericError(String::from("Doesn't matter"));
 
         let result = if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
-            state.subscription_cache = None;
-
-            // try to upgrade weak ptr to strong one and use it
+            // try to upgrade weak ptr to strong one.
             if let Some(maybe_subscription) = &state.subscription {
-                if let Some(subscription) = maybe_subscription.upgrade() {
+                // If there is subscription - just return it
+                let this_arm_result = if let Some(subscription) = maybe_subscription.upgrade() {
                     Ok(subscription)
                 } else {
-                    // subscription has been dropped already
-                    if RegistrationStatus::Awaiting == state.status {
-                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            return Err(AeronError::DriverTimeout(format!(
-                                "no response from driver in {} ms",
-                                self.driver_timeout_ms
-                            )));
-                        }
-                    } else if RegistrationStatus::Errored == state.status {
-                        subscription_to_remove = Some(registration_id);
-                        error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
-                    }
+                    Err(AeronError::GenericError(String::from("subscription already dropped")))
+                };
 
-                    Err(AeronError::GenericError(String::from(
-                        "subscription has been dropped already",
+                state.subscription_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
+
+                this_arm_result
+            } else {
+                // state.subscription in None - was not set in the past
+                if RegistrationStatus::Awaiting == state.status {
+                    if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                        Err(AeronError::DriverTimeout(format!(
+                            "no response from driver in {} ms",
+                            self.driver_timeout_ms
+                        )))
+                    } else {
+                        Err(AeronError::GenericError(format!(
+                            "subscription not ready yet, status {:?}",
+                            state.status
+                        )))
+                    }
+                } else if RegistrationStatus::Errored == state.status {
+                    subscription_to_remove = Some(registration_id);
+                    Err(ClientConductor::return_registration_error(
+                        state.error_code,
+                        &state.error_message,
+                    ))
+                } else {
+                    Err(AeronError::GenericError(format!(
+                        "subscription is not there - don't know why, status {:?}",
+                        state.status
                     )))
                 }
-            } else {
-                Err(AeronError::GenericError(String::from("subscription is None")))
             }
         } else {
             Err(AeronError::GenericError(String::from("subscription not found")))
@@ -832,19 +898,16 @@ impl ClientConductor {
 
         if let Some(id) = subscription_to_remove {
             self.subscription_by_registration_id.remove(&id);
-            return Err(error_to_return);
         }
 
         result
     }
 
-    pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) {
+    pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) -> Result<(), AeronError> {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in release_subscription"); FIXME is it needed?
         self.verify_driver_is_active_via_error_handler();
 
-        let mut is_remove_subscription = false;
         if let Some(subscription) = self.subscription_by_registration_id.get(&registration_id) {
-            is_remove_subscription = true;
             let _result = self.driver_proxy.remove_subscription(registration_id);
 
             for image in images.iter_mut() {
@@ -854,16 +917,18 @@ impl ClientConductor {
                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
                 (subscription.on_unavailable_image_handler)(&image);
             }
+        } else {
+            return Err(AeronError::GenericError(String::from("unknown registration_id")));
         }
 
-        if is_remove_subscription {
-            self.linger_all_resources((self.epoch_clock)(), images);
-            self.subscription_by_registration_id.remove(&registration_id);
-        }
+        self.linger_all_resources((self.epoch_clock)(), images);
+        self.subscription_by_registration_id.remove(&registration_id);
+
+        Ok(())
     }
 
     pub fn add_counter(&mut self, type_id: i32, key_buffer: &[u8], label: &str) -> Result<i64, AeronError> {
-        let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in add_counter");
+        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in add_counter");
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -893,39 +958,51 @@ impl ClientConductor {
     }
 
     pub fn find_counter(&mut self, registration_id: i64) -> Result<Arc<Counter>, AeronError> {
-        let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in find_counter");
+        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in find_counter");
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        // These two tricky fields are needed to avoid double mut borrows of publication_by_registration_id
         let mut counter_to_remove: Option<i64> = None;
-        let mut error_to_return: AeronError = AeronError::GenericError(String::from("Doesn't matter"));
 
         let result = if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
-            state.counter_cache = None;
-
-            // try to upgrade weak ptr to strong one and use it
+            // try to upgrade weak ptr to strong one.
             if let Some(maybe_counter) = &state.counter {
-                if let Some(counter) = maybe_counter.upgrade() {
+                // If there is counter - just return it
+                let this_arm_result = if let Some(counter) = maybe_counter.upgrade() {
                     Ok(counter)
                 } else {
-                    // counter has been dropped already
-                    if RegistrationStatus::Awaiting == state.status {
-                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            return Err(AeronError::DriverTimeout(format!(
-                                "no response from driver in {} ms",
-                                self.driver_timeout_ms
-                            )));
-                        }
-                    } else if RegistrationStatus::Errored == state.status {
-                        counter_to_remove = Some(registration_id);
-                        error_to_return = ClientConductor::return_registration_error(state.error_code, &state.error_message);
-                    }
+                    Err(AeronError::GenericError(String::from("counter already dropped")))
+                };
 
-                    Err(AeronError::GenericError(String::from("counter has been dropped already")))
-                }
+                state.counter_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
+
+                this_arm_result
             } else {
-                Err(AeronError::GenericError(String::from("counter is None")))
+                // state.counter in None - was not set in the past
+                if RegistrationStatus::Awaiting == state.status {
+                    if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                        Err(AeronError::DriverTimeout(format!(
+                            "no response from driver in {} ms",
+                            self.driver_timeout_ms
+                        )))
+                    } else {
+                        Err(AeronError::GenericError(format!(
+                            "counter not ready yet, status {:?}",
+                            state.status
+                        )))
+                    }
+                } else if RegistrationStatus::Errored == state.status {
+                    counter_to_remove = Some(registration_id);
+                    Err(ClientConductor::return_registration_error(
+                        state.error_code,
+                        &state.error_message,
+                    ))
+                } else {
+                    Err(AeronError::GenericError(format!(
+                        "counter is not there - don't know why, status {:?}",
+                        state.status
+                    )))
+                }
             }
         } else {
             Err(AeronError::GenericError(String::from("counter not found")))
@@ -933,17 +1010,18 @@ impl ClientConductor {
 
         if let Some(id) = counter_to_remove {
             self.counter_by_registration_id.remove(&id);
-            return Err(error_to_return);
         }
 
         result
     }
 
     pub fn release_counter(&mut self, registration_id: i64) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in release_counter");
+            */
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_counter) = self.counter_by_registration_id.get(&registration_id) {
@@ -955,10 +1033,12 @@ impl ClientConductor {
     }
 
     pub fn add_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_destination");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -976,10 +1056,12 @@ impl ClientConductor {
     }
 
     pub fn remove_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in remove_destination");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -1003,10 +1085,12 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_rcv_destination");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -1028,10 +1112,12 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in remove_rcv_destination");
+            */
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -1049,10 +1135,12 @@ impl ClientConductor {
     }
 
     pub fn find_destination_response(&mut self, correlation_id: i64) -> Result<bool, AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_destination_response");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1089,10 +1177,12 @@ impl ClientConductor {
     }
 
     pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_available_counter_handler");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1101,10 +1191,12 @@ impl ClientConductor {
     }
 
     pub fn remove_available_counter_handler(&mut self, _handler: OnAvailableCounter) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in remove_available_counter_handler");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1113,10 +1205,12 @@ impl ClientConductor {
     }
 
     pub fn add_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in add_unavailable_counter_handler");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1125,10 +1219,12 @@ impl ClientConductor {
     }
 
     pub fn remove_unavailable_counter_handler(&mut self, _handler: OnUnavailableCounter) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in remove_unavailable_counter_handler");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
         //self.on_unavailable_counter_handlers.retain(|item| item != handler); FIXME
@@ -1136,10 +1232,12 @@ impl ClientConductor {
     }
 
     pub fn add_close_client_handler(&mut self, handler: OnCloseClient) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_publication");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1148,10 +1246,12 @@ impl ClientConductor {
     }
 
     pub fn remove_close_client_handler(&mut self, _handler: OnCloseClient) -> Result<(), AeronError> {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in find_publication");
+            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1374,10 +1474,12 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_subscription_ready(&mut self, registration_id: i64, channel_status_id: i32) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in on_subscription_ready");
+            */
 
         if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
             state.status = RegistrationStatus::Registered;
@@ -1398,10 +1500,12 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_operation_success(&mut self, correlation_id: i64) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in on_operation_success");
+            */
 
         if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
             if state.status == RegistrationStatus::Awaiting {
@@ -1492,10 +1596,12 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_error_response(&mut self, offending_command_correlation_id: i64, error_code: i32, error_message: CString) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in on_error_response");
+            */
 
         if let Some(subscription) = self
             .subscription_by_registration_id
@@ -1620,10 +1726,12 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_available_counter(&mut self, registration_id: i64, counter_id: i32) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in on_available_counter");
+            */
 
         if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
             if state.status == RegistrationStatus::Awaiting {
@@ -1648,10 +1756,12 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_unavailable_counter(&mut self, registration_id: i64, counter_id: i32) {
+        /*
         let _guard = self
             .admin_lock
             .lock()
             .expect("Failed to obtain admin_lock in on_unavailable_counter");
+            */
 
         for handler in &self.on_unavailable_counter_handlers {
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
@@ -1683,8 +1793,17 @@ unsafe impl Sync for ClientConductor {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use lazy_static::lazy_static;
+    use nix::unistd;
+
     use crate::command::control_protocol_events::AeronCommand;
+    use crate::command::counter_message_flyweight::CounterMessageFlyweight;
+    use crate::command::error_response_flyweight::{ERROR_CODE_GENERIC_ERROR, ERROR_CODE_INVALID_CHANNEL};
     use crate::command::publication_message_flyweight::PublicationMessageFlyweight;
+    use crate::command::remove_message_flyweight::RemoveMessageFlyweight;
+    use crate::command::subscription_message_flyweight::SubscriptionMessageFlyweight;
     use crate::concurrent::atomic_buffer::AlignedBuffer;
     use crate::concurrent::broadcast::broadcast_buffer_descriptor;
     use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
@@ -1693,7 +1812,6 @@ mod tests {
     use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
     use crate::utils::memory_mapped_file::MemoryMappedFile;
     use crate::utils::misc::unix_time_ms;
-    use nix::unistd;
 
     const CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
     const STREAM_ID: i32 = 10;
@@ -1772,13 +1890,13 @@ mod tests {
 
         //driver_proxy: DriverProxy,
         //copy_broadcast_receiver: CopyBroadcastReceiver,
-        current_time: Moment,
+        current_time: Arc<Mutex<Moment>>,
         conductor: Arc<Mutex<ClientConductor>>,
         //error_handler: ErrorHandler,
 
         //on_available_counter_handlers: OnAvailableCounter,
         //on_unavailable_counter_handlers: OnUnavailableCounter,
-        //on_available_image_handlers: OnAvailableImage,
+        //on_available_image_handlers: on_available_image,
         //on_unavailable_image_handlers: OnUnavailableImage,
     }
 
@@ -1786,8 +1904,8 @@ mod tests {
         pub fn new() -> Self {
             let to_driver = AlignedBuffer::with_capacity(MANY_TO_ONE_RING_BUFFER_LENGTH);
             let to_clients = AlignedBuffer::with_capacity(BROADCAST_BUFFER_LENGTH);
-            let counter_metadata = AlignedBuffer::with_capacity(BROADCAST_BUFFER_LENGTH);
-            let counter_values = AlignedBuffer::with_capacity(COUNTER_METADATA_BUFFER_LENGTH);
+            let counter_metadata = AlignedBuffer::with_capacity(COUNTER_METADATA_BUFFER_LENGTH);
+            let counter_values = AlignedBuffer::with_capacity(COUNTER_VALUES_BUFFER_LENGTH);
 
             let to_driver_buffer = AtomicBuffer::from_aligned(&to_driver);
             let to_clients_buffer = AtomicBuffer::from_aligned(&to_clients);
@@ -1824,7 +1942,7 @@ mod tests {
                 on_close_client_handler,
                 DRIVER_TIMEOUT_MS,
                 RESOURCE_LINGER_TIMEOUT_MS,
-                INTER_SERVICE_TIMEOUT_MS,
+                INTER_SERVICE_TIMEOUT_NS,
                 PRE_TOUCH_MAPPED_MEMORY,
             );
 
@@ -1843,10 +1961,17 @@ mod tests {
                 to_clients_buffer,
 
                 many_to_one_ring_buffer: local_to_driver_ring_buffer,
-                current_time: unix_time_ms(),
+                current_time: Arc::new(Mutex::new(unix_time_ms())),
                 conductor: local_conductor,
                 counter_values,
             };
+
+            let cloned_curr_time = instance.current_time.clone();
+            instance
+                .conductor
+                .lock()
+                .unwrap()
+                .set_epoch_clock_provider(Box::new(move || cloned_curr_time.lock().unwrap().to_owned()));
 
             // Now setup initial state
             instance
@@ -1858,7 +1983,7 @@ mod tests {
 
             instance
                 .many_to_one_ring_buffer
-                .set_consumer_heartbeat_time(instance.current_time as i64);
+                .set_consumer_heartbeat_time(unix_time_ms() as i64);
 
             // Init metadata inside the test files.
             unsafe {
@@ -1885,6 +2010,26 @@ mod tests {
 
             instance
         }
+
+        fn do_work_until_driver_timeout(&mut self) {
+            let time_guard = self.current_time.lock().unwrap();
+            let start_time = *time_guard;
+            let mut current_test_time = *time_guard;
+
+            drop(time_guard); // Unlock it
+
+            while current_test_time <= start_time + DRIVER_TIMEOUT_MS {
+                current_test_time += 1000;
+
+                {
+                    // Update self.current_time and release the lock
+                    let mut time_guard = self.current_time.lock().unwrap();
+                    *time_guard = current_test_time;
+                }
+
+                let _res = self.conductor.lock().unwrap().do_work();
+            }
+        }
     }
 
     fn str_to_c(val: &str) -> CString {
@@ -1903,6 +2048,7 @@ mod tests {
     #[test]
     fn should_return_null_for_publication_without_log_buffers() {
         let test = ClientConductorTest::new();
+
         let id = test
             .conductor
             .lock()
@@ -1916,7 +2062,7 @@ mod tests {
     }
 
     #[test]
-    fn should_send_add_publication_to_driver() {
+    fn should_send_publication_to_driver() {
         let test = ClientConductorTest::new();
 
         let id = test
@@ -1942,1001 +2088,2022 @@ mod tests {
     }
 
     #[test]
-    fn test() {
+    fn should_return_publication_after_log_buffers_created() {
         let test = ClientConductorTest::new();
 
-        let _publication = test.conductor.lock().unwrap().find_publication(100);
-    }
-}
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-/*
+        test.conductor.lock().unwrap().on_new_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
 
-TEST_F(ClientConductorTest, shouldReturnPublicationAfterLogBuffersCreated)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(str_to_c(CHANNEL)), STREAM_ID).expect("failed to add publication");
+        let publication = test.conductor.lock().unwrap().find_publication(id).unwrap();
 
-    test.conductor.lock().unwrap().onNewPublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-
-    ASSERT_TRUE(pub != nullptr);
-    assert_eq!(pub->registrationId(), id);
-    assert_eq!(pub->str_to_c(CHANNEL)(), str_to_c(CHANNEL));
-    assert_eq!(pub->stream_id(), STREAM_ID);
-    assert_eq!(pub->sessionId(), SESSION_ID);
-}
-
-TEST_F(ClientConductorTest, shouldReleasePublicationAfterGoingOutOfScope)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-    static std::int32_t REMOVE_PUBLICATION = ControlProtocolEvents::REMOVE_PUBLICATION;
-
-    test.many_to_one_ring_buffer.read(
-        [&](std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)
-        {
-        });
-
-    test.conductor.lock().unwrap().onNewPublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    {
-        std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-
-        ASSERT_TRUE(pub != nullptr);
+        assert_eq!(publication.registration_id(), id);
+        assert_eq!(publication.channel(), str_to_c(CHANNEL));
+        assert_eq!(publication.stream_id(), STREAM_ID);
+        assert_eq!(publication.session_id(), SESSION_ID);
     }
 
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
+    #[test]
+    fn should_release_publication_after_going_out_of_scope() {
+        let test = ClientConductorTest::new();
+
+        // Writes new publication in to to_driver buffer
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        // Read and process all messages seen in to_driver buffer
+        let _count = test.many_to_one_ring_buffer.read(|_msg_type_id, _buffer| {}, 1000);
+
+        // In production this will be called when new publication comes from driver. Adds this publication in to internal map.
+        test.conductor.lock().unwrap().on_new_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
         {
-            const RemoveMessageFlyweight message(buffer, offset);
+            let publication = test.conductor.lock().unwrap().find_publication(id);
 
-            assert_eq!(msg_type_id, REMOVE_PUBLICATION);
-            assert_eq!(message.registrationId(), id);
-        });
+            assert!(publication.is_ok());
+        }
 
-    assert_eq!(count, 1);
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = RemoveMessageFlyweight::new(buffer, 0);
 
-    std::shared_ptr<Publication> pubPost = test.conductor.lock().unwrap().findPublication(id);
-    ASSERT_TRUE(pubPost == nullptr);
-}
+                assert_eq!(msg_type_id, AeronCommand::RemovePublication);
+                assert_eq!(message.registration_id(), id);
+            },
+            1000,
+        );
 
-TEST_F(ClientConductorTest, shouldReturnSamePublicationAfterLogBuffersCreated)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
+        assert_eq!(count, 1);
 
-    test.conductor.lock().unwrap().onNewPublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<Publication> pub1 = test.conductor.lock().unwrap().findPublication(id);
-    std::shared_ptr<Publication> pub2 = test.conductor.lock().unwrap().findPublication(id);
-
-    ASSERT_TRUE(pub1 != nullptr);
-    ASSERT_TRUE(pub2 != nullptr);
-    ASSERT_TRUE(pub1 == pub2);
-}
-
-TEST_F(ClientConductorTest, shouldIgnorePublicationReadyForUnknowncorrelation_id)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-
-    test.conductor.lock().unwrap().onNewPublication(
-        id + 1,
-        id + 1,
-        STREAM_ID,
-        SESSION_ID,
-        PUBLICATION_LIMIT_COUNTER_ID,
-        CHANNEL_STATUS_INDICATOR_ID,
-        self.log_file_name);
-
-    std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-
-    ASSERT_TRUE(pub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldTimeoutAddPublicationWithoutPublicationReady)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-
-    self.current_time += DRIVER_TIMEOUT_MS + 1;
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-        },
-        util::DriverTimeoutException);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionOnFindWhenReceivingErrorResponseOnAddPublication)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-
-    test.conductor.lock().unwrap().onErrorResponse(id, ERROR_CODE_INVALID_CHANNEL, "invalid channel");
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-        },
-        util::RegistrationException);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForUnknownExclusivePublication)
-{
-    std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(100);
-
-    EXPECT_TRUE(pub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForExclusivePublicationWithoutLogBuffers)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-    EXPECT_TRUE(pub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldSendAddExclusivePublicationToDriver)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-    static std::int32_t ADD_EXCLUSIVE_PUBLICATION = ControlProtocolEvents::ADD_EXCLUSIVE_PUBLICATION;
-
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
-        {
-            const PublicationMessageFlyweight message(buffer, offset);
-
-            assert_eq!(msg_type_id, ADD_EXCLUSIVE_PUBLICATION);
-            assert_eq!(message.correlation_id(), id);
-            assert_eq!(message.stream_id(), STREAM_ID);
-            assert_eq!(message.channel(), CHANNEL);
-        });
-
-    assert_eq!(count, 1);
-}
-
-TEST_F(ClientConductorTest, shouldReturnExclusivePublicationAfterLogBuffersCreated)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    test.conductor.lock().unwrap().onNewExclusivePublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-    ASSERT_TRUE(pub != nullptr);
-    assert_eq!(pub->registrationId(), id);
-    assert_eq!(pub->channel(), CHANNEL);
-    assert_eq!(pub->stream_id(), STREAM_ID);
-    assert_eq!(pub->sessionId(), SESSION_ID);
-}
-
-TEST_F(ClientConductorTest, shouldReleaseExclusivePublicationAfterGoingOutOfScope)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-    static std::int32_t REMOVE_PUBLICATION = ControlProtocolEvents::REMOVE_PUBLICATION;
-
-    test.many_to_one_ring_buffer.read(
-        [&](std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)
-        {
-        });
-
-    test.conductor.lock().unwrap().onNewExclusivePublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    {
-        std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-        ASSERT_TRUE(pub != nullptr);
+        let publication_post = test.conductor.lock().unwrap().find_publication(id);
+        assert!(publication_post.is_err());
     }
 
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
-        {
-            const RemoveMessageFlyweight message(buffer, offset);
+    #[test]
+    fn should_return_same_publication_after_log_buffers_created() {
+        let test = ClientConductorTest::new();
 
-            assert_eq!(msg_type_id, REMOVE_PUBLICATION);
-            assert_eq!(message.registrationId(), id);
-        });
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-    assert_eq!(count, 1);
+        test.conductor.lock().unwrap().on_new_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
 
-    std::shared_ptr<ExclusivePublication> pubPost = test.conductor.lock().unwrap().findExclusivePublication(id);
-    ASSERT_TRUE(pubPost == nullptr);
-}
+        let publication1 = test.conductor.lock().unwrap().find_publication(id);
+        let publication2 = test.conductor.lock().unwrap().find_publication(id);
 
-TEST_F(ClientConductorTest, shouldReturnDifferentIdForDuplicateAddExclusivePublication)
-{
-    let id1 = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-    let id2 = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    EXPECT_NE(id1, id2);
-}
-
-TEST_F(ClientConductorTest, shouldReturnSameExclusivePublicationAfterLogBuffersCreated)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    test.conductor.lock().unwrap().onNewExclusivePublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<ExclusivePublication> pub1 = test.conductor.lock().unwrap().findExclusivePublication(id);
-    std::shared_ptr<ExclusivePublication> pub2 = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-    ASSERT_TRUE(pub1 != nullptr);
-    ASSERT_TRUE(pub2 != nullptr);
-    ASSERT_TRUE(pub1 == pub2);
-}
-
-TEST_F(ClientConductorTest, shouldIgnoreExclusivePublicationReadyForUnknowncorrelation_id)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    test.conductor.lock().unwrap().onNewExclusivePublication(
-        id + 1,
-        id + 1,
-        STREAM_ID,
-        SESSION_ID,
-        PUBLICATION_LIMIT_COUNTER_ID,
-        CHANNEL_STATUS_INDICATOR_ID,
-        self.log_file_name);
-
-    std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-    ASSERT_TRUE(pub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldTimeoutAddExclusivePublicationWithoutPublicationReady)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    self.current_time += DRIVER_TIMEOUT_MS + 1;
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-        },
-        util::DriverTimeoutException);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionOnFindWhenReceivingErrorResponseOnAddExclusivePublication)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    test.conductor.lock().unwrap().onErrorResponse(id, ERROR_CODE_INVALID_CHANNEL, "invalid channel");
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-        },
-        util::RegistrationException);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForUnknownSubscription)
-{
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(100);
-
-    EXPECT_TRUE(sub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForSubscriptionWithoutOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-    EXPECT_TRUE(sub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldSendAddSubscriptionToDriver)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    static std::int32_t ADD_SUBSCRIPTION = ControlProtocolEvents::ADD_SUBSCRIPTION;
-
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
-        {
-            const SubscriptionMessageFlyweight message(buffer, offset);
-
-            assert_eq!(msg_type_id, ADD_SUBSCRIPTION);
-            assert_eq!(message.correlation_id(), id);
-            assert_eq!(message.stream_id(), STREAM_ID);
-            assert_eq!(message.channel(), CHANNEL);
-        });
-
-    assert_eq!(count, 1);
-}
-
-TEST_F(ClientConductorTest, shouldReturnSubscriptionAfterOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-    ASSERT_TRUE(sub != nullptr);
-    assert_eq!(sub->registrationId(), id);
-    assert_eq!(sub->channel(), CHANNEL);
-    assert_eq!(sub->stream_id(), STREAM_ID);
-}
-
-TEST_F(ClientConductorTest, shouldReleaseSubscriptionAfterGoingOutOfScope)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    static std::int32_t REMOVE_SUBSCRIPTION = ControlProtocolEvents::REMOVE_SUBSCRIPTION;
-
-    test.many_to_one_ring_buffer.read(
-        [&](std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)
-        {
-        });
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-
-    {
-        std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-        ASSERT_TRUE(sub != nullptr);
+        assert!(publication1.is_ok());
+        assert!(publication2.is_ok());
+        assert!(Arc::ptr_eq(&publication1.unwrap(), &publication2.unwrap()));
     }
 
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
-        {
-            const RemoveMessageFlyweight message(buffer, offset);
-
-            assert_eq!(msg_type_id, REMOVE_SUBSCRIPTION);
-            assert_eq!(message.registrationId(), id);
-        });
-
-    assert_eq!(count, 1);
-
-    std::shared_ptr<Subscription> subPost = test.conductor.lock().unwrap().findSubscription(id);
-    ASSERT_TRUE(subPost == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldReturnDifferentIdsForDuplicateAddSubscription)
-{
-    let id1 = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let id2 = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    EXPECT_NE(id1, id2);
-}
-
-TEST_F(ClientConductorTest, shouldReturnSameFindSubscriptionAfterOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub1 = test.conductor.lock().unwrap().findSubscription(id);
-    std::shared_ptr<Subscription> sub2 = test.conductor.lock().unwrap().findSubscription(id);
-
-    ASSERT_TRUE(sub1 != nullptr);
-    ASSERT_TRUE(sub2 != nullptr);
-    ASSERT_TRUE(sub1 == sub2);
-}
-
-TEST_F(ClientConductorTest, shouldReturnDifferentSubscriptionAfterOperationSuccess)
-{
-    let id1 = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let id2 = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id1, CHANNEL_STATUS_INDICATOR_ID);
-    test.conductor.lock().unwrap().onSubscriptionReady(id2, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub1 = test.conductor.lock().unwrap().findSubscription(id1);
-    std::shared_ptr<Subscription> sub2 = test.conductor.lock().unwrap().findSubscription(id2);
-
-    ASSERT_TRUE(sub1 != nullptr);
-    ASSERT_TRUE(sub2 != nullptr);
-    ASSERT_TRUE(sub1 != sub2);
-}
-
-TEST_F(ClientConductorTest, shouldIgnoreOperationSuccessForUnknowncorrelation_id)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id + 1, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-    ASSERT_TRUE(sub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldTimeoutAddSubscriptionWithoutOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    self.current_time += DRIVER_TIMEOUT_MS + 1;
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-        },
-        util::DriverTimeoutException);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionOnFindWhenReceivingErrorResponseOnAddSubscription)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onErrorResponse(id, ERROR_CODE_INVALID_CHANNEL, "invalid channel");
-
-    ASSERT_THROW(
-        {
-            std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-        },
-        util::RegistrationException);
-}
-
-TEST_F(ClientConductorTest, shouldCallErrorHandlerWhenInterServiceTimeoutExceeded)
-{
-    bool called = false;
-
-    m_errorHandler =
-        [&](const std::exception& exception)
-        {
-            assert_eq!(typeid(ConductorServiceTimeoutException), typeid(exception));
-            called = true;
-        };
-
-    self.current_time += INTER_SERVICE_TIMEOUT_MS + 1;
-    test.conductor.lock().unwrap().doWork();
-    EXPECT_TRUE(called);
-}
-
-TEST_F(ClientConductorTest, shouldCallErrorHandlerWhenDriverInactiveOnIdle)
-{
-    bool called = false;
-
-    m_errorHandler =
-        [&](const std::exception& exception)
-        {
-            assert_eq!(typeid(DriverTimeoutException), typeid(exception));
-            called = true;
-        };
-
-    doWorkUntilDriverTimeout();
-    EXPECT_TRUE(called);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionWhenAddPublicationAfterDriverInactive)
-{
-    bool called = false;
-    m_errorHandler = [&](const std::exception& exception) { called = true; };
-
-    doWorkUntilDriverTimeout();
-    EXPECT_TRUE(called);
-
-    ASSERT_THROW(
-        {
-            test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-        },
-        util::DriverTimeoutException);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionWhenReleasePublicationAfterDriverInactive)
-{
-    bool called = false;
-    m_errorHandler = [&](const std::exception& exception) { called = true; };
-
-    doWorkUntilDriverTimeout();
-    EXPECT_TRUE(called);
-
-    ASSERT_NO_THROW(
-        {
-            test.conductor.lock().unwrap().releasePublication(100);
-        });
-}
-
-TEST_F(ClientConductorTest, shouldExceptionWhenAddSubscriptionAfterDriverInactive)
-{
-    bool called = false;
-    m_errorHandler = [&](const std::exception& exception) { called = true; };
-
-    doWorkUntilDriverTimeout();
-    EXPECT_TRUE(called);
-
-    ASSERT_THROW(
-        {
-            test.conductor.lock().unwrap().addSubscription(CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-        },
-        util::DriverTimeoutException);
-}
-
-TEST_F(ClientConductorTest, shouldExceptionWhenReleaseSubscriptionAfterDriverInactive)
-{
-    bool called = false;
-    m_errorHandler = [&](const std::exception& exception) { called = true; };
-
-    doWorkUntilDriverTimeout();
-    EXPECT_TRUE(called);
-
-    ASSERT_NO_THROW(
-        {
-            test.conductor.lock().unwrap().releaseSubscription(100, nullptr, 0);
-        });
-}
-
-TEST_F(ClientConductorTest, shouldCallOnNewPubAfterLogBuffersCreated)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-
-    EXPECT_CALL(m_handlers, onNewPub(testing::StrEq(CHANNEL), STREAM_ID, SESSION_ID, id))
-        .Times(1);
-
-    test.conductor.lock().unwrap().onNewPublication(id, id,
-        STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-}
-
-TEST_F(ClientConductorTest, shouldCallOnNewSubAfterOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    EXPECT_CALL(m_handlers, onNewSub(testing::StrEq(CHANNEL), STREAM_ID, id))
-        .Times(1);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    ASSERT_TRUE(sub != nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldCallNewConnectionAfterOnNewConnection)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-    testing::Sequence sequence;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(1)
-        .InSequence(sequence);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    // must be able to handle newImage even if findSubscription not called
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    ASSERT_TRUE(sub != nullptr);
-    ASSERT_TRUE(sub->hasImage(correlation_id));
-}
-
-TEST_F(ClientConductorTest, shouldNotCallNewConnectionIfNoOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(0);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(0);
-
-    // must be able to handle newImage even if findSubscription not called
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    ASSERT_TRUE(sub == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldNotCallNewConnectionIfUninterestingRegistrationId)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(1);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(0);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    // must be able to handle newImage even if findSubscription not called
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id + 1, self.log_file_name, SOURCE_IDENTITY);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    ASSERT_TRUE(sub != nullptr);
-    ASSERT_FALSE(sub->hasImage(correlation_id));
-}
-
-TEST_F(ClientConductorTest, shouldCallInactiveConnecitonAfterInactiveConnection)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-    testing::Sequence sequence;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onInactive(testing::_))
-        .Times(1)
-        .InSequence(sequence);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-    test.conductor.lock().unwrap().onUnavailableImage(correlation_id, id);
-    EXPECT_FALSE(sub->hasImage(correlation_id));
-}
-
-TEST_F(ClientConductorTest, shouldNotCallInactiveConnectionIfNoOperationSuccess)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(0);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(0);
-    EXPECT_CALL(m_handlers, onInactive(testing::_))
-        .Times(0);
-
-    // must be able to handle newImage even if findSubscription not called
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-    test.conductor.lock().unwrap().onUnavailableImage(correlation_id, id);
-}
-
-TEST_F(ClientConductorTest, shouldNotCallInactiveConnectionIfUninterestingConnectioncorrelation_id)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-    testing::Sequence sequence;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onInactive(testing::_))
-        .Times(0);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-    test.conductor.lock().unwrap().onUnavailableImage(correlation_id + 1, id);
-    EXPECT_TRUE(sub->hasImage(correlation_id));
-
-    testing::Mock::VerifyAndClearExpectations(&m_handlers);  // avoid catching unavailable call on sub release
-}
-
-TEST_F(ClientConductorTest, shouldCallUnavailableImageIfSubscriptionReleased)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-    testing::Sequence sequence;
-
-    EXPECT_CALL(m_handlers, onNewSub(CHANNEL, STREAM_ID, id))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onNewImage(testing::_))
-        .Times(1)
-        .InSequence(sequence);
-    EXPECT_CALL(m_handlers, onInactive(testing::_))
-        .Times(1);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-    EXPECT_TRUE(sub->hasImage(correlation_id));
-}
-
-TEST_F(ClientConductorTest, shouldClosePublicationOnInterServiceTimeout)
-{
-    let id = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-
-    test.conductor.lock().unwrap().onNewPublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(id);
-
-    ASSERT_TRUE(pub != nullptr);
-
-    test.conductor.lock().unwrap().closeAllResources(self.current_time);
-    EXPECT_TRUE(pub->isClosed());
-}
-
-TEST_F(ClientConductorTest, shouldCloseExclusivePublicationOnInterServiceTimeout)
-{
-    let id = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-
-    test.conductor.lock().unwrap().onNewExclusivePublication(
-        id, id, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-
-    std::shared_ptr<ExclusivePublication> pub = test.conductor.lock().unwrap().findExclusivePublication(id);
-
-    ASSERT_TRUE(pub != nullptr);
-
-    test.conductor.lock().unwrap().closeAllResources(self.current_time);
-    EXPECT_TRUE(pub->isClosed());
-}
-
-TEST_F(ClientConductorTest, shouldCloseSubscriptionOnInterServiceTimeout)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-    ASSERT_TRUE(sub != nullptr);
-
-    test.conductor.lock().unwrap().closeAllResources(self.current_time);
-
-    EXPECT_TRUE(sub->isClosed());
-}
-
-TEST_F(ClientConductorTest, shouldCloseAllPublicationsAndSubscriptionsOnInterServiceTimeout)
-{
-    let pubId = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID).expect("failed to add publication");
-    let exPubId = test.conductor.lock().unwrap().addExclusivePublication(CHANNEL, STREAM_ID);
-    let subId = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-
-    test.conductor.lock().unwrap().onNewPublication(
-        pubId, pubId, STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name);
-    test.conductor.lock().unwrap().onNewExclusivePublication(exPubId, exPubId,
-        STREAM_ID, SESSION_ID, PUBLICATION_LIMIT_COUNTER_ID_2, CHANNEL_STATUS_INDICATOR_ID, self.log_file_name2);
-    test.conductor.lock().unwrap().onSubscriptionReady(subId, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Publication> pub = test.conductor.lock().unwrap().findPublication(pubId);
-
-    ASSERT_TRUE(pub != nullptr);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(subId);
-
-    ASSERT_TRUE(sub != nullptr);
-
-    std::shared_ptr<ExclusivePublication> exPub = test.conductor.lock().unwrap().findExclusivePublication(exPubId);
-
-    ASSERT_TRUE(exPub != nullptr);
-
-    test.conductor.lock().unwrap().closeAllResources(self.current_time);
-    EXPECT_TRUE(pub->isClosed());
-    EXPECT_TRUE(sub->isClosed());
-    EXPECT_TRUE(exPub->isClosed());
-}
-
-TEST_F(ClientConductorTest, shouldRemoveImageOnInterServiceTimeout)
-{
-    let id = test.conductor.lock().unwrap().addSubscription(
-        CHANNEL, STREAM_ID, m_onAvailableImageHandler, m_onUnavailableImageHandler);
-    let correlation_id = id + 1;
-
-    test.conductor.lock().unwrap().onSubscriptionReady(id, CHANNEL_STATUS_INDICATOR_ID);
-
-    std::shared_ptr<Subscription> sub = test.conductor.lock().unwrap().findSubscription(id);
-
-    ASSERT_TRUE(sub != nullptr);
-
-    test.conductor.lock().unwrap().onAvailableImage(correlation_id, SESSION_ID, 1, id, self.log_file_name, SOURCE_IDENTITY);
-    ASSERT_TRUE(sub->hasImage(correlation_id));
-
-    test.conductor.lock().unwrap().closeAllResources(self.current_time);
-
-    std::shared_ptr<Image> image = sub->imageBySessionId(SESSION_ID);
-
-    EXPECT_TRUE(sub->isClosed());
-    EXPECT_TRUE(image == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForUnknownCounter)
-{
-    std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(100);
-
-    EXPECT_TRUE(counter == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldReturnNullForCounterWithoutOnAvailableCounter)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-
-    std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
-
-    EXPECT_TRUE(counter == nullptr);
-}
-
-TEST_F(ClientConductorTest, shouldSendAddCounterToDriver)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-    static std::int32_t ADD_COUNTER = ControlProtocolEvents::ADD_COUNTER;
-
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
-        {
-            const CounterMessageFlyweight message(buffer, offset);
-
-            assert_eq!(msg_type_id, ADD_COUNTER);
-            assert_eq!(message.correlation_id(), id);
-            assert_eq!(message.typeId(), COUNTER_TYPE_ID);
-            assert_eq!(message.keyLength(), 0);
-            assert_eq!(message.label(), COUNTER_LABEL);
-        });
-
-    assert_eq!(count, 1);
-}
-
-TEST_F(ClientConductorTest, shouldReturnCounterAfterOnAvailableCounter)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-
-    EXPECT_CALL(m_handlers, onAvailableCounter(testing::_, id, COUNTER_ID))
-        .Times(1);
-
-    test.conductor.lock().unwrap().onAvailableCounter(id, COUNTER_ID);
-
-    std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
-
-    ASSERT_TRUE(counter != nullptr);
-    assert_eq!(counter->registrationId(), id);
-    assert_eq!(counter->id(), COUNTER_ID);
-}
-
-TEST_F(ClientConductorTest, shouldReleaseCounterAfterGoingOutOfScope)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-    static std::int32_t REMOVE_COUNTER = ControlProtocolEvents::REMOVE_COUNTER;
-
-    test.many_to_one_ring_buffer.read(
-        [&](std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)
-        {
-        });
-
-    test.conductor.lock().unwrap().onAvailableCounter(id, COUNTER_ID);
-
-    {
-        std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
-
-        ASSERT_TRUE(counter != nullptr);
+    #[test]
+    fn should_ignore_publication_ready_for_unknown_correlation_id() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor.lock().unwrap().on_new_publication(
+            id + 1,
+            id + 1,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_publication(id);
+
+        assert!(publication.is_err());
     }
 
-    int count = test.many_to_one_ring_buffer.read(
-        [&](std::int32_t msg_type_id, concurrent::AtomicBuffer& buffer, util::index_t offset, util::index_t length)
+    fn driver_timeout_provider() -> Moment {
+        unix_time_ms() + DRIVER_TIMEOUT_MS + 1
+    }
+
+    #[test]
+    fn should_timeout_add_publication_without_publication_ready() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_epoch_clock_provider(Box::new(driver_timeout_provider));
+
+        let publication = test.conductor.lock().unwrap().find_publication(id);
+
+        assert_eq!(
+            publication.err().unwrap(),
+            AeronError::ConductorServiceTimeout(String::from("fafa"))
+        );
+    }
+
+    #[test]
+    fn should_exception_on_find_when_receiving_error_response_on_add_publication() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor.lock().unwrap().on_error_response(
+            id,
+            ERROR_CODE_INVALID_CHANNEL,
+            CString::new("invalid channel").unwrap(),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_publication(id);
+        assert_eq!(
+            publication.err().unwrap(),
+            AeronError::RegistrationException(String::from("fafa"))
+        );
+    }
+
+    #[test]
+    fn should_return_null_for_unknown_exclusive_publication() {
+        let test = ClientConductorTest::new();
+
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(100);
+
+        assert!(publication.is_err());
+    }
+
+    #[test]
+    fn should_return_null_for_exclusive_publication_without_log_buffers() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
+
+        assert!(publication.is_err());
+    }
+
+    #[test]
+    fn should_send_add_exclusive_publication_to_driver() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = PublicationMessageFlyweight::new(buffer, 0);
+
+                assert_eq!(msg_type_id, AeronCommand::AddExclusivePublication);
+                assert_eq!(message.correlation_id(), id);
+                assert_eq!(message.stream_id(), STREAM_ID);
+                assert_eq!(message.channel(), str_to_c(CHANNEL));
+            },
+            1000,
+        );
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn should_return_exclusive_publication_after_log_buffers_created() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id).unwrap();
+
+        assert_eq!(publication.registration_id(), id);
+        assert_eq!(publication.channel(), str_to_c(CHANNEL));
+        assert_eq!(publication.stream_id(), STREAM_ID);
+        assert_eq!(publication.session_id(), SESSION_ID);
+    }
+
+    #[test]
+    fn should_release_exclusive_publication_after_going_out_of_scope() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        let _count = test.many_to_one_ring_buffer.read(|_msg_type_id, _buffer| {}, 1000);
+
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
         {
-            const RemoveMessageFlyweight message(buffer, offset);
+            let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
 
-            assert_eq!(msg_type_id, REMOVE_COUNTER);
-            assert_eq!(message.registrationId(), id);
-        });
+            assert!(publication.is_ok());
+        }
 
-    assert_eq!(count, 1);
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = RemoveMessageFlyweight::new(buffer, 0);
 
-    std::shared_ptr<Counter> counterPost = test.conductor.lock().unwrap().findCounter(id);
-    ASSERT_TRUE(counterPost == nullptr);
-}
+                assert_eq!(msg_type_id, AeronCommand::RemovePublication);
+                assert_eq!(message.registration_id(), id);
+            },
+            1000,
+        );
 
-TEST_F(ClientConductorTest, shouldReturnDifferentIdsForDuplicateAddCounter)
-{
-    let id1 = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-    let id2 = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+        assert_eq!(count, 1);
 
-    EXPECT_NE(id1, id2);
-}
+        let publication_post = test.conductor.lock().unwrap().find_exclusive_publication(id);
+        assert!(publication_post.is_err());
+    }
 
-TEST_F(ClientConductorTest, shouldReturnSameFindCounterAfterOnAvailableCounter)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+    #[test]
+    fn should_return_different_id_for_duplicate_add_exclusive_publication() {
+        let test = ClientConductorTest::new();
 
-    test.conductor.lock().unwrap().onAvailableCounter(id, COUNTER_ID);
+        let id1 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+        let id2 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+        assert_ne!(id1, id2);
+    }
 
-    std::shared_ptr<Counter> counter1 = test.conductor.lock().unwrap().findCounter(id);
-    std::shared_ptr<Counter> counter2 = test.conductor.lock().unwrap().findCounter(id);
+    #[test]
+    fn should_return_same_exclusive_publication_after_log_buffers_created() {
+        let test = ClientConductorTest::new();
 
-    ASSERT_TRUE(counter1 != nullptr);
-    ASSERT_TRUE(counter2 != nullptr);
-    ASSERT_TRUE(counter1 == counter2);
-}
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-TEST_F(ClientConductorTest, shouldReturnDifferentCounterAfterOnAvailableCounter)
-{
-    let id1 = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-    let id2 = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
 
-    EXPECT_CALL(m_handlers, onAvailableCounter(testing::_, id1, COUNTER_ID))
-        .Times(1);
-    EXPECT_CALL(m_handlers, onAvailableCounter(testing::_, id2, COUNTER_ID))
-        .Times(1);
+        let publication1 = test.conductor.lock().unwrap().find_exclusive_publication(id);
+        let publication2 = test.conductor.lock().unwrap().find_exclusive_publication(id);
 
-    test.conductor.lock().unwrap().onAvailableCounter(id1, COUNTER_ID);
-    test.conductor.lock().unwrap().onAvailableCounter(id2, COUNTER_ID);
+        assert!(publication1.is_ok());
+        assert!(publication2.is_ok());
+        assert!(Arc::ptr_eq(&publication1.unwrap(), &publication2.unwrap()));
+    }
 
-    std::shared_ptr<Counter> counter1 = test.conductor.lock().unwrap().findCounter(id1);
-    std::shared_ptr<Counter> counter2 = test.conductor.lock().unwrap().findCounter(id2);
+    #[test]
+    fn should_ignore_exclusive_publication_ready_for_unknown_correlation_id() {
+        let test = ClientConductorTest::new();
 
-    ASSERT_TRUE(counter1 != nullptr);
-    ASSERT_TRUE(counter2 != nullptr);
-    ASSERT_TRUE(counter1 != counter2);
-}
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-TEST_F(ClientConductorTest, shouldNotFindCounterOnAvailableCounterForUnknowncorrelation_id)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            id + 1,
+            id + 1,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
 
-    EXPECT_CALL(m_handlers, onAvailableCounter(testing::_, id + 1, COUNTER_ID))
-        .Times(1);
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
 
-    test.conductor.lock().unwrap().onAvailableCounter(id + 1, COUNTER_ID);
+        assert!(publication.is_err());
+    }
 
-    std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
+    #[test]
+    fn should_timeout_add_exclusive_publication_without_publication_ready() {
+        let test = ClientConductorTest::new();
 
-    ASSERT_TRUE(counter == nullptr);
-}
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-TEST_F(ClientConductorTest, shouldTimeoutAddCounterWithoutOnAvailableCounter)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_epoch_clock_provider(Box::new(driver_timeout_provider));
 
-    self.current_time += DRIVER_TIMEOUT_MS + 1;
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
 
-    ASSERT_THROW(
+        assert_eq!(
+            publication.err().unwrap(),
+            AeronError::ConductorServiceTimeout(String::from("fafa"))
+        );
+    }
+
+    #[test]
+    fn should_exception_on_find_when_receiving_error_response_on_add_exclusive_publication() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor.lock().unwrap().on_error_response(
+            id,
+            ERROR_CODE_INVALID_CHANNEL,
+            CString::new("invalid channel").unwrap(),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
+        assert_eq!(
+            publication.err().unwrap(),
+            AeronError::RegistrationException(String::from("fafa"))
+        );
+    }
+
+    #[test]
+    fn should_return_null_for_unknown_subscription() {
+        let test = ClientConductorTest::new();
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(100);
+
+        assert!(subscription.is_err());
+    }
+
+    fn on_available_image_handler(_image: &Image) {}
+
+    fn on_unavailable_image_handler(_image: &Image) {}
+
+    #[test]
+    fn should_return_null_for_subscription_without_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        // Return Err as subscription was not processed by Driver and in Awaiting state.
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert!(subscription.is_err());
+    }
+
+    #[test]
+    fn should_send_subscription_to_driver() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        // See added subscription in to_driver buffer
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = SubscriptionMessageFlyweight::new(buffer, 0);
+
+                assert_eq!(msg_type_id, AeronCommand::AddSubscription);
+                assert_eq!(message.correlation_id(), id);
+                assert_eq!(message.stream_id(), STREAM_ID);
+                assert_eq!(message.channel(), str_to_c(CHANNEL));
+            },
+            1000,
+        );
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn should_return_subscription_after_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
+        let result = test.conductor.lock().unwrap().find_subscription(id).expect("Not found");
+
+        let subscription = result.lock().expect("Mutex poisoned");
+
+        assert_eq!(subscription.registration_id(), id);
+        assert_eq!(subscription.channel(), str_to_c(CHANNEL));
+        assert_eq!(subscription.stream_id(), STREAM_ID);
+    }
+
+    #[test]
+    fn should_release_subscription_after_going_out_of_scope() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        let _count = test.many_to_one_ring_buffer.read(|_msg_type_id, _buffer| {}, 1000);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
         {
-            std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
-        },
-        util::DriverTimeoutException);
-}
+            let subscription = test.conductor.lock().unwrap().find_subscription(id);
+            assert!(subscription.is_ok());
+        }
 
-TEST_F(ClientConductorTest, shouldExceptionOnFindWhenReceivingErrorResponseOnAddCounter)
-{
-    let id = test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = RemoveMessageFlyweight::new(buffer, 0);
 
-    test.conductor.lock().unwrap().onErrorResponse(id, ERROR_CODE_GENERIC_ERROR, "can't add counter");
+                assert_eq!(msg_type_id, AeronCommand::RemoveSubscription);
+                assert_eq!(message.registration_id(), id);
+            },
+            1000,
+        );
 
-    ASSERT_THROW(
+        assert_eq!(count, 1);
+
+        let subscription_post = test.conductor.lock().unwrap().find_subscription(id);
+        assert!(subscription_post.is_err());
+    }
+
+    #[test]
+    fn should_return_different_ids_for_duplicate_add_subscription() {
+        let test = ClientConductorTest::new();
+
+        let id1 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let id2 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn should_return_same_find_subscription_after_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
+        let subscription1 = test.conductor.lock().unwrap().find_subscription(id);
+        let subscription2 = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert!(subscription1.is_ok());
+        assert!(subscription2.is_ok());
+        assert!(Arc::ptr_eq(&subscription1.unwrap(), &subscription2.unwrap()));
+    }
+
+    #[test]
+    fn should_return_different_subscription_after_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id1 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let id2 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id1, CHANNEL_STATUS_INDICATOR_ID);
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id2, CHANNEL_STATUS_INDICATOR_ID);
+
+        let subscription1 = test.conductor.lock().unwrap().find_subscription(id1);
+        let subscription2 = test.conductor.lock().unwrap().find_subscription(id2);
+
+        assert!(subscription1.is_ok());
+        assert!(subscription2.is_ok());
+        assert!(!Arc::ptr_eq(&subscription1.unwrap(), &subscription2.unwrap()));
+    }
+
+    #[test]
+    fn should_ignore_operation_success_for_unknown_correlation_id() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id + 1, CHANNEL_STATUS_INDICATOR_ID);
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert!(subscription.is_err());
+    }
+
+    #[test]
+    fn should_timeout_add_subscription_without_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_epoch_clock_provider(Box::new(driver_timeout_provider));
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert_eq!(subscription.err().unwrap(), AeronError::DriverTimeout(String::from("fafa")));
+    }
+
+    #[test]
+    fn should_exception_on_find_when_receiving_error_response_on_add_subscription() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_error_response(id, ERROR_CODE_INVALID_CHANNEL, str_to_c("invalid channel"));
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert_eq!(
+            subscription.err().unwrap(),
+            AeronError::RegistrationException(String::from("fafa"))
+        );
+    }
+
+    fn error_handler1(error: AeronError) {
+        ERR_HANDLER_CALLED.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::ConductorServiceTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED: AtomicBool = AtomicBool::from(false);
+        pub static ref ERR_HANDLER_CALLED2: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_call_error_handler_when_inter_service_timeout_exceeded() {
+        let test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler1);
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_epoch_clock_provider(Box::new(driver_timeout_provider));
+
+        let _res = test.conductor.lock().unwrap().do_work();
+        assert!(ERR_HANDLER_CALLED.load(Ordering::SeqCst));
+    }
+
+    fn error_handler2(error: AeronError) {
+        ERR_HANDLER_CALLED2.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        println!("It was called");
+    }
+
+    fn error_handler3(error: AeronError) {
+        ERR_HANDLER_CALLED3.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED3: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_call_error_handler_when_driver_inactive_on_idle() {
+        let mut test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler3);
+
+        test.do_work_until_driver_timeout();
+
+        let called: bool = ERR_HANDLER_CALLED3.load(Ordering::SeqCst);
+        assert!(called);
+    }
+
+    fn error_handler4(error: AeronError) {
+        ERR_HANDLER_CALLED4.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED4: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_exception_when_add_publication_after_driver_inactive() {
+        let mut test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler4);
+
+        test.do_work_until_driver_timeout();
+
+        let called: bool = ERR_HANDLER_CALLED4.load(Ordering::SeqCst);
+        assert!(called);
+
+        let result = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID);
+
+        assert_eq!(
+            result.err().unwrap(),
+            AeronError::DriverTimeout(String::from("Doesn't matter"))
+        );
+    }
+
+    fn error_handler5(error: AeronError) {
+        ERR_HANDLER_CALLED5.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED5: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_exception_when_release_publication_after_driver_inactive() {
+        let mut test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler5);
+
+        test.do_work_until_driver_timeout();
+        let called: bool = ERR_HANDLER_CALLED5.load(Ordering::SeqCst);
+        assert!(called);
+
+        let result = test.conductor.lock().unwrap().release_publication(100);
+
+        assert!(result.is_err());
+    }
+
+    fn error_handler6(error: AeronError) {
+        ERR_HANDLER_CALLED6.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED6: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_exception_when_add_subscription_after_driver_inactive() {
+        let mut test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler6);
+
+        test.do_work_until_driver_timeout();
+        let called: bool = ERR_HANDLER_CALLED6.load(Ordering::SeqCst);
+        assert!(called);
+
+        let result = test.conductor.lock().unwrap().add_subscription(
+            str_to_c(CHANNEL),
+            STREAM_ID,
+            on_available_image_handler,
+            on_unavailable_image_handler,
+        );
+        assert_eq!(
+            result.err().unwrap(),
+            AeronError::DriverTimeout(String::from("Doesn't matter"))
+        );
+    }
+
+    fn error_handler7(error: AeronError) {
+        ERR_HANDLER_CALLED7.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    lazy_static! {
+        pub static ref ERR_HANDLER_CALLED7: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_exception_when_release_subscription_after_driver_inactive() {
+        let mut test = ClientConductorTest::new();
+
+        test.conductor.lock().unwrap().set_error_handler(error_handler7);
+
+        test.do_work_until_driver_timeout();
+        let called: bool = ERR_HANDLER_CALLED7.load(Ordering::SeqCst);
+        assert!(called);
+
+        let result = test.conductor.lock().unwrap().release_subscription(100, Vec::<Image>::new());
+        assert_eq!(
+            result.err().unwrap(),
+            AeronError::GenericError(String::from("Doesn't matter"))
+        );
+    }
+
+    fn on_new_publication_handler1(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
+        ON_NEW_PUB_CALLED.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(session_id, SESSION_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_PUB_CALLED: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_call_on_new_pub_after_log_buffers_created() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_publication_handler(on_new_publication_handler1);
+
+        test.conductor.lock().unwrap().on_new_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
+        let called: bool = ON_NEW_PUB_CALLED.load(Ordering::SeqCst);
+        assert!(called);
+    }
+
+    fn on_new_subscription_handler1(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_call_on_new_sub_after_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler1);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        assert!(subscription.is_ok());
+        let called: bool = ON_NEW_SUB_CALLED.load(Ordering::SeqCst);
+        assert!(called);
+    }
+
+    fn on_new_subscription_handler2(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED2.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED2: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED2: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler2(_img: &Image) {
+        ON_NEW_IMG_CALLED2.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_call_new_connection_after_on_new_connection() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler2,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler2);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+        // must be able to handle newImage even if find_subscription not called
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        assert!(subscription.is_ok());
+        assert!(subscription.unwrap().lock().unwrap().has_image(correlation_id));
+
+        let sub_called: bool = ON_NEW_SUB_CALLED2.load(Ordering::SeqCst);
+        assert!(sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED2.load(Ordering::SeqCst);
+        assert!(img_called);
+    }
+
+    fn on_new_subscription_handler3(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED3.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED3: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED3: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler3(_img: &Image) {
+        ON_NEW_IMG_CALLED3.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_not_call_new_connection_if_no_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler3,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler3);
+
+        // must be able to handle newImage even if find_subscription not called
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        assert!(subscription.is_err());
+
+        let sub_called: bool = ON_NEW_SUB_CALLED3.load(Ordering::SeqCst);
+        assert!(!sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED3.load(Ordering::SeqCst);
+        assert!(!img_called);
+    }
+
+    fn on_new_subscription_handler4(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED4.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED4: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED4: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler4(_img: &Image) {
+        ON_NEW_IMG_CALLED4.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_not_call_new_connection_if_uninteresting_registration_id() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler4,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler4);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+        // must be able to handle newImage even if find_subscription not called
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id + 1,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        assert!(subscription.is_ok());
+        assert!(!subscription.unwrap().lock().unwrap().has_image(correlation_id));
+
+        let sub_called: bool = ON_NEW_SUB_CALLED4.load(Ordering::SeqCst);
+        assert!(sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED4.load(Ordering::SeqCst);
+        assert!(!img_called);
+    }
+
+    fn on_new_subscription_handler5(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED5.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED5: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED5: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_INACTIVE_CALLED5: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler5(_img: &Image) {
+        ON_NEW_IMG_CALLED5.store(true, Ordering::SeqCst);
+    }
+
+    fn on_unavailable_image_handler5(_img: &Image) {
+        ON_INACTIVE_CALLED5.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_call_inactive_connection_after_inactive_connection() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler5,
+                on_unavailable_image_handler5,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler5);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+        test.conductor.lock().unwrap().on_unavailable_image(correlation_id, id);
+        assert!(!subscription.unwrap().lock().unwrap().has_image(correlation_id));
+
+        let sub_called: bool = ON_NEW_SUB_CALLED5.load(Ordering::SeqCst);
+        assert!(sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED5.load(Ordering::SeqCst);
+        assert!(img_called);
+        let un_img_called: bool = ON_INACTIVE_CALLED5.load(Ordering::SeqCst);
+        assert!(un_img_called);
+    }
+
+    fn on_new_subscription_handler6(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED6.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED6: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED6: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_INACTIVE_CALLED6: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler6(_img: &Image) {
+        ON_NEW_IMG_CALLED6.store(true, Ordering::SeqCst);
+    }
+
+    fn on_unavailable_image_handler6(_img: &Image) {
+        ON_INACTIVE_CALLED6.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_not_call_inactive_connection_if_no_operation_success() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler6,
+                on_unavailable_image_handler6,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler6);
+
+        // must be able to handle newImage even if find_subscription not called
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+        test.conductor.lock().unwrap().on_unavailable_image(correlation_id, id);
+
+        let sub_called: bool = ON_NEW_SUB_CALLED6.load(Ordering::SeqCst);
+        assert!(!sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED6.load(Ordering::SeqCst);
+        assert!(!img_called);
+        let un_img_called: bool = ON_INACTIVE_CALLED6.load(Ordering::SeqCst);
+        assert!(!un_img_called);
+    }
+
+    fn on_new_subscription_handler7(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED7.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED7: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED7: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_INACTIVE_CALLED7: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler7(_img: &Image) {
+        ON_NEW_IMG_CALLED7.store(true, Ordering::SeqCst);
+    }
+
+    fn on_unavailable_image_handler7(_img: &Image) {
+        ON_INACTIVE_CALLED7.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_not_call_inactive_connection_if_uninteresting_connection_correlation_id() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler7,
+                on_unavailable_image_handler7,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler7);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
+        test.conductor.lock().unwrap().on_unavailable_image(correlation_id + 1, id);
+        assert!(subscription.unwrap().lock().unwrap().has_image(correlation_id));
+
+        let sub_called: bool = ON_NEW_SUB_CALLED7.load(Ordering::SeqCst);
+        assert!(sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED7.load(Ordering::SeqCst);
+        assert!(img_called);
+        let un_img_called: bool = ON_INACTIVE_CALLED7.load(Ordering::SeqCst);
+        assert!(!un_img_called);
+    }
+
+    fn on_new_subscription_handler8(channel: CString, stream_id: i32, correlation_id: i64) {
+        ON_NEW_SUB_CALLED8.store(true, Ordering::SeqCst);
+        assert_eq!(channel, str_to_c(CHANNEL));
+        assert_eq!(stream_id, STREAM_ID);
+        assert_eq!(correlation_id, 0);
+    }
+
+    lazy_static! {
+        pub static ref ON_NEW_SUB_CALLED8: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_NEW_IMG_CALLED8: AtomicBool = AtomicBool::from(false);
+        pub static ref ON_INACTIVE_CALLED8: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn on_available_image_handler8(_img: &Image) {
+        ON_NEW_IMG_CALLED8.store(true, Ordering::SeqCst);
+    }
+
+    fn on_unavailable_image_handler8(_img: &Image) {
+        ON_INACTIVE_CALLED8.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn should_call_unavailable_image_if_subscription_released() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler8,
+                on_unavailable_image_handler8,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_on_new_subscription_handler(on_new_subscription_handler8);
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
         {
-            std::shared_ptr<Counter> counter = test.conductor.lock().unwrap().findCounter(id);
-        },
-        util::RegistrationException);
-}
+            let subscription = test.conductor.lock().unwrap().find_subscription(id);
+            test.conductor.lock().unwrap().on_available_image(
+                correlation_id,
+                SESSION_ID,
+                1,
+                id,
+                str_to_c(&test.log_file_name),
+                str_to_c(SOURCE_IDENTITY),
+            );
+            assert!(subscription.unwrap().lock().unwrap().has_image(correlation_id));
+        }
 
-TEST_F(ClientConductorTest, shouldCallOnUnavailableCounter)
-{
-    let id = 101;
+        let sub_called: bool = ON_NEW_SUB_CALLED8.load(Ordering::SeqCst);
+        assert!(sub_called);
+        let img_called: bool = ON_NEW_IMG_CALLED8.load(Ordering::SeqCst);
+        assert!(img_called);
+        let un_img_called: bool = ON_INACTIVE_CALLED8.load(Ordering::SeqCst);
+        assert!(un_img_called);
+    }
 
-    EXPECT_CALL(m_handlers, onUnavailableCounter(testing::_, id, COUNTER_ID))
-        .Times(1);
+    #[test]
+    fn should_close_publication_on_inter_service_timeout() {
+        let test = ClientConductorTest::new();
 
-    test.conductor.lock().unwrap().onUnavailableCounter(id, COUNTER_ID);
-}
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
 
-TEST_F(ClientConductorTest, shouldThrowExceptionOnReentrantCallback)
-{
-    test.conductor.lock().unwrap().addAvailableCounterHandler(
-        [&](CountersReader& countersReader, let registrationId, std::int32_t counterId)
+        test.conductor.lock().unwrap().on_new_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_publication(id);
+
+        assert!(publication.is_ok());
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .close_all_resources(*test.current_time.lock().unwrap());
+        assert!(publication.unwrap().is_closed());
+    }
+
+    #[test]
+    fn should_close_exclusive_publication_on_inter_service_timeout() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            id,
+            id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+
+        let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
+
+        assert!(publication.is_ok());
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .close_all_resources(*test.current_time.lock().unwrap());
+        assert!(publication.unwrap().is_closed());
+    }
+
+    #[test]
+    fn should_close_subscription_on_inter_service_timeout() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(id);
+
+        assert!(subscription.is_ok());
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .close_all_resources(*test.current_time.lock().unwrap());
+
+        assert!(subscription.unwrap().lock().unwrap().is_closed());
+    }
+
+    #[test]
+    fn should_close_all_publications_and_subscriptions_on_inter_service_timeout() {
+        let test = ClientConductorTest::new();
+
+        let pub_id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+        let ex_pub_id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
+            .expect("failed to add publication");
+        let sub_id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+
+        test.conductor.lock().unwrap().on_new_publication(
+            pub_id,
+            pub_id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name),
+        );
+        test.conductor.lock().unwrap().on_new_exclusive_publication(
+            ex_pub_id,
+            ex_pub_id,
+            STREAM_ID,
+            SESSION_ID,
+            PUBLICATION_LIMIT_COUNTER_ID_2,
+            CHANNEL_STATUS_INDICATOR_ID,
+            str_to_c(&test.log_file_name2),
+        );
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(sub_id, CHANNEL_STATUS_INDICATOR_ID);
+
+        let publication = test.conductor.lock().unwrap().find_publication(pub_id);
+
+        assert!(publication.is_ok());
+
+        let subscription = test.conductor.lock().unwrap().find_subscription(sub_id);
+
+        assert!(subscription.is_ok());
+
+        let ex_pub = test.conductor.lock().unwrap().find_exclusive_publication(ex_pub_id);
+
+        assert!(ex_pub.is_ok());
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .close_all_resources(*test.current_time.lock().unwrap());
+        assert!(publication.unwrap().is_closed());
+        assert!(subscription.unwrap().lock().unwrap().is_closed());
+        assert!(ex_pub.unwrap().is_closed());
+    }
+
+    #[test]
+    fn should_remove_image_on_inter_service_timeout() {
+        let test = ClientConductorTest::new();
+
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_subscription(
+                str_to_c(CHANNEL),
+                STREAM_ID,
+                on_available_image_handler,
+                on_unavailable_image_handler,
+            )
+            .unwrap();
+        let correlation_id = id + 1;
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_subscription_ready(id, CHANNEL_STATUS_INDICATOR_ID);
+
+        let sub = test.conductor.lock().unwrap().find_subscription(id).unwrap();
+
+        test.conductor.lock().unwrap().on_available_image(
+            correlation_id,
+            SESSION_ID,
+            1,
+            id,
+            str_to_c(&test.log_file_name),
+            str_to_c(SOURCE_IDENTITY),
+        );
         {
-            test.conductor.lock().unwrap().addCounter(COUNTER_TYPE_ID, nullptr, 0, COUNTER_LABEL);
-        });
+            let subscription = sub.lock().unwrap();
+            assert!(subscription.has_image(correlation_id));
+            // Free mutex
+        }
+        test.conductor
+            .lock()
+            .unwrap()
+            .close_all_resources(*test.current_time.lock().unwrap());
 
-    let id = 101;
-    std::int32_t counterId = 7;
-    bool called = false;
-    m_errorHandler = [&](const std::exception& exception) { called = true; };
+        let subscription = sub.lock().unwrap();
+        let image = subscription.image_by_session_id(SESSION_ID);
 
-    test.conductor.lock().unwrap().onAvailableCounter(id, counterId);
+        assert!(subscription.is_closed());
+        assert!(image.is_none());
+    }
 
-    EXPECT_TRUE(called);
+    #[test]
+    fn should_return_null_for_unknown_counter() {
+        let test = ClientConductorTest::new();
+        let mut conductor = test.conductor.lock().expect("Mutex on conductor is poisoned!");
+        let counter = conductor.find_counter(100);
+
+        assert!(counter.is_err());
+    }
+
+    #[test]
+    fn should_return_null_for_counter_without_on_available_counter() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        let counter = test.conductor.lock().unwrap().find_counter(id);
+
+        assert!(counter.is_err());
+    }
+
+    #[test]
+    fn should_send_add_counter_to_driver() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = CounterMessageFlyweight::new(buffer, 0);
+
+                assert_eq!(msg_type_id, AeronCommand::AddCounter);
+                assert_eq!(message.correlation_id(), id);
+                assert_eq!(message.type_id(), COUNTER_TYPE_ID);
+                assert_eq!(message.key_length(), 0);
+                assert_eq!(message.label(), str_to_c(COUNTER_LABEL));
+            },
+            1000,
+        );
+
+        assert_eq!(count, 1);
+    }
+
+    fn on_available_counter1(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {
+        ON_AV_COUNTER_CALLED1.store(true, Ordering::SeqCst);
+    }
+
+    lazy_static! {
+        pub static ref ON_AV_COUNTER_CALLED1: AtomicBool = AtomicBool::from(false);
+    }
+
+    #[test]
+    fn should_return_counter_after_on_available_counter() {
+        let test = ClientConductorTest::new();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .add_on_available_counter_handler(on_available_counter1);
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor.lock().unwrap().on_available_counter(id, COUNTER_ID);
+
+        let counter = test.conductor.lock().unwrap().find_counter(id).unwrap();
+
+        assert_eq!(counter.registration_id(), id);
+        assert_eq!(counter.id(), COUNTER_ID);
+
+        let called = ON_AV_COUNTER_CALLED1.load(Ordering::Relaxed);
+        assert!(called);
+    }
+
+    #[test]
+    fn should_release_counter_after_going_out_of_scope() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        let _count = test.many_to_one_ring_buffer.read(|_msg_type_id, _buffer| {}, 1000);
+
+        test.conductor.lock().unwrap().on_available_counter(id, COUNTER_ID);
+
+        {
+            let counter = test.conductor.lock().unwrap().find_counter(id);
+
+            assert!(counter.is_ok());
+        }
+
+        let count = test.many_to_one_ring_buffer.read(
+            |msg_type_id, buffer| {
+                let message = RemoveMessageFlyweight::new(buffer, 0);
+
+                assert_eq!(msg_type_id, AeronCommand::RemoveCounter);
+                assert_eq!(message.registration_id(), id);
+            },
+            1000,
+        );
+
+        assert_eq!(count, 1);
+
+        let counter_post = test.conductor.lock().unwrap().find_counter(id);
+        assert!(counter_post.is_err());
+    }
+
+    #[test]
+    fn should_return_different_ids_for_duplicate_add_counter_calls() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id1 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+        let id2 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn should_return_same_find_counter_after_on_available_counter() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor.lock().unwrap().on_available_counter(id, COUNTER_ID);
+
+        let counter1 = test.conductor.lock().unwrap().find_counter(id).unwrap();
+        let counter2 = test.conductor.lock().unwrap().find_counter(id).unwrap();
+
+        assert!(Arc::ptr_eq(&counter1, &counter2));
+    }
+
+    fn on_available_counter2(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {
+        let mut val = ON_AV_COUNTER_CALLED2.load(Ordering::SeqCst);
+        val += 1;
+        ON_AV_COUNTER_CALLED2.store(val, Ordering::SeqCst);
+    }
+
+    lazy_static! {
+        pub static ref ON_AV_COUNTER_CALLED2: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::from(0);
+    }
+
+    #[test]
+    fn should_return_different_counter_after_on_available_counters() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id1 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+        let id2 = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor.lock().unwrap().on_available_counter(id1, COUNTER_ID);
+        test.conductor.lock().unwrap().on_available_counter(id2, COUNTER_ID);
+
+        let counter1 = test.conductor.lock().unwrap().find_counter(id1).unwrap();
+        let counter2 = test.conductor.lock().unwrap().find_counter(id2).unwrap();
+
+        assert!(!Arc::ptr_eq(&counter1, &counter2));
+
+        let val = ON_AV_COUNTER_CALLED2.load(Ordering::SeqCst);
+        assert_eq!(val, 2);
+    }
+
+    #[test]
+    fn should_not_find_counter_on_available_counter_for_unknown_correlation_id() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor.lock().unwrap().on_available_counter(id + 1, COUNTER_ID);
+
+        let counter = test.conductor.lock().unwrap().find_counter(id);
+
+        assert!(counter.is_err());
+    }
+
+    #[test]
+    fn should_timeout_add_counter_without_on_available_counter() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .set_epoch_clock_provider(Box::new(driver_timeout_provider));
+
+        let counter = test.conductor.lock().unwrap().find_counter(id);
+
+        assert_eq!(
+            counter.err().unwrap(),
+            AeronError::DriverTimeout(String::from("Doesn't matter"))
+        );
+    }
+
+    #[test]
+    fn should_exception_on_find_when_receiving_error_response_on_add_counter() {
+        let test = ClientConductorTest::new();
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .on_error_response(id, ERROR_CODE_GENERIC_ERROR, str_to_c("can't add counter"));
+
+        let counter = test.conductor.lock().unwrap().find_counter(id);
+
+        assert_eq!(
+            counter.err().unwrap(),
+            AeronError::RegistrationException(String::from("Doesn't matter"))
+        );
+    }
+
+    fn on_unavailable_counter1(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {
+        let mut val = ON_UNAV_COUNTER_CALLED1.load(Ordering::SeqCst);
+        val += 1;
+        ON_UNAV_COUNTER_CALLED1.store(val, Ordering::SeqCst);
+    }
+
+    lazy_static! {
+        pub static ref ON_UNAV_COUNTER_CALLED1: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::from(0);
+    }
+
+    #[test]
+    fn should_call_on_unavailable_counter() {
+        let test = ClientConductorTest::new();
+
+        let id = 101;
+        test.conductor
+            .lock()
+            .unwrap()
+            .add_on_unavailable_counter_handler(on_unavailable_counter1);
+
+        test.conductor.lock().unwrap().on_unavailable_counter(id, COUNTER_ID);
+
+        let val = ON_UNAV_COUNTER_CALLED1.load(Ordering::SeqCst);
+        assert_eq!(val, 1);
+    }
+
+    fn on_available_counter3(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {
+        let mut val = ON_AV_COUNTER_CALLED3.load(Ordering::SeqCst);
+        val += 1;
+        ON_AV_COUNTER_CALLED3.store(val, Ordering::SeqCst);
+
+        if let Some(arc_conductor) = &*LAST_TEST_CONDUCTOR.lock().unwrap() {
+            let no_key_buffer = Vec::with_capacity(1);
+            let _unused = arc_conductor
+                .lock()
+                .unwrap()
+                .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL);
+        } else {
+            panic!("Something wrong with the test");
+        }
+    }
+
+    lazy_static! {
+        pub static ref ON_AV_COUNTER_CALLED3: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::from(0);
+        pub static ref LAST_TEST_CONDUCTOR: Mutex<Option<Arc<Mutex<ClientConductor>>>> = Mutex::new(None);
+        pub static ref ERR_HANDLER_CALLED8: AtomicBool = AtomicBool::from(false);
+    }
+
+    fn error_handler8(error: AeronError) {
+        ERR_HANDLER_CALLED8.store(true, Ordering::SeqCst);
+        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+    }
+
+    #[test]
+    fn should_throw_exception_on_reentrant_callback() {
+        assert!(false); // Need to somehow avoid double locking of conductor here and in the on_available_counter3
+
+        let test = ClientConductorTest::new();
+
+        *LAST_TEST_CONDUCTOR.lock().unwrap() = Some(test.conductor.clone());
+
+        let no_key_buffer = Vec::with_capacity(1);
+        let id = test
+            .conductor
+            .lock()
+            .unwrap()
+            .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
+            .unwrap();
+
+        test.conductor
+            .lock()
+            .unwrap()
+            .add_on_available_counter_handler(on_available_counter3);
+        test.conductor.lock().unwrap().set_error_handler(error_handler8);
+
+        test.conductor.lock().unwrap().on_available_counter(id, id as i32);
+
+        let val = ON_AV_COUNTER_CALLED3.load(Ordering::SeqCst);
+        assert_eq!(val, 1);
+
+        let err_handler_called = ERR_HANDLER_CALLED8.load(Ordering::SeqCst);
+        assert!(err_handler_called);
+    }
 }
-*/

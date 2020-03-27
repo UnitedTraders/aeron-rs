@@ -339,6 +339,11 @@ impl Subscription {
         self.is_closed.load(Ordering::Acquire)
     }
 
+    pub fn has_image(&self, correlation_id: i64) -> bool {
+        let list = self.image_list.load();
+        list.iter().any(|img| img.correlation_id() == correlation_id)
+    }
+
     // Adds image to the subscription and returns Images
     // as they were just before adding this Image
     pub fn add_image(&mut self, image: Image) -> Vec<Image> {
@@ -369,6 +374,18 @@ impl Subscription {
         } else {
             None
         }
+    }
+}
+
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        let list = self.image_list.load();
+
+        let _unused = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .release_subscription(self.registration_id, list.clone());
     }
 }
 

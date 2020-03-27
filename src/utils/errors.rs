@@ -51,6 +51,13 @@ impl Display for AeronError {
     }
 }
 
+impl PartialEq for AeronError {
+    fn eq(&self, other: &Self) -> bool {
+        // Errors are equal if they have same type regardless the content of data (error message) inside
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum AeronErrorCode {
