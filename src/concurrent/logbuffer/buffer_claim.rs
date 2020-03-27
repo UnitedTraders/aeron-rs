@@ -24,7 +24,7 @@ use crate::utils::types::Index;
  * The claimed space is in {@link #buffer()} between {@link #offset()} and {@link #offset()} + {@link #length()}.
  * When the buffer is filled with message data, use {@link #commit()} to make it available to subscribers.
  */
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct BufferClaim {
     buffer: Option<AtomicBuffer>,
 }

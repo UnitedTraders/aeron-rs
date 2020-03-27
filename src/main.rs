@@ -8,7 +8,6 @@ mod channel_uri;
 mod channel_uri_string_builder;
 mod command;
 mod concurrent;
-mod fragment_assembler;
 mod protocol;
 mod utils;
 
