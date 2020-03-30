@@ -4077,6 +4077,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn should_throw_exception_on_reentrant_callback() {
         assert!(false); // Need to somehow avoid double locking of conductor here and in the on_available_counter3
 
