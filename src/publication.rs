@@ -998,7 +998,7 @@ mod tests {
 
     #[test]
     fn should_ensure_the_publication_is_open_before_offer() {
-        let mut test = PublicationTest::new();
+        let test = PublicationTest::new();
         test.publication.close();
         assert!(test.publication.is_closed());
         assert_eq!(test.publication.offer(test.src_buffer).unwrap(), PUBLICATION_CLOSED);
@@ -1016,7 +1016,7 @@ mod tests {
 
     #[test]
     fn should_offer_a_message_upon_construction() {
-        let mut test = PublicationTest::new();
+        let test = PublicationTest::new();
         let expected_position = test.src_buffer.capacity() + LENGTH;
         test.publication_limit.set(2 * test.src_buffer.capacity() as i64);
 
