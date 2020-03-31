@@ -751,7 +751,7 @@ mod tests {
     const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
     const PRE_TOUCH_MAPPED_MEMORY: bool = false;
 
-    const LOG_FILE_LENGTH: i32 = ((TERM_MIN_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+    // const LOG_FILE_LENGTH: i32 = ((TERM_MIN_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
 
     const CAPACITY: i32 = 1024;
     const MANY_TO_ONE_RING_BUFFER_LENGTH: i32 = CAPACITY + ring_buffer::TRAILER_LENGTH;
