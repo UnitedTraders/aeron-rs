@@ -46,9 +46,9 @@ impl CopyBroadcastReceiver {
         }
     }
 
-    pub fn receive<F>(&mut self, handler: F) -> Result<usize, BroadcastTransmitError>
+    pub fn receive<F>(&mut self, mut handler: F) -> Result<usize, BroadcastTransmitError>
     where
-        F: Fn(AeronCommand, AtomicBuffer, Index, Index),
+        F: FnMut(AeronCommand, AtomicBuffer, Index, Index),
     {
         let mut messages_received: usize = 0;
         let mut receiver = self.receiver.lock().expect("Mutex poisoned");
@@ -69,7 +69,7 @@ impl CopyBroadcastReceiver {
 
             let msg = AeronCommand::from_command_id(receiver.type_id());
 
-            self.scratch_buffer.put_bytes(0, receiver.buffer().as_slice());
+            self.scratch_buffer.copy_from(0, receiver.buffer(), receiver.offset(), length);
 
             if !receiver.validate() {
                 return Err(BroadcastTransmitError::UnableToKeepUpWithBroadcastBuffer);

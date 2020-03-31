@@ -4,12 +4,13 @@ use std::sync::{Arc, Mutex};
 
 use crate::client_conductor::ClientConductor;
 use crate::concurrent::atomic_vec::AtomicVec;
-use crate::concurrent::logbuffer::term_reader::FragmentHandler;
 use crate::concurrent::logbuffer::term_scan::BlockHandler;
 use crate::concurrent::status::status_indicator_reader;
 use crate::image::{ControlledPollAction, Image};
 use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::header::Header;
 
 pub struct Subscription {
     conductor: Arc<Mutex<ClientConductor>>,
@@ -168,7 +169,7 @@ impl Subscription {
      * @see fragment_handler_t
      */
 
-    pub fn poll<T>(&mut self, fragment_handler: FragmentHandler<T>, fragment_limit: i32) -> i32 {
+    pub fn poll(&mut self, fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header), fragment_limit: i32) -> i32 {
         let image_list = self.image_list.load_mut();
 
         let mut fragments_read = 0;
@@ -217,7 +218,7 @@ impl Subscription {
      * @return the number of fragments received
      * @see controlled_poll_fragment_handler_t
      */
-    pub fn controlled_poll(&mut self, fragment_handler: FragmentHandler<ControlledPollAction>, fragment_limit: i32) -> i32 {
+    pub fn controlled_poll(&mut self, fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError> + Copy, fragment_limit: i32) -> i32 {
         let image_list = self.image_list.load_mut();
 
         let mut fragments_read = 0;
@@ -316,9 +317,9 @@ impl Subscription {
      * @return image at given index or exception if out of range.
      */
 
-    pub fn image_at_index(&self, index: usize) -> Option<&Image> {
-        let list = self.image_list.load();
-        list.get(index)
+    pub fn image_by_index(&mut self, index: usize) -> Option<&mut Image> {
+        let list = self.image_list.load_mut();
+        list.get_mut(index)
     }
 
     // /**

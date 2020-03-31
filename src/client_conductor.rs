@@ -1384,7 +1384,9 @@ impl Agent for ClientConductor {
     fn do_work(&mut self) -> Result<i32, AeronError> {
         let mut work_count = 0;
 
-        work_count += self.driver_listener_adapter.as_mut().unwrap().receive_messages()?; // driver_listener_adapter must be Some here!
+        let dla = self.driver_listener_adapter.as_ref().unwrap();
+
+        work_count += dla.receive_messages()?; // driver_listener_adapter must be Some here!
         work_count += self.on_heartbeat_check_timeouts()? as usize;
         Ok(work_count as i32)
     }

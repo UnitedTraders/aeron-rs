@@ -93,11 +93,11 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
         }
     }
 
-    pub fn receive_messages(&mut self) -> Result<usize, AeronError> {
-        let this_mutexted_driver_listener = self.driver_listener.clone();
+    pub fn receive_messages(&self) -> Result<usize, AeronError> {
 
+        let mut this_driver_listener = self.driver_listener.lock().expect("Mutex poisoned");
         let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| {
-            let mut this_driver_listener = this_mutexted_driver_listener.lock().expect("Mutex poisoned");
+
             match msg {
                 AeronCommand::ResponseOnPublicationReady => {
                     let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);

@@ -95,6 +95,7 @@ impl StrategyMut for BackOffIdleStrategy {
     }
 }
 
+#[derive(Default)]
 pub struct BusySpinIdleStrategy {}
 
 impl BusySpinIdleStrategy {
