@@ -1,3 +1,6 @@
+use std::ffi::OsString;
+use std::path::Path;
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::log_buffer_descriptor;
 use crate::concurrent::logbuffer::log_buffer_descriptor::{
@@ -6,8 +9,6 @@ use crate::concurrent::logbuffer::log_buffer_descriptor::{
 use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::types::Index;
-use std::ffi::OsString;
-use std::path::Path;
 
 pub struct LogBuffers {
     memory_mapped_file: Option<MemoryMappedFile>,
@@ -32,7 +33,10 @@ impl LogBuffers {
         }
     }
 
-    pub fn from_existing<P: std::fmt::Display + AsRef<Path> + Into<OsString>>(file_path: P, pre_touch: bool) -> Result<Self, AeronError> {
+    pub fn from_existing<P: std::fmt::Display + AsRef<Path> + Into<OsString>>(
+        file_path: P,
+        pre_touch: bool,
+    ) -> Result<Self, AeronError> {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
         let log_len = MemoryMappedFile::file_size(&file_path)?;

@@ -15,30 +15,35 @@
  */
 
 use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering, AtomicI64};
-use lazy_static::lazy_static;
-use hdrhistogram::Histogram;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
-use aeron_rs::example_config::{DEFAULT_PING_CHANNEL, DEFAULT_PONG_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_STREAM_ID, DEFAULT_NUMBER_OF_WARM_UP_MESSAGES, DEFAULT_NUMBER_OF_MESSAGES, DEFAULT_MESSAGE_LENGTH, DEFAULT_FRAGMENT_COUNT_LIMIT};
+use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+use aeron_rs::concurrent::logbuffer::header::Header;
+use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
+use aeron_rs::context::Context;
+use aeron_rs::example_config::{
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES, DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
+    DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL, DEFAULT_PONG_STREAM_ID,
+};
+use aeron_rs::fragment_assembler::FragmentAssembler;
+use aeron_rs::image::Image;
 use aeron_rs::publication::Publication;
 use aeron_rs::subscription::Subscription;
-use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
-use std::time::Instant;
-use aeron_rs::context::Context;
-use aeron_rs::image::Image;
-use aeron_rs::aeron::Aeron;
-use std::sync::{Arc, Mutex};
-use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::utils::types::Index;
-use aeron_rs::concurrent::logbuffer::header::Header;
+use hdrhistogram::Histogram;
+use lazy_static::lazy_static;
 
 lazy_static! {
-        pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
-        pub static ref COUNT_DOWN: AtomicI64 = AtomicI64::new(1);
-        pub static ref SUBSCRIPTION_ID: AtomicI64 = AtomicI64::new(-1);
-        pub static ref PUBLICATION_ID: AtomicI64 = AtomicI64::new(-1);
-        pub static ref HISTOGRAMM: Arc<Mutex<Histogram::<u64>>> = Arc::new(Mutex::new(Histogram::<u64>::new_with_bounds(1, 10 * 1000 * 1000 * 1000, 3).unwrap()));
+    pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
+    pub static ref COUNT_DOWN: AtomicI64 = AtomicI64::new(1);
+    pub static ref SUBSCRIPTION_ID: AtomicI64 = AtomicI64::new(-1);
+    pub static ref PUBLICATION_ID: AtomicI64 = AtomicI64::new(-1);
+    pub static ref HISTOGRAMM: Arc<Mutex<Histogram::<u64>>> = Arc::new(Mutex::new(
+        Histogram::<u64>::new_with_bounds(1, 10 * 1000 * 1000 * 1000, 3).unwrap()
+    ));
 }
 
 fn sig_int_handler() {
@@ -82,8 +87,8 @@ fn send_ping_and_receive_pong(
     fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header),
     publication: Arc<Publication>,
     subscription: Arc<Mutex<Subscription>>,
-    settings: &Settings)
-{
+    settings: &Settings,
+) {
     let buffer = AlignedBuffer::with_capacity(settings.message_length);
     let src_buffer = AtomicBuffer::from_aligned(&buffer);
     let idle_strategy: BusySpinIdleStrategy = Default::default();
@@ -100,12 +105,11 @@ fn send_ping_and_receive_pong(
             }
             let position = publication.offer_part(src_buffer, 0, settings.message_length).unwrap();
 
-            if  position < 0 {
+            if position < 0 {
                 break position; // One of control statuses e.g. BACK_PRESSURED
             }
         };
 
-        
         idle_strategy.reset();
         loop {
             while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
@@ -123,11 +127,23 @@ fn on_new_subscription_handler(channel: CString, stream_id: i32, correlation_id:
 }
 
 fn on_new_publication_handler(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
-    println!("Publication: {} {} {} {}", channel.to_str().unwrap(), stream_id, session_id, correlation_id);
+    println!(
+        "Publication: {} {} {} {}",
+        channel.to_str().unwrap(),
+        stream_id,
+        session_id,
+        correlation_id
+    );
 }
 
 fn available_image_handler(image: &Image) {
-    println!("Available image correlation_id={} session_id={} at position={} from {}", image.correlation_id(), image.session_id(), image.position(), image.source_identity().to_str().unwrap());
+    println!(
+        "Available image correlation_id={} session_id={} at position={} from {}",
+        image.correlation_id(),
+        image.session_id(),
+        image.position(),
+        image.source_identity().to_str().unwrap()
+    );
 
     if image.subscription_registration_id() == SUBSCRIPTION_ID.load(Ordering::SeqCst) {
         let mut cnt = COUNT_DOWN.load(Ordering::SeqCst);
@@ -137,7 +153,13 @@ fn available_image_handler(image: &Image) {
 }
 
 fn unavailable_image_handler(image: &Image) {
-    println!("Unavailable image correlation_id={} session_id={} at position={} from {}", image.correlation_id(), image.session_id(), image.position(), image.source_identity().to_str().unwrap());
+    println!(
+        "Unavailable image correlation_id={} session_id={} at position={} from {}",
+        image.correlation_id(),
+        image.session_id(),
+        image.position(),
+        image.source_identity().to_str().unwrap()
+    );
 }
 
 fn str_to_c(val: &str) -> CString {
@@ -148,12 +170,19 @@ fn main() {
     ctrlc::set_handler(move || {
         println!("received Ctrl+C!");
         sig_int_handler();
-    }).expect("Error setting Ctrl-C handler");
+    })
+    .expect("Error setting Ctrl-C handler");
 
     let settings = parse_cmd_line();
 
-    println!("Subscribing Pong at {} on Stream ID {}", settings.pong_channel, settings.pong_stream_id);
-    println!("Publishing Ping at {} on Stream ID {}", settings.ping_channel, settings.ping_stream_id);
+    println!(
+        "Subscribing Pong at {} on Stream ID {}",
+        settings.pong_channel, settings.pong_stream_id
+    );
+    println!(
+        "Publishing Ping at {} on Stream ID {}",
+        settings.ping_channel, settings.ping_stream_id
+    );
 
     let mut context = Context::new();
 
@@ -172,27 +201,30 @@ fn main() {
 
     let mut aeron = Aeron::new(context);
 
-    let subscription_id = aeron.add_subscription(str_to_c(&settings.pong_channel), settings.pong_stream_id).expect("Error adding subscription");
-    let publication_id = aeron.add_publication(str_to_c(&settings.ping_channel), settings.ping_stream_id).expect("Error adding publication");
+    let subscription_id = aeron
+        .add_subscription(str_to_c(&settings.pong_channel), settings.pong_stream_id)
+        .expect("Error adding subscription");
+    let publication_id = aeron
+        .add_publication(str_to_c(&settings.ping_channel), settings.ping_stream_id)
+        .expect("Error adding publication");
 
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
     PUBLICATION_ID.store(publication_id, Ordering::SeqCst);
 
     let mut pong_subscription = aeron.find_subscription(subscription_id);
-    while !pong_subscription.is_ok() {
+    while pong_subscription.is_err() {
         std::thread::yield_now();
         pong_subscription = aeron.find_subscription(subscription_id);
     }
 
     let mut ping_publication = aeron.find_publication(publication_id);
-    while !ping_publication.is_ok() {
+    while ping_publication.is_err() {
         std::thread::yield_now();
         ping_publication = aeron.find_publication(publication_id);
     }
 
     let ping_publication = ping_publication.unwrap();
     let pong_subscription = pong_subscription.unwrap();
-
 
     //while COUNT_DOWN.load(Ordering::SeqCst) > 0 {
     //    std::thread::yield_now();
@@ -204,12 +236,22 @@ fn main() {
 
         let wstart = Instant::now();
 
-        println!("Warming up the media driver with {} messages of length {}", warmup_settings.number_of_warmup_messages, warmup_settings.message_length);
+        println!(
+            "Warming up the media driver with {} messages of length {}",
+            warmup_settings.number_of_warmup_messages, warmup_settings.message_length
+        );
 
-        let mut fragment_assembler = FragmentAssembler::new(|_buffer, _offset, _length, _header| { println!("fragment_assembler called")}, None);
+        let mut fragment_assembler = FragmentAssembler::new(
+            |_buffer: &AtomicBuffer, _offset, _length, _header: &Header| println!("fragment_assembler called"),
+            None,
+        );
 
         send_ping_and_receive_pong(
-            &mut fragment_assembler.handler(), ping_publication.clone(), pong_subscription.clone(), &warmup_settings);
+            &mut fragment_assembler.handler(),
+            ping_publication.clone(),
+            pong_subscription.clone(),
+            &warmup_settings,
+        );
 
         let duration = Instant::now() - wstart;
 
@@ -220,26 +262,41 @@ fn main() {
         HISTOGRAMM.lock().unwrap().reset();
 
         let mut fragment_assembler = FragmentAssembler::new(
-        |buffer: &AtomicBuffer, offset: Index, _length: Index, _header: &Header|
-        {
-            let end = Instant::now();
-            let mut start = Instant::now(); // Just to init it
+            |buffer: &AtomicBuffer, offset: Index, _length: Index, _header: &Header| {
+                let end = Instant::now();
+                let mut start = Instant::now(); // Just to init it
 
-            buffer.get_bytes(offset, &mut start as *mut Instant as *mut u8, std::mem::size_of_val(&start) as i32);
-            let nano_rtt = end - start;
+                buffer.get_bytes(
+                    offset,
+                    &mut start as *mut Instant as *mut u8,
+                    std::mem::size_of_val(&start) as i32,
+                );
+                let nano_rtt = end - start;
 
-            let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);
-        }, None);
+                let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);
+            },
+            None,
+        );
 
-        println!("Pinging {} messages of length {} bytes each", settings.number_of_messages, settings.message_length);
+        println!(
+            "Pinging {} messages of length {} bytes each",
+            settings.number_of_messages, settings.message_length
+        );
 
-        send_ping_and_receive_pong(&mut fragment_assembler.handler(), ping_publication.clone(), pong_subscription.clone(), &settings);
+        send_ping_and_receive_pong(
+            &mut fragment_assembler.handler(),
+            ping_publication.clone(),
+            pong_subscription.clone(),
+            &settings,
+        );
 
         let histogram = HISTOGRAMM.lock().unwrap();
         for v in histogram.iter_recorded() {
             println!("{} ns - {}", v.value_iterated_to(), v.count_at_value());
         }
 
-        if RUNNING.load(Ordering::SeqCst) == false {break;}
+        if !RUNNING.load(Ordering::SeqCst) {
+            break;
+        }
     }
 }

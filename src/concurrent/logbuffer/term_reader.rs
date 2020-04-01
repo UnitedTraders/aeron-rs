@@ -131,7 +131,14 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length), 0);
 
-        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header, error_handler);
+        let read_outcome = term_reader::read(
+            log,
+            term_offset,
+            &mut data_handler,
+            INT_MAX,
+            &mut fragment_header,
+            error_handler,
+        );
 
         assert_eq!(read_outcome.offset, aligned_frame_length);
         assert_eq!(read_outcome.fragments_read, 1);
@@ -145,7 +152,14 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(0), 0);
 
-        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header, error_handler);
+        let read_outcome = term_reader::read(
+            log,
+            term_offset,
+            &mut data_handler,
+            INT_MAX,
+            &mut fragment_header,
+            error_handler,
+        );
 
         assert_eq!(read_outcome.offset, term_offset);
         assert_eq!(read_outcome.fragments_read, 0);
@@ -190,7 +204,14 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length * 2), 0);
 
-        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header, error_handler);
+        let read_outcome = term_reader::read(
+            log,
+            term_offset,
+            &mut data_handler,
+            INT_MAX,
+            &mut fragment_header,
+            error_handler,
+        );
 
         assert_eq!(read_outcome.offset, aligned_frame_length * 2);
         assert_eq!(read_outcome.fragments_read, 2);

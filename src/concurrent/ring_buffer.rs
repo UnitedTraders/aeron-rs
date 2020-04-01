@@ -742,9 +742,9 @@ mod tests {
         test.ab.put(record_descriptor::length_offset(0), record_length);
 
         test.ab
-            .put(record_descriptor::type_offset(0 + aligned_record_length), MSG_TYPE_ID);
+            .put(record_descriptor::type_offset(aligned_record_length), MSG_TYPE_ID);
         test.ab
-            .put(record_descriptor::length_offset(0 + aligned_record_length), record_length);
+            .put(record_descriptor::length_offset(aligned_record_length), record_length);
 
         let mut times_called = 0;
         let handler = |_command, _buffer| times_called += 1;
@@ -781,9 +781,9 @@ mod tests {
         test.ab.put(record_descriptor::length_offset(0), record_length);
 
         test.ab
-            .put(record_descriptor::type_offset(0 + aligned_record_length), MSG_TYPE_ID);
+            .put(record_descriptor::type_offset(aligned_record_length), MSG_TYPE_ID);
         test.ab
-            .put(record_descriptor::length_offset(0 + aligned_record_length), record_length);
+            .put(record_descriptor::length_offset(aligned_record_length), record_length);
 
         let mut times_called = 0;
         let handler = |_command, _buffer| times_called += 1;
@@ -821,9 +821,9 @@ mod tests {
         test.ab.put(record_descriptor::length_offset(0), record_length);
 
         test.ab
-            .put(record_descriptor::type_offset(0 + aligned_record_length), MSG_TYPE_ID);
+            .put(record_descriptor::type_offset(aligned_record_length), MSG_TYPE_ID);
         test.ab
-            .put(record_descriptor::length_offset(0 + aligned_record_length), record_length);
+            .put(record_descriptor::length_offset(aligned_record_length), record_length);
 
         let mut times_called = 0;
 

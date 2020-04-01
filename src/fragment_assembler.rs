@@ -21,14 +21,13 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::logbuffer::data_frame_header;
 use crate::concurrent::logbuffer::frame_descriptor;
 use crate::concurrent::logbuffer::header::Header;
-use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 
 const DEFAULT_FRAGMENT_ASSEMBLY_BUFFER_LENGTH: isize = 4096;
 
-pub trait Fragment: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError> {}
+pub trait Fragment: FnMut(&AtomicBuffer, Index, Index, &Header) {}
 
-impl<T: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>> Fragment for T {}
+impl<T: FnMut(&AtomicBuffer, Index, Index, &Header)> Fragment for T {}
 
 /**
  * A handler that sits in a chain-of-responsibility pattern that reassembles fragmented messages
@@ -44,7 +43,7 @@ impl<T: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>> F
  * {@link #deleteSessionBuffer(std::int32_t)}.
  */
 pub struct FragmentAssembler {
-    delegate: Box<dyn FnMut(&AtomicBuffer, Index, Index, &Header)>,
+    delegate: Box<dyn Fragment>,
     builder_by_session_id_map: HashMap<i32, BufferBuilder>,
     initial_buffer_length: isize,
 }
@@ -56,7 +55,7 @@ impl FragmentAssembler {
      * @param delegate            onto which whole messages are forwarded.
      * @param initialBufferLength to be used for each session.
      */
-    pub fn new(delegate: impl FnMut(&AtomicBuffer, Index, Index, &Header) + 'static, initial_buffer_length: Option<isize>) -> Self {
+    pub fn new(delegate: impl Fragment + 'static, initial_buffer_length: Option<isize>) -> Self {
         Self {
             delegate: Box::new(delegate),
             builder_by_session_id_map: HashMap::new(),
@@ -70,7 +69,7 @@ impl FragmentAssembler {
      *
      * @return fragment_handler_t composed with the FragmentAssembler instance
      */
-    pub fn handler(&mut self) -> impl FnMut(&AtomicBuffer, Index, Index, &Header) + '_ {
+    pub fn handler(&mut self) -> impl Fragment + '_ {
         move |buffer: &AtomicBuffer, offset, length, header: &Header| self.on_fragment(buffer, offset, length, header)
     }
 
