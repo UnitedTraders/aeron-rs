@@ -52,7 +52,7 @@ use std::ffi::CString;
  * @see BufferClaim
  */
 
-pub(crate) struct ExclusivePublication {
+pub struct ExclusivePublication {
     conductor: Arc<Mutex<ClientConductor>>,
     log_meta_data_buffer: AtomicBuffer,
     channel: CString,

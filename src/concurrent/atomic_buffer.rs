@@ -13,7 +13,7 @@ pub struct AlignedBuffer {
 }
 
 impl AlignedBuffer {
-    pub(crate) fn with_capacity(len: Index) -> AlignedBuffer {
+    pub fn with_capacity(len: Index) -> AlignedBuffer {
         AlignedBuffer {
             ptr: alloc_buffer_aligned(len),
             len,

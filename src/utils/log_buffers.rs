@@ -32,7 +32,7 @@ impl LogBuffers {
         }
     }
 
-    pub fn from_existing<P: AsRef<Path> + Into<OsString>>(file_path: P, pre_touch: bool) -> Result<Self, AeronError> {
+    pub fn from_existing<P: std::fmt::Display + AsRef<Path> + Into<OsString>>(file_path: P, pre_touch: bool) -> Result<Self, AeronError> {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
         let log_len = MemoryMappedFile::file_size(&file_path)?;

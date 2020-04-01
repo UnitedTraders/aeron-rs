@@ -93,9 +93,9 @@ impl BroadcastTransmitter {
         self.buffer
             .put::<i32>(record_descriptor::type_offset(record_offset), msg_type_id);
 
-        self.buffer.put_bytes(
+        self.buffer.copy_from(
             record_descriptor::msg_offset(record_offset),
-            src_buffer.as_sub_slice(src_index, length),
+            src_buffer, src_index, length
         );
 
         self.buffer.put::<i64>(self.latest_counter_index, current_tail);
