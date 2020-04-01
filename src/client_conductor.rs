@@ -519,7 +519,7 @@ impl ClientConductor {
             Ok(lb.log_buffers.clone())
         } else {
             let touch = self.pre_touch_mapped_memory && !channel.to_string_lossy().contains("sparse=true");
-            let log_buffer = LogBuffers::from_existing(log_filename.to_str().expect("CString conv error"), touch)?;
+            let log_buffer = LogBuffers::from_existing(log_filename.into_string().expect("CString conv error"), touch)?;
 
             let log_buffers = Arc::new(log_buffer);
             self.log_buffers_by_registration_id
@@ -1384,9 +1384,11 @@ impl Agent for ClientConductor {
     fn do_work(&mut self) -> Result<i32, AeronError> {
         let mut work_count = 0;
 
-        let dla = self.driver_listener_adapter.as_ref().unwrap();
-
-        work_count += dla.receive_messages()?; // driver_listener_adapter must be Some here!
+        //let dla = self.driver_listener_adapter.as_ref().unwrap();
+        let dla = self.driver_listener_adapter.take().unwrap();
+        work_count += dla.receive_messages(self)?;
+        self.driver_listener_adapter.replace(dla);
+        //work_count += dla.receive_messages()?; // driver_listener_adapter must be Some here!
         work_count += self.on_heartbeat_check_timeouts()? as usize;
         Ok(work_count as i32)
     }
@@ -1421,8 +1423,8 @@ impl DriverListener for ClientConductor {
         }
 
         let log_buffers: Option<Arc<LogBuffers>> = Some(
-            self.get_log_buffers(original_registration_id, log_file_name, channel)
-                .expect("get_log_buffers failed"),
+            self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
+                .expect(&format!("Get log_buffers failed, log_filename \"{}\"", log_file_name.to_str().unwrap())),
         );
 
         if let Some(state) = self.publication_by_registration_id.get_mut(&registration_id) {
@@ -1459,8 +1461,8 @@ impl DriverListener for ClientConductor {
         }
 
         let log_buffers: Option<Arc<LogBuffers>> = Some(
-            self.get_log_buffers(original_registration_id, log_file_name, channel)
-                .expect("get_log_buffers failed"),
+            self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
+                .expect(&format!("Get log_buffers failed, log_filename \"{}\"", log_file_name.to_str().unwrap())),
         );
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get_mut(&registration_id) {
@@ -1667,8 +1669,8 @@ impl DriverListener for ClientConductor {
         }
 
         let log_buffers = self
-            .get_log_buffers(correlation_id, log_filename, channel)
-            .expect("Get log_buffers failed");
+            .get_log_buffers(correlation_id, log_filename.clone(), channel)
+            .expect(&format!("Get log_buffers failed, log_filename \"{}\"", log_filename.to_str().unwrap()));
 
         let mut linger_images: Option<Vec<Image>> = None;
 

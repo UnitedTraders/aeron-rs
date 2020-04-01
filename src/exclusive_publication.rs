@@ -118,7 +118,7 @@ impl ExclusivePublication {
             log_meta_data_buffer: log_md_buffer,
             channel,
             registration_id,
-            max_possible_position: (log_buffers.atomic_buffer(0).capacity() << 31) as i64,
+            max_possible_position: (log_buffers.atomic_buffer(0).capacity() as i64) << 31,
             stream_id,
             session_id,
             initial_term_id: log_buffer_descriptor::initial_term_id(&log_md_buffer),

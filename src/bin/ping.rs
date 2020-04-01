@@ -19,21 +19,23 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use hdrhistogram::Histogram;
+
 use aeron_rs::aeron::Aeron;
 use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use aeron_rs::concurrent::logbuffer::header::Header;
 use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{
-    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES, DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH,
     DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL, DEFAULT_PONG_STREAM_ID,
 };
 use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::image::Image;
 use aeron_rs::publication::Publication;
 use aeron_rs::subscription::Subscription;
+use aeron_rs::utils::errors::AeronError;
 use aeron_rs::utils::types::Index;
-use hdrhistogram::Histogram;
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -71,8 +73,8 @@ impl Settings {
             pong_channel: String::from(DEFAULT_PONG_CHANNEL),
             ping_stream_id: DEFAULT_PING_STREAM_ID,
             pong_stream_id: DEFAULT_PONG_STREAM_ID,
-            number_of_warmup_messages: DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
-            number_of_messages: DEFAULT_NUMBER_OF_MESSAGES,
+            number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
+            number_of_messages: 1,        //DEFAULT_NUMBER_OF_MESSAGES,
             message_length: DEFAULT_MESSAGE_LENGTH,
             fragment_count_limit: DEFAULT_FRAGMENT_COUNT_LIMIT,
         }
@@ -93,7 +95,6 @@ fn send_ping_and_receive_pong(
     let src_buffer = AtomicBuffer::from_aligned(&buffer);
     let idle_strategy: BusySpinIdleStrategy = Default::default();
     let mut subscription = subscription.lock().unwrap();
-    let image = subscription.image_by_index(0).unwrap();
 
     for _i in 0..settings.number_of_messages {
         let position = loop {
@@ -110,15 +111,30 @@ fn send_ping_and_receive_pong(
             }
         };
 
+        println!("Position after offer: {}", position);
+
+        let mut maybe_image = subscription.image_by_index(0);
+
+        while maybe_image.is_none() {
+            println!("Waiting for image...");
+            maybe_image = subscription.image_by_index(0);
+        }
+        let image = maybe_image.unwrap();
+
         idle_strategy.reset();
-        loop {
-            while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
-                idle_strategy.idle();
-            }
+        //loop {
+        //while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
+        image.poll(fragment_handler, settings.fragment_count_limit);
+        idle_strategy.idle();
+        println!("Polling image. Positions is: {}", image.position());
+        //}
+        /*
             if image.position() >= position {
+                println!("Polling image COMPLETED. Positions is: {}", image.position());
                 break;
             }
         }
+        */
     }
 }
 
@@ -162,6 +178,10 @@ fn unavailable_image_handler(image: &Image) {
     );
 }
 
+fn error_handler(error: AeronError) {
+    println!("Error: {:?}", error);
+}
+
 fn str_to_c(val: &str) -> CString {
     CString::new(val).expect("Error converting str to CString")
 }
@@ -196,6 +216,7 @@ fn main() {
     context.set_new_publication_handler(on_new_publication_handler);
     context.set_available_image_handler(available_image_handler);
     context.set_unavailable_image_handler(unavailable_image_handler);
+    context.set_error_handler(error_handler);
     context.set_pre_touch_mapped_memory(true);
     //context.set_use_conductor_agent_invoker(true); // start it in one thread for debugging
 

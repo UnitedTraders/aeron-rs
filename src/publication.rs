@@ -105,7 +105,7 @@ impl Publication {
             registration_id,
             original_registration_id,
             log_buffers: log_buffers.clone(),
-            max_possible_position: (log_buffers.atomic_buffer(0).capacity() << 31) as i64,
+            max_possible_position: (log_buffers.atomic_buffer(0).capacity() as i64) << 31,
             stream_id,
             session_id,
             initial_term_id: log_buffer_descriptor::initial_term_id(&log_md_buffer),
@@ -678,7 +678,7 @@ impl Publication {
             return ((position - term_offset) + resulting_offset) as i64;
         }
 
-        if position + term_offset > self.max_possible_position as Index {
+        if position as i64 + term_offset as i64 > self.max_possible_position {
             return MAX_POSITION_EXCEEDED;
         }
 
@@ -1029,7 +1029,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i64::max_value() as i64);
 
         assert_eq!(test.publication.position(), initial_position as i64);
         assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);

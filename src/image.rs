@@ -321,8 +321,15 @@ impl Image {
                 self.subscriber_position.set_ordered(new_position);
             }
 
+            println!("DBG: poll new_position {}, position {}, read_outcome.offset {}, term_offset {} ",
+                     new_position,
+                     position,
+                     read_outcome.offset,
+                     term_offset);
+
             read_outcome.fragments_read
         } else {
+            println!("DBG: poll publication is CLOSED!");
             0
         }
     }

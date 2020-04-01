@@ -326,9 +326,11 @@ pub fn rotate_log(log_meta_data_buffer: &AtomicBuffer, current_term_count: i32, 
         if expected_term_id != term_id(raw_tail) {
             break;
         }
-    }
 
-    while !cas_raw_tail(log_meta_data_buffer, next_index, raw_tail, new_raw_tail) {}
+        if cas_raw_tail(log_meta_data_buffer, next_index, raw_tail, new_raw_tail) {
+            break;
+        }
+    }
 
     cas_active_term_count(log_meta_data_buffer, current_term_count, next_term_count);
 }

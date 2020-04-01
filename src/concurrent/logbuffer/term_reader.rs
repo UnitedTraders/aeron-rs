@@ -60,6 +60,8 @@ pub fn read(
 
     while outcome.fragments_read < fragments_limit && term_offset < capacity {
         let frame_length = frame_descriptor::frame_length_volatile(&term_buffer, term_offset);
+        println!("DBG: term_reader: read frame_length {}", frame_length);
+
         if frame_length <= 0 {
             break;
         }
@@ -79,6 +81,8 @@ pub fn read(
             );
 
             outcome.fragments_read += 1;
+
+            println!("DBG: term_reader: read outcome.fragments_read {}", outcome.fragments_read);
         }
     }
 

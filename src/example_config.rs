@@ -16,7 +16,7 @@
 
 pub const DEFAULT_CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
 pub const DEFAULT_PING_CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
-pub const DEFAULT_PONG_CHANNEL: &str = "aeron:udp?endpoint=localhost:40124";
+pub const DEFAULT_PONG_CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
 pub const DEFAULT_STREAM_ID: i32 = 1001;
 pub const DEFAULT_PING_STREAM_ID: i32 = 1002;
 pub const DEFAULT_PONG_STREAM_ID: i32 = 1003;

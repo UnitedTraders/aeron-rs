@@ -16,6 +16,7 @@
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
+use crate::client_conductor::ClientConductor;
 use crate::command::client_timeout_flyweight::ClientTimeoutFlyweight;
 use crate::command::control_protocol_events::AeronCommand;
 use crate::command::counter_update_flyweight::CounterUpdateFlyweight;
@@ -93,10 +94,11 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
         }
     }
 
-    pub fn receive_messages(&self) -> Result<usize, AeronError> {
-        let mut this_driver_listener = self.driver_listener.lock().expect("Mutex poisoned");
+    pub fn receive_messages(&self, this_driver_listener: &mut ClientConductor) -> Result<usize, AeronError> {
+        //let mut this_driver_listener = self.driver_listener.lock().expect("Mutex poisoned");
         let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| match msg {
             AeronCommand::ResponseOnPublicationReady => {
+                println!("AeronCommand::ResponseOnPublicationReady");
                 let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_new_publication(
@@ -110,6 +112,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 );
             }
             AeronCommand::ResponseOnExclusivePublicationReady => {
+                println!("ResponseOnExclusivePublicationReady");
                 let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_new_exclusive_publication(
@@ -123,6 +126,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 );
             }
             AeronCommand::ResponseOnSubscriptionReady => {
+                println!("ResponseOnSubscriptionReady");
                 let subscription_ready = SubscriptionReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_subscription_ready(
@@ -131,6 +135,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 );
             }
             AeronCommand::ResponseOnAvailableImage => {
+                println!("ResponseOnAvailableImage");
                 let image_ready = ImageBuffersReadyFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_available_image(
@@ -143,17 +148,20 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 );
             }
             AeronCommand::ResponseOnOperationSuccess => {
+                println!("ResponseOnOperationSuccess");
                 let operation_succeeded = OperationSucceededFlyweight::new(buffer, offset);
 
                 this_driver_listener.on_operation_success(operation_succeeded.correlation_id());
             }
             AeronCommand::ResponseOnUnavailableImage => {
+                println!("ResponseOnUnavailableImage");
                 let image_message = ImageMessageFlyweight::new(buffer, offset);
 
                 this_driver_listener
                     .on_unavailable_image(image_message.correlation_id(), image_message.subscription_registration_id());
             }
             AeronCommand::ResponseOnError => {
+                println!("ResponseOnError");
                 let error_response = ErrorResponseFlyweight::new(buffer, offset);
 
                 let error_code = error_response.error_code();
@@ -172,6 +180,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 }
             }
             AeronCommand::ResponseOnCounterReady => {
+                println!("ResponseOnCounterReady");
                 let response = CounterUpdateFlyweight::new(buffer, offset);
                 this_driver_listener.on_available_counter(response.correlation_id(), response.counter_id());
             }
@@ -180,6 +189,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                 this_driver_listener.on_unavailable_counter(response.correlation_id(), response.counter_id());
             }
             AeronCommand::ResponseOnClientTimeout => {
+                println!("ResponseOnClientTimeout");
                 let response = ClientTimeoutFlyweight::new(buffer, offset);
                 this_driver_listener.on_client_timeout(response.client_id());
             }

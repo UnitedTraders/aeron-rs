@@ -19,7 +19,7 @@ use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
 use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor};
 use crate::utils::bit_utils;
 use crate::utils::errors::AeronError;
-use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
+use crate::utils::types::{Index, I64_SIZE};
 
 /**
  * Supplies the reserved value field for a data frame header. The returned value will be set in the header as
@@ -34,7 +34,7 @@ use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
  */
 pub type OnReservedValueSupplier = fn(AtomicBuffer, Index, Index) -> i64;
 
-pub const TERM_APPENDER_FAILED: Index = I32_SIZE - 2;
+pub const TERM_APPENDER_FAILED: Index = -2;
 
 pub fn default_reserved_value_supplier(_term_buffer: AtomicBuffer, _term_offset: Index, _length: Index) -> i64 {
     0

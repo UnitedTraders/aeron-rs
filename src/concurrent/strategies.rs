@@ -116,9 +116,7 @@ impl Strategy for BusySpinIdleStrategy {
         Self::pause();
     }
 
-    fn reset(&self) {
-        unimplemented!()
-    }
+    fn reset(&self) {}
 }
 
 pub struct NoOpIdleStrategy {}
