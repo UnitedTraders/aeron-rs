@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -28,7 +29,6 @@ use crate::utils::bit_utils::number_of_trailing_zeroes;
 use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
-use std::ffi::CString;
 
 pub(crate) const NOT_CONNECTED: i64 = -1;
 pub(crate) const BACK_PRESSURED: i64 = -2;
@@ -938,20 +938,6 @@ mod tests {
                 ),
             }
         }
-
-        fn create_pub(&mut self) {
-            self.publication = Publication::new(
-                self.conductor.clone(),
-                (*CHANNEL).clone(),
-                CORRELATION_ID,
-                ORIGINAL_REGISTRATION_ID,
-                STREAM_ID,
-                SESSION_ID,
-                self.publication_limit.clone(),
-                NO_ID_ALLOCATED,
-                self.log_buffers.clone(),
-            );
-        }
     }
 
     #[test]
@@ -1026,17 +1012,16 @@ mod tests {
 
     #[test]
     fn should_fail_to_offer_a_message_when_limited() {
-        let mut test = PublicationTest::new();
+        let test = PublicationTest::new();
 
         test.publication_limit.set(0);
-        test.create_pub();
 
         assert_eq!(test.publication.offer(test.src_buffer).unwrap(), NOT_CONNECTED);
     }
 
     #[test]
     fn should_fail_to_offer_when_append_fails() {
-        let mut test = PublicationTest::new();
+        let test = PublicationTest::new();
         let active_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
         let initial_position = TERM_MIN_LENGTH;
 
@@ -1045,7 +1030,6 @@ mod tests {
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
         test.publication_limit.set(i32::max_value() as i64);
-        test.create_pub();
 
         assert_eq!(test.publication.position(), initial_position as i64);
         assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
@@ -1053,7 +1037,7 @@ mod tests {
 
     #[test]
     fn should_rotate_when_append_trips() {
-        let mut test = PublicationTest::new();
+        let test = PublicationTest::new();
         let active_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1);
         let initial_position = TERM_MIN_LENGTH - LENGTH;
 
@@ -1062,7 +1046,6 @@ mod tests {
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
         test.publication_limit.set(i32::max_value() as i64);
-        test.create_pub();
 
         assert_eq!(test.publication.position(), initial_position as i64);
         assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
@@ -1095,7 +1078,6 @@ mod tests {
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
         test.publication_limit.set(i32::max_value() as i64);
-        test.create_pub();
 
         let buffer_claim = BufferClaim::default();
 
