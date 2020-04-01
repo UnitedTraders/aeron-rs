@@ -89,11 +89,11 @@ impl FragmentAssembler {
         if (flags & frame_descriptor::UNFRAGMENTED) == frame_descriptor::UNFRAGMENTED {
             (*self.delegate)(buffer, offset, length, header);
         } else if (flags & frame_descriptor::BEGIN_FRAG) == frame_descriptor::BEGIN_FRAG {
-            // FIXME: Check the logic to imitate C++ emplace
-            let result = self
-                .builder_by_session_id_map
-                .insert(header.session_id(), BufferBuilder::new(self.initial_buffer_length));
-            let mut builder = result.unwrap();
+            // Here we need following logic: if BufferBuilder for given session_id do exist in the map - use it.
+            // If there is no such BufferBuilder then create on, insert in to map and use it.
+            let initial_buffer_length = self.initial_buffer_length;
+            let builder = self.builder_by_session_id_map.entry(header.session_id()).or_insert_with(|| BufferBuilder::new(initial_buffer_length));
+
             builder.reset().append(buffer, offset, length, header).expect("append failed");
         } else if let Some(builder) = self.builder_by_session_id_map.get_mut(&header.session_id()) {
             if builder.limit() != data_frame_header::LENGTH {
@@ -153,31 +153,36 @@ mod test {
             }
         }
 
-        fn fill_frame(&self, flags: u8, offset: i32, length: i32, initial_payload_value: u8) {
+        fn fill_frame(&self, flags: u8, offset: i32, length: i32, payload_value: u8) {
             let frame = self.buffer.overlay_struct::<DataFrameHeaderDefn>(offset);
             unsafe {
-                let mut frame = *frame;
-                frame.frame_length = data_frame_header::LENGTH + length;
-                frame.version = data_frame_header::CURRENT_VERSION;
-                frame.flags = flags;
-                frame.frame_type = data_frame_header::HDR_TYPE_DATA;
-                frame.term_offset = offset;
-                frame.session_id = SESSION_ID;
-                frame.stream_id = STREAM_ID;
-                frame.term_id = ACTIVE_TERM_ID;
+                (*frame).frame_length = data_frame_header::LENGTH + length;
+                (*frame).version = data_frame_header::CURRENT_VERSION;
+                (*frame).flags = flags;
+                (*frame).frame_type = data_frame_header::HDR_TYPE_DATA;
+                (*frame).term_offset = offset;
+                (*frame).session_id = SESSION_ID;
+                (*frame).stream_id = STREAM_ID;
+                (*frame).term_id = ACTIVE_TERM_ID;
             }
-            let mut value = initial_payload_value;
+
             for i in 0..length {
-                self.buffer.put(i + offset + data_frame_header::LENGTH, value);
-                value += 1;
+                self.buffer.put(i + offset + data_frame_header::LENGTH, payload_value);
             }
         }
 
-        fn verify_payload(buffer: &AtomicBuffer, offset: Index, length: Index) {
+        // Fragment_len must contain length on i-th fragment.
+        // Each byte of each fragment was previously filled with the fragments seq number.
+        fn verify_payload(buffer: &AtomicBuffer, offset: Index, fragment_len: &[Index]) {
             unsafe {
                 let ptr = buffer.buffer().offset(offset as isize);
-                for i in 0..length {
-                    assert_eq!(*(ptr.offset(i as isize)) as i32, i % 256);
+
+                let mut fragment_offset = 0;
+                for (i, len) in fragment_len.iter().enumerate() {
+                    for j in fragment_offset..fragment_offset + *len {
+                        assert_eq!(*(ptr.offset(j as isize)) as u8, i as u8 + 1 );
+                    }
+                    fragment_offset += *len;
                 }
             }
         }
@@ -187,7 +192,7 @@ mod test {
     fn should_pass_through_unfragmented_message() {
         let test = FragmentAssemblerTest::new();
         let msg_length = 158;
-        test.fill_frame(frame_descriptor::UNFRAGMENTED, 0, msg_length, 0);
+        test.fill_frame(frame_descriptor::UNFRAGMENTED, 0, msg_length, 1);
         let mut called = false;
         let fragment = move |buffer: &AtomicBuffer, offset: Index, length: Index, header: &Header| {
             called = true;
@@ -196,7 +201,8 @@ mod test {
             assert_eq!(header.session_id(), SESSION_ID);
             assert_eq!(header.stream_id(), STREAM_ID);
             assert_eq!(header.term_id(), ACTIVE_TERM_ID);
-            assert_eq!(header.term_offset(), 0);
+            assert_eq!(header.initial_term_id(), INITIAL_TERM_ID);
+            assert_eq!(header.term_offset(), MTU_LENGTH);
             assert_eq!(header.frame_length(), data_frame_header::LENGTH + msg_length);
             assert_eq!(header.flags(), frame_descriptor::UNFRAGMENTED);
             assert_eq!(
@@ -211,7 +217,7 @@ mod test {
                     INITIAL_TERM_ID
                 )
             );
-            FragmentAssemblerTest::verify_payload(buffer, offset, length);
+            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length]);
         };
 
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
@@ -233,7 +239,8 @@ mod test {
             assert_eq!(header.session_id(), SESSION_ID);
             assert_eq!(header.stream_id(), STREAM_ID);
             assert_eq!(header.term_id(), ACTIVE_TERM_ID);
-            assert_eq!(header.term_offset(), 0);
+            assert_eq!(header.initial_term_id(), INITIAL_TERM_ID);
+            assert_eq!(header.term_offset(), MTU_LENGTH);
             assert_eq!(header.frame_length(), data_frame_header::LENGTH + msg_length);
             assert_eq!(header.flags(), frame_descriptor::END_FRAG);
             assert_eq!(
@@ -248,18 +255,18 @@ mod test {
                     INITIAL_TERM_ID
                 )
             );
-            FragmentAssemblerTest::verify_payload(buffer, offset, length);
+            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length,msg_length]);
         };
 
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
 
-        test.fill_frame(frame_descriptor::BEGIN_FRAG, 0, msg_length, 0);
+        test.fill_frame(frame_descriptor::BEGIN_FRAG, 0, msg_length, 1);
         test.header.set_offset(0);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
 
         test.header.set_offset(MTU_LENGTH);
-        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, (msg_length % 256) as u8);
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 2);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(called);
     }
@@ -292,18 +299,18 @@ mod test {
                     INITIAL_TERM_ID
                 )
             );
-            FragmentAssemblerTest::verify_payload(buffer, offset, length);
+            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length,msg_length,msg_length]);
         };
 
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
 
-        test.fill_frame(frame_descriptor::BEGIN_FRAG, 0, msg_length, 0);
+        test.fill_frame(frame_descriptor::BEGIN_FRAG, 0, msg_length, 1);
         test.header.set_offset(0);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
 
         test.header.set_offset(MTU_LENGTH);
-        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, (msg_length % 256) as u8);
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 2);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
 
@@ -312,7 +319,7 @@ mod test {
             frame_descriptor::END_FRAG,
             MTU_LENGTH * 2,
             msg_length,
-            ((msg_length * 2) % 256) as u8,
+            3,
         );
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(called);
@@ -331,7 +338,7 @@ mod test {
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
 
         test.header.set_offset(MTU_LENGTH);
-        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, (msg_length % 256) as u8);
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 1);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
     }
@@ -349,7 +356,7 @@ mod test {
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
 
         test.header.set_offset(MTU_LENGTH);
-        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, (msg_length % 256) as u8);
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 1);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
 
@@ -358,7 +365,7 @@ mod test {
             frame_descriptor::END_FRAG,
             MTU_LENGTH * 2,
             msg_length,
-            ((msg_length * 2) % 256) as u8,
+            2,
         );
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
