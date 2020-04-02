@@ -92,7 +92,10 @@ impl FragmentAssembler {
             // Here we need following logic: if BufferBuilder for given session_id do exist in the map - use it.
             // If there is no such BufferBuilder then create on, insert in to map and use it.
             let initial_buffer_length = self.initial_buffer_length;
-            let builder = self.builder_by_session_id_map.entry(header.session_id()).or_insert_with(|| BufferBuilder::new(initial_buffer_length));
+            let builder = self
+                .builder_by_session_id_map
+                .entry(header.session_id())
+                .or_insert_with(|| BufferBuilder::new(initial_buffer_length));
 
             builder.reset().append(buffer, offset, length, header).expect("append failed");
         } else if let Some(builder) = self.builder_by_session_id_map.get_mut(&header.session_id()) {
@@ -180,7 +183,7 @@ mod test {
                 let mut fragment_offset = 0;
                 for (i, len) in fragment_len.iter().enumerate() {
                     for j in fragment_offset..fragment_offset + *len {
-                        assert_eq!(*(ptr.offset(j as isize)) as u8, i as u8 + 1 );
+                        assert_eq!(*(ptr.offset(j as isize)) as u8, i as u8 + 1);
                     }
                     fragment_offset += *len;
                 }
@@ -202,7 +205,7 @@ mod test {
             assert_eq!(header.stream_id(), STREAM_ID);
             assert_eq!(header.term_id(), ACTIVE_TERM_ID);
             assert_eq!(header.initial_term_id(), INITIAL_TERM_ID);
-            assert_eq!(header.term_offset(), MTU_LENGTH);
+            assert_eq!(header.term_offset(), 0);
             assert_eq!(header.frame_length(), data_frame_header::LENGTH + msg_length);
             assert_eq!(header.flags(), frame_descriptor::UNFRAGMENTED);
             assert_eq!(
@@ -255,7 +258,7 @@ mod test {
                     INITIAL_TERM_ID
                 )
             );
-            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length,msg_length]);
+            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length, msg_length]);
         };
 
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
@@ -299,7 +302,7 @@ mod test {
                     INITIAL_TERM_ID
                 )
             );
-            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length,msg_length,msg_length]);
+            FragmentAssemblerTest::verify_payload(buffer, offset, &[msg_length, msg_length, msg_length]);
         };
 
         let mut adapter = FragmentAssembler::new(Box::new(fragment), None);
@@ -315,12 +318,7 @@ mod test {
         assert!(!called);
 
         test.header.set_offset(MTU_LENGTH * 2);
-        test.fill_frame(
-            frame_descriptor::END_FRAG,
-            MTU_LENGTH * 2,
-            msg_length,
-            3,
-        );
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH * 2, msg_length, 3);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(called);
     }
@@ -361,12 +359,7 @@ mod test {
         assert!(!called);
 
         test.header.set_offset(MTU_LENGTH * 2);
-        test.fill_frame(
-            frame_descriptor::END_FRAG,
-            MTU_LENGTH * 2,
-            msg_length,
-            2,
-        );
+        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH * 2, msg_length, 2);
         adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!called);
     }

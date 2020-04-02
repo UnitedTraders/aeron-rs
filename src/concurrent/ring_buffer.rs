@@ -180,7 +180,7 @@ impl ManyToOneRingBuffer {
 
     // todo: replace src+start/len with a single struct blitted over a buffer?
     pub fn write(&self, cmd: AeronCommand, src: &[u8], length: Index) -> Result<(), Error> {
-        // record_descriptor::check_msg_type_id()?;
+        record_descriptor::check_msg_type_id(cmd as i32)?;
         self.check_msg_length(length)?;
 
         let record_len = length + record_descriptor::HEADER_LENGTH;
@@ -423,6 +423,9 @@ impl ManyToOneRingBuffer {
 
 #[cfg(test)]
 mod tests {
+    // use std::sync::atomic::{AtomicI64, Ordering};
+    // use std::sync::Arc;
+
     use super::*;
     use crate::command::control_protocol_events::AeronCommand;
     use crate::{
@@ -916,4 +919,46 @@ mod tests {
         assert_eq!(test.ab.get::<i64>(HEAD_COUNTER_INDEX), message_length as i64);
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), (message_length * 3) as i64);
     }
+
+    #[test]
+    fn ring_buffer_should_not_unblock_gap_with_message_race_on_second_message_increasing_tail_then_interrupting() {}
+
+    #[test]
+    fn ring_buffer_should_not_unblock_gap_with_message_race_when_scan_forward_takes_an_interrupt() {}
+
+    const NUM_MESSAGES_PER_PUBLISHER: i64 = 10 * 1000 * 1000;
+    const NUM_IDS_PER_THREAD: i64 = 10 * 1000 * 1000;
+    const NUM_PUBLISHERS: i64 = 2;
+
+    // #[test]
+    // fn ring_buffer_should_provide_correlation_ids() {
+    //     let test = Test::new();
+    //     let mpsc_buffer = AlignedBuffer::with_capacity(1024 + TRAILER_LENGTH);
+    //     let mpsc_ab = AtomicBuffer::from_aligned(&mpsc_buffer);
+    //     let ring_buffer = Arc::new(ManyToOneRingBuffer::new(mpsc_ab).unwrap());
+    //
+    //     let count_down: AtomicI64 = AtomicI64::new(NUM_PUBLISHERS);
+    //
+    //     let mut threads: Vec<std::thread::JoinHandle<()>>;
+    //
+    //     for i in 0..NUM_PUBLISHERS {
+    //         let ring_buffer = ring_buffer.clone();
+    //         threads.push(std::thread::spawn(move || {
+    //             count_down.fetch_sub(1, Ordering::SeqCst);
+    //             while count_down.load(Ordering::SeqCst) > 0 {
+    //                 std::thread::yield_now();
+    //             }
+    //
+    //             for i in 0..NUM_IDS_PER_THREAD {
+    //                 ring_buffer.next_correlation_id();
+    //             }
+    //         }));
+    //     }
+    //
+    //     threads.iter().for_each(|thread| thread.join().unwrap());
+    //     assert_eq!(ring_buffer.next_correlation_id(), NUM_IDS_PER_THREAD * NUM_PUBLISHERS);
+    // }
+
+    #[test]
+    fn ring_buffer_should_exchange_messages() {}
 }
