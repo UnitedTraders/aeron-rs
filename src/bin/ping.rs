@@ -27,8 +27,8 @@ use aeron_rs::concurrent::logbuffer::header::Header;
 use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{
-    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH,
-    DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL, DEFAULT_PONG_STREAM_ID,
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL,
+    DEFAULT_PONG_STREAM_ID,
 };
 use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::image::Image;

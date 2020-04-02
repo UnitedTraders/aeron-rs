@@ -3950,7 +3950,10 @@ mod tests {
             .add_counter(COUNTER_TYPE_ID, &no_key_buffer, COUNTER_LABEL)
             .unwrap();
 
-        test.conductor.lock().unwrap().add_on_available_counter_handler(on_available_counter2);
+        test.conductor
+            .lock()
+            .unwrap()
+            .add_on_available_counter_handler(on_available_counter2);
         test.conductor.lock().unwrap().on_available_counter(id1, COUNTER_ID);
         test.conductor.lock().unwrap().on_available_counter(id2, COUNTER_ID);
 
@@ -4057,7 +4060,7 @@ mod tests {
         let val = ON_UNAV_COUNTER_CALLED1.load(Ordering::SeqCst);
         assert_eq!(val, 1);
     }
-/*
+    /*
     fn on_available_counter3(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {
         let mut val = ON_AV_COUNTER_CALLED3.load(Ordering::SeqCst);
         val += 1;
