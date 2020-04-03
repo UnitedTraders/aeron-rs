@@ -133,7 +133,7 @@ impl AtomicBuffer {
     #[inline]
     pub fn set_memory(&self, position: Index, len: Index, value: u8) {
         self.bounds_check(position, len);
-        let s = unsafe { slice::from_raw_parts_mut(self.ptr, len as usize) };
+        let s = unsafe { slice::from_raw_parts_mut(self.ptr.offset(position as isize), len as usize) };
 
         // poor man's memcp
         for i in s {

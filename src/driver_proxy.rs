@@ -312,11 +312,7 @@ impl DriverProxy {
         // Filler returns not only msg type but also actual msg length via mut ref length param.
         let msg_type = filler(buffer, &mut length)?;
 
-        if self
-            .to_driver_command_buffer
-            .write(msg_type, buffer.as_slice(), length)
-            .is_err()
-        {
+        if self.to_driver_command_buffer.write(msg_type, buffer, 0, length).is_err() {
             return Err(AeronError::IllegalStateException(String::from(
                 "couldn't write command to driver",
             )));
