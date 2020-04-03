@@ -69,9 +69,9 @@ impl Settings {
     pub fn new() -> Self {
         Self {
             dir_prefix: String::new(),
-            ping_channel: String::from(DEFAULT_PING_CHANNEL),
+            ping_channel: String::from(DEFAULT_PONG_CHANNEL),
             pong_channel: String::from(DEFAULT_PONG_CHANNEL),
-            ping_stream_id: DEFAULT_PING_STREAM_ID,
+            ping_stream_id: DEFAULT_PONG_STREAM_ID,
             pong_stream_id: DEFAULT_PONG_STREAM_ID,
             number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
             number_of_messages: 1,        //DEFAULT_NUMBER_OF_MESSAGES,
