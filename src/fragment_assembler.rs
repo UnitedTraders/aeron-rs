@@ -101,6 +101,7 @@ impl FragmentAssembler {
         } else if let Some(builder) = self.builder_by_session_id_map.get_mut(&header.session_id()) {
             if builder.limit() != data_frame_header::LENGTH {
                 builder.append(buffer, offset, length, header).expect("append failed");
+
                 if flags & frame_descriptor::END_FRAG == frame_descriptor::END_FRAG {
                     let msg_length = builder.limit() - data_frame_header::LENGTH;
                     let msg_buffer = AtomicBuffer::new(builder.buffer(), builder.limit());
@@ -175,7 +176,6 @@ mod test {
             for i in 0..length {
                 self.buffer.put(i + offset + data_frame_header::LENGTH, payload_value);
             }
-            // println!("AB-{}: {:#?}", payload_value, self.buffer);
         }
 
         // Fragment_len must contain length on i-th fragment.
@@ -183,9 +183,6 @@ mod test {
         fn verify_payload(buffer: &AtomicBuffer, offset: Index, fragment_len: &[Index]) {
             unsafe {
                 let ptr = buffer.buffer().offset(offset as isize);
-
-                println!("Fragment_len: {:#?}", fragment_len);
-                println!("AB: {:#?}", buffer);
 
                 let mut fragment_offset = 0;
                 for (i, len) in fragment_len.iter().enumerate() {
@@ -278,7 +275,7 @@ mod test {
 
         test.header.set_offset(MTU_LENGTH);
         test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 2);
-        adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
+        adapter.handler()(&test.buffer, MTU_LENGTH + data_frame_header::LENGTH, msg_length, &test.header);
         assert!(CALLED.load(Ordering::Relaxed));
     }
 
@@ -295,7 +292,7 @@ mod test {
             assert_eq!(header.session_id(), SESSION_ID);
             assert_eq!(header.stream_id(), STREAM_ID);
             assert_eq!(header.term_id(), ACTIVE_TERM_ID);
-            assert_eq!(header.term_offset(), 0);
+            assert_eq!(header.term_offset(), MTU_LENGTH * 2);
             assert_eq!(header.frame_length(), data_frame_header::LENGTH + msg_length);
             assert_eq!(header.flags(), frame_descriptor::END_FRAG);
             assert_eq!(
@@ -321,13 +318,18 @@ mod test {
         assert!(!CALLED.load(Ordering::Relaxed));
 
         test.header.set_offset(MTU_LENGTH);
-        test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH, msg_length, 2);
-        adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
+        test.fill_frame(0, MTU_LENGTH, msg_length, 2);
+        adapter.handler()(&test.buffer, MTU_LENGTH + data_frame_header::LENGTH, msg_length, &test.header);
         assert!(!CALLED.load(Ordering::Relaxed));
 
         test.header.set_offset(MTU_LENGTH * 2);
         test.fill_frame(frame_descriptor::END_FRAG, MTU_LENGTH * 2, msg_length, 3);
-        adapter.handler()(&test.buffer, data_frame_header::LENGTH, msg_length, &test.header);
+        adapter.handler()(
+            &test.buffer,
+            (MTU_LENGTH * 2) + data_frame_header::LENGTH,
+            msg_length,
+            &test.header,
+        );
         assert!(CALLED.load(Ordering::Relaxed));
     }
 

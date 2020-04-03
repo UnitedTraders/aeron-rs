@@ -531,25 +531,6 @@ impl Publication {
      * <p>
      * <b>Note:</b> This method can only be used for message lengths less than MTU length minus header.
      *
-     * @code
-     *     BufferClaim buffer_claim; // Can be stored and reused to avoid allocation
-     *
-     *     if (publication->try_claim(message_length, buffer_claim) > 0)
-     *     {
-     *         try
-     *         {
-     *              AtomicBuffer& buffer = buffer_claim.buffer(&self);
-     *              const index_t offset = buffer_claim.offset(&self);
-     *
-     *              // Work with buffer directly or wrap with a flyweight
-     *         }
-     *         finally
-     *         {
-     *             buffer_claim.commit(&self);
-     *         }
-     *     }
-     * @endcode
-     *
      * @param length      of the range to claim, in bytes..
      * @param buffer_claim to be populate if the claim succeeds.
      * @    The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},

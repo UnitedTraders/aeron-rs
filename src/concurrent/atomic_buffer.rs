@@ -37,8 +37,12 @@ pub struct AtomicBuffer {
 impl Debug for AtomicBuffer {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let mut slice = self.as_slice();
-        const TAKE_LIMIT: usize = 4;
+        const TAKE_LIMIT: usize = 40;
+        let mut bytes_counter = 0;
         loop {
+            write!(f, "{}: ", bytes_counter)?;
+            bytes_counter += TAKE_LIMIT;
+
             let (head, tail) = slice.split_at(TAKE_LIMIT);
             if tail.len() > TAKE_LIMIT {
                 writeln!(f, "{:?}", head)?;
