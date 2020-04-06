@@ -52,10 +52,10 @@ impl Settings {
         Self {
             dir_prefix: String::new(),
             channel: String::from(DEFAULT_CHANNEL),
-            stream_id: DEFAULT_STREAM_ID,
-            number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
-            number_of_messages: 10,        //DEFAULT_NUMBER_OF_MESSAGES,
-            message_length: DEFAULT_MESSAGE_LENGTH,
+            stream_id: DEFAULT_STREAM_ID.parse().unwrap(),
+            number_of_warmup_messages: 0,
+            number_of_messages: 10,
+            message_length: DEFAULT_MESSAGE_LENGTH.parse().unwrap(),
             linger_timeout_ms: 100,
         }
     }

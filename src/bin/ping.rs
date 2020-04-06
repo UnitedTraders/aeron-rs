@@ -20,6 +20,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use hdrhistogram::Histogram;
+use lazy_static::lazy_static;
+use structopt::StructOpt;
 
 use aeron_rs::aeron::Aeron;
 use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
@@ -27,7 +29,8 @@ use aeron_rs::concurrent::logbuffer::header::Header;
 use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{
-    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PONG_CHANNEL, DEFAULT_PONG_STREAM_ID,
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL,
+    DEFAULT_PONG_STREAM_ID,
 };
 use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::image::Image;
@@ -35,7 +38,6 @@ use aeron_rs::publication::Publication;
 use aeron_rs::subscription::Subscription;
 use aeron_rs::utils::errors::AeronError;
 use aeron_rs::utils::types::Index;
-use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
@@ -51,44 +53,38 @@ fn sig_int_handler() {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
-#[derive(Clone)]
-struct Settings {
+#[derive(StructOpt, Clone, Debug)]
+#[structopt(name = "Aeron ping example")]
+struct CmdOpts {
+    #[structopt(short = "p", long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
     dir_prefix: String,
+    #[structopt(short = "c", long = "ping_channel", default_value = DEFAULT_PING_CHANNEL, help = "Ping channel")]
     ping_channel: String,
+    #[structopt(short = "C", long = "pong_channel", default_value = DEFAULT_PONG_CHANNEL, help = "Pong channel")]
     pong_channel: String,
+    #[structopt(short = "s", long, default_value = DEFAULT_PING_STREAM_ID, help = "Ping Stream ID")]
     ping_stream_id: i32,
+    #[structopt(short = "S", long, default_value = DEFAULT_PONG_STREAM_ID, help = "Pong Stream ID")]
     pong_stream_id: i32,
+    #[structopt(short = "w", long, default_value = "0", help = "Number of Messages for warmup")]
     number_of_warmup_messages: i64,
+    #[structopt(short = "m", long, default_value = "100", help = "Number of Messages")]
     number_of_messages: i64,
+    #[structopt(short = "L", long, default_value = DEFAULT_MESSAGE_LENGTH, help = "Length of Messages")]
     message_length: i32,
+    #[structopt(short = "f", long, default_value = DEFAULT_FRAGMENT_COUNT_LIMIT, help = "Fragment Count Limit")]
     fragment_count_limit: i32,
 }
 
-impl Settings {
-    pub fn new() -> Self {
-        Self {
-            dir_prefix: String::new(),
-            ping_channel: String::from(DEFAULT_PONG_CHANNEL),
-            pong_channel: String::from(DEFAULT_PONG_CHANNEL),
-            ping_stream_id: DEFAULT_PONG_STREAM_ID,
-            pong_stream_id: DEFAULT_PONG_STREAM_ID,
-            number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
-            number_of_messages: 100,      //DEFAULT_NUMBER_OF_MESSAGES,
-            message_length: DEFAULT_MESSAGE_LENGTH,
-            fragment_count_limit: DEFAULT_FRAGMENT_COUNT_LIMIT,
-        }
-    }
-}
-
-fn parse_cmd_line() -> Settings {
-    Settings::new()
+fn parse_cmd_line() -> CmdOpts {
+    CmdOpts::from_args()
 }
 
 fn send_ping_and_receive_pong(
     fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header),
     publication: Arc<Publication>,
     subscription: Arc<Mutex<Subscription>>,
-    settings: &Settings,
+    settings: &CmdOpts,
 ) {
     let buffer = AlignedBuffer::with_capacity(settings.message_length);
     let src_buffer = AtomicBuffer::from_aligned(&buffer);
@@ -189,6 +185,8 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     let settings = parse_cmd_line();
+
+    println!("Running ping example...\n{:#?}", settings);
 
     println!(
         "Subscribing Pong at {} on Stream ID {}",
