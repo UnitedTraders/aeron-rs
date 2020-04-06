@@ -51,7 +51,7 @@ use crate::utils::types::Index;
 */
 
 #[repr(C, packed(4))]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct PublicationBuffersReadyDefn {
     correlation_id: i64,
     registration_id: i64,

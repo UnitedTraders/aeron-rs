@@ -43,8 +43,6 @@ impl LogBuffers {
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
 
-        let _atomic_buffer = memory_mapped_file.atomic_buffer(0, log_len as Index);
-
         let meta_buffer = memory_mapped_file.atomic_buffer(
             (log_len as Index) - log_buffer_descriptor::LOG_META_DATA_LENGTH,
             log_buffer_descriptor::LOG_META_DATA_LENGTH,
@@ -78,9 +76,9 @@ impl LogBuffers {
             memory_mapped_file: Some(memory_mapped_file),
             buffers: [
                 *buffers.get(0).expect("Log buffers get(0) failed"),
-                *buffers.get(1).expect("Log buffers get(0) failed"),
-                *buffers.get(2).expect("Log buffers get(0) failed"),
-                *buffers.get(3).expect("Log buffers get(0) failed"),
+                *buffers.get(1).expect("Log buffers get(1) failed"),
+                *buffers.get(2).expect("Log buffers get(2) failed"),
+                *buffers.get(3).expect("Log buffers get(3) failed"),
             ],
         })
     }

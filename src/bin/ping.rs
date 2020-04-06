@@ -17,7 +17,7 @@
 use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use hdrhistogram::Histogram;
 
@@ -73,7 +73,7 @@ impl Settings {
             ping_stream_id: DEFAULT_PONG_STREAM_ID,
             pong_stream_id: DEFAULT_PONG_STREAM_ID,
             number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
-            number_of_messages: 1,        //DEFAULT_NUMBER_OF_MESSAGES,
+            number_of_messages: 100,      //DEFAULT_NUMBER_OF_MESSAGES,
             message_length: DEFAULT_MESSAGE_LENGTH,
             fragment_count_limit: DEFAULT_FRAGMENT_COUNT_LIMIT,
         }
@@ -95,6 +95,15 @@ fn send_ping_and_receive_pong(
     let idle_strategy: BusySpinIdleStrategy = Default::default();
     let mut subscription = subscription.lock().unwrap();
 
+    let mut maybe_image = subscription.image_by_index(0);
+
+    while maybe_image.is_none() {
+        maybe_image = subscription.image_by_index(0);
+        std::thread::sleep(Duration::from_millis(1000));
+    }
+
+    let image = maybe_image.unwrap();
+
     for _i in 0..settings.number_of_messages {
         let position = loop {
             // timestamps in the message are relative to this app, so just send the timepoint directly.
@@ -110,30 +119,17 @@ fn send_ping_and_receive_pong(
             }
         };
 
-        println!("Position after offer: {}", position);
-
-        let mut maybe_image = subscription.image_by_index(0);
-
-        while maybe_image.is_none() {
-            println!("Waiting for image...");
-            maybe_image = subscription.image_by_index(0);
-        }
-        let image = maybe_image.unwrap();
-
         idle_strategy.reset();
-        //loop {
-        //while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
-        image.poll(fragment_handler, settings.fragment_count_limit);
-        idle_strategy.idle();
-        println!("Polling image. Positions is: {}", image.position());
-        //}
-        /*
+        loop {
+            while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
+                std::thread::sleep(Duration::from_millis(1000));
+                idle_strategy.idle();
+            }
+
             if image.position() >= position {
-                println!("Polling image COMPLETED. Positions is: {}", image.position());
                 break;
             }
         }
-        */
     }
 }
 
@@ -318,5 +314,7 @@ fn main() {
         if !RUNNING.load(Ordering::SeqCst) {
             break;
         }
+
+        std::thread::sleep(Duration::from_millis(1000));
     }
 }

@@ -191,7 +191,7 @@ impl Subscription {
             }
         }
 
-        for i in 0..image_list.len() {
+        for i in 0..starting_index {
             if fragments_read < fragment_limit {
                 fragments_read += image_list
                     .get_mut(i)

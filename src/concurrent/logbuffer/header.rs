@@ -207,14 +207,16 @@ impl HeaderWriter {
     pub fn write(&self, term_buffer: &AtomicBuffer, offset: Index, length: Index, term_id: i32) {
         term_buffer.put_ordered::<i32>(offset, -(length));
 
-        let mut hdr = term_buffer.get::<DataFrameHeaderDefn>(offset);
+        unsafe {
+            let mut hdr = term_buffer.overlay_struct::<DataFrameHeaderDefn>(offset);
 
-        hdr.version = data_frame_header::CURRENT_VERSION;
-        hdr.flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;
-        hdr.frame_type = data_frame_header::HDR_TYPE_DATA;
-        hdr.term_offset = offset;
-        hdr.session_id = self.session_id;
-        hdr.stream_id = self.stream_id;
-        hdr.term_id = term_id;
+            (*hdr).version = data_frame_header::CURRENT_VERSION;
+            (*hdr).flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;
+            (*hdr).frame_type = data_frame_header::HDR_TYPE_DATA;
+            (*hdr).term_offset = offset;
+            (*hdr).session_id = self.session_id;
+            (*hdr).stream_id = self.stream_id;
+            (*hdr).term_id = term_id;
+        }
     }
 }

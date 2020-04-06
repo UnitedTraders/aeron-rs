@@ -307,6 +307,7 @@ impl Image {
             let index = log_buffer_descriptor::index_by_position(position, self.position_bits_to_shift);
             assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
             let term_buffer = self.term_buffers[index as usize];
+
             let read_outcome: ReadOutcome = term_reader::read(
                 term_buffer,
                 term_offset,
@@ -321,14 +322,8 @@ impl Image {
                 self.subscriber_position.set_ordered(new_position);
             }
 
-            println!(
-                "DBG: poll new_position {}, position {}, read_outcome.offset {}, term_offset {} ",
-                new_position, position, read_outcome.offset, term_offset
-            );
-
             read_outcome.fragments_read
         } else {
-            println!("DBG: poll publication is CLOSED!");
             0
         }
     }

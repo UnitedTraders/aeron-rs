@@ -1416,16 +1416,25 @@ impl DriverListener for ClientConductor {
     ) {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_new_publication");
 
-        let mut channel: CString = CString::new("").unwrap();
+        let mut log_buffers: Option<Arc<LogBuffers>> = None;
+        let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.publication_by_registration_id.get(&registration_id) {
-            channel = state.channel.clone();
+            maybe_channel = Some(state.channel.clone());
         }
 
-        let log_buffers: Option<Arc<LogBuffers>> = Some(
-            self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
-                .unwrap_or_else(|_| panic!("Get log_buffers failed, log_filename \"{}\"", log_file_name.to_str().unwrap())),
-        );
+        if let Some(channel) = maybe_channel {
+            log_buffers = Some(
+                self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "Get log_buffers failed, log_filename \"{}\", error {:?}",
+                            log_file_name.to_str().unwrap(),
+                            err
+                        )
+                    }),
+            );
+        }
 
         if let Some(state) = self.publication_by_registration_id.get_mut(&registration_id) {
             state.status = RegistrationStatus::Registered;
@@ -1454,16 +1463,25 @@ impl DriverListener for ClientConductor {
 
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_new_exclusive_publication");
 
-        let mut channel: CString = CString::new("").unwrap();
+        let mut log_buffers: Option<Arc<LogBuffers>> = None;
+        let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get(&registration_id) {
-            channel = state.channel.clone();
+            maybe_channel = Some(state.channel.clone());
         }
 
-        let log_buffers: Option<Arc<LogBuffers>> = Some(
-            self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
-                .unwrap_or_else(|_| panic!("Get log_buffers failed, log_filename \"{}\"", log_file_name.to_str().unwrap())),
-        );
+        if let Some(channel) = maybe_channel {
+            log_buffers = Some(
+                self.get_log_buffers(original_registration_id, log_file_name.clone(), channel)
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "Get log_buffers failed, log_filename \"{}\", error {:?}",
+                            log_file_name.to_str().unwrap(),
+                            err
+                        )
+                    }),
+            );
+        }
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get_mut(&registration_id) {
             state.status = RegistrationStatus::Registered;
@@ -1663,14 +1681,30 @@ impl DriverListener for ClientConductor {
     ) {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_available_image");
 
-        let mut channel = CString::new("").unwrap();
+        let mut log_buffers: Option<Arc<LogBuffers>> = None;
+        let mut maybe_channel: Option<CString> = None;
+
+        // This piece of code is separated from the below (with same condition) to make borrow checker happy.
         if let Some(subscr_defn) = self.subscription_by_registration_id.get(&subscription_registration_id) {
-            channel = subscr_defn.channel.clone();
+            if let Some(maybe_subscription) = &subscr_defn.subscription {
+                if let Some(_subscription) = maybe_subscription.upgrade() {
+                    maybe_channel = Some(subscr_defn.channel.clone());
+                }
+            }
         }
 
-        let log_buffers = self
-            .get_log_buffers(correlation_id, log_filename.clone(), channel)
-            .unwrap_or_else(|_| panic!("Get log_buffers failed, log_filename \"{}\"", log_filename.to_str().unwrap()));
+        if let Some(channel) = maybe_channel {
+            log_buffers = Some(
+                self.get_log_buffers(correlation_id, log_filename.clone(), channel)
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "Get log_buffers failed, log_filename \"{}\", error {:?}",
+                            log_filename.to_str().unwrap(),
+                            err
+                        )
+                    }),
+            );
+        }
 
         let mut linger_images: Option<Vec<Image>> = None;
 
@@ -1684,7 +1718,7 @@ impl DriverListener for ClientConductor {
                         subscription_registration_id,
                         source_identity,
                         &subscriber_position,
-                        log_buffers,
+                        log_buffers.unwrap(),
                         self.error_handler,
                     );
 

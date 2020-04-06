@@ -14,187 +14,171 @@
  * limitations under the License.
  */
 
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+use aeron_rs::concurrent::status::status_indicator_reader::channel_status_to_str;
+use aeron_rs::context::Context;
+use aeron_rs::example_config::{DEFAULT_CHANNEL, DEFAULT_MESSAGE_LENGTH, DEFAULT_STREAM_ID};
+use aeron_rs::utils::errors::AeronError;
+use lazy_static::lazy_static;
+use nix::NixPath;
+use std::io::{stdout, Write};
+
+lazy_static! {
+    pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
+}
+
+fn sig_int_handler() {
+    RUNNING.store(false, Ordering::SeqCst);
+}
+
+#[derive(Clone)]
+struct Settings {
+    dir_prefix: String,
+    channel: String,
+    stream_id: i32,
+    number_of_warmup_messages: i64,
+    number_of_messages: i64,
+    message_length: i32,
+    linger_timeout_ms: u64,
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        Self {
+            dir_prefix: String::new(),
+            channel: String::from(DEFAULT_CHANNEL),
+            stream_id: DEFAULT_STREAM_ID,
+            number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
+            number_of_messages: 1,        //DEFAULT_NUMBER_OF_MESSAGES,
+            message_length: DEFAULT_MESSAGE_LENGTH,
+            linger_timeout_ms: 100,
+        }
+    }
+}
+
+fn parse_cmd_line() -> Settings {
+    Settings::new()
+}
+
+fn error_handler(error: AeronError) {
+    println!("Error: {:?}", error);
+}
+
+fn on_new_publication_handler(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
+    println!(
+        "Publication: {} {} {} {}",
+        channel.to_str().unwrap(),
+        stream_id,
+        session_id,
+        correlation_id
+    );
+}
+
+fn str_to_c(val: &str) -> CString {
+    CString::new(val).expect("Error converting str to CString")
+}
+
 fn main() {
-    println!("Basic publisher");
+    ctrlc::set_handler(move || {
+        println!("received Ctrl+C!");
+        sig_int_handler();
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    let settings = parse_cmd_line();
+
+    println!(
+        "Publishing to channel {} on Stream ID {}",
+        settings.channel, settings.stream_id
+    );
+
+    let mut context = Context::new();
+
+    if !settings.dir_prefix.is_empty() {
+        context.set_aeron_dir(settings.dir_prefix.clone());
+    }
+
+    println!("Using CnC file: {}", context.cnc_file_name());
+
+    context.set_new_publication_handler(on_new_publication_handler);
+    context.set_error_handler(error_handler);
+    context.set_pre_touch_mapped_memory(true);
+
+    let mut aeron = Aeron::new(context);
+
+    // add the publication to start the process
+    let publication_id = aeron
+        .add_publication(str_to_c(&settings.channel), settings.stream_id)
+        .expect("Error adding publication");
+
+    let mut publication = aeron.find_publication(publication_id);
+    while publication.is_err() {
+        std::thread::yield_now();
+        publication = aeron.find_publication(publication_id);
+    }
+
+    let publication = publication.unwrap();
+
+    let channel_status = publication.channel_status();
+
+    println!(
+        "Publication channel status {}: {} ",
+        channel_status,
+        channel_status_to_str(channel_status)
+    );
+
+    let buffer = AlignedBuffer::with_capacity(256);
+    let src_buffer = AtomicBuffer::from_aligned(&buffer);
+
+    for i in 0..settings.number_of_messages {
+        if !RUNNING.load(Ordering::SeqCst) {
+            break;
+        }
+
+        let str_msg = format!("Basic publisher msg #{}", i);
+        let c_str_msg = CString::new(str_msg).unwrap();
+
+        src_buffer.put_bytes(0, c_str_msg.as_bytes());
+
+        println!("offering {}/{}", i + 1, settings.number_of_messages);
+        let _unused = stdout().flush();
+
+        let result = publication.offer_part(src_buffer, 0, c_str_msg.len() as i32);
+
+        if let Ok(code) = result {
+            match code {
+                aeron_rs::publication::BACK_PRESSURED => println!("Offer failed due to back pressure"),
+                aeron_rs::publication::NOT_CONNECTED => println!("Offer failed because publisher is not connected to subscriber"),
+                aeron_rs::publication::ADMIN_ACTION => println!("Offer failed because of an administration action in the system"),
+                aeron_rs::publication::PUBLICATION_CLOSED => println!("Offer failed publication is closed"),
+                _ => {
+                    if code < 0 {
+                        println!("Offer failed due to unknown reason, ret code {}", code);
+                    } else {
+                        println!("sent!");
+                    }
+                }
+            }
+        } else {
+            println!("offer with error: {:?}", result.err());
+        }
+
+        if !publication.is_connected() {
+            println!("No active subscribers detected");
+        }
+
+        std::thread::sleep(Duration::from_millis(1));
+    }
+
+    println!("Done sending.");
+
+    if settings.linger_timeout_ms > 0 {
+        println!("Lingering for {} milliseconds.", settings.linger_timeout_ms);
+        std::thread::sleep(Duration::from_millis(settings.linger_timeout_ms));
+    }
 }
-
-/*
-std::atomic<bool> running (true);
-
-void sigIntHandler(int param)
-{
-running = false;
-}
-
-static const char optHelp     = 'h';
-static const char optPrefix   = 'p';
-static const char optChannel  = 'c';
-static const char optStreamId = 's';
-static const char optMessages = 'm';
-static const char optLinger   = 'l';
-
-struct Settings
-{
-    std::string dirPrefix = "";
-    std::string channel = samples::configuration::DEFAULT_CHANNEL;
-    std::int32_t streamId = samples::configuration::DEFAULT_STREAM_ID;
-    long numberOfMessages = samples::configuration::DEFAULT_NUMBER_OF_MESSAGES;
-    long lingerTimeoutMs = samples::configuration::DEFAULT_LINGER_TIMEOUT_MS;
-};
-
-typedef std::array<std::uint8_t, 256> buffer_t;
-
-Settings parseCmdLine(CommandOptionParser& cp, int argc, char** argv)
-{
-cp.parse(argc, argv);
-if (cp.getOption(optHelp).isPresent())
-{
-cp.displayOptionsHelp(std::cout);
-exit(0);
-}
-
-Settings s;
-
-s.dirPrefix = cp.getOption(optPrefix).getParam(0, s.dirPrefix);
-s.channel = cp.getOption(optChannel).getParam(0, s.channel);
-s.streamId = cp.getOption(optStreamId).getParamAsInt(0, 1, INT32_MAX, s.streamId);
-s.numberOfMessages = cp.getOption(optMessages).getParamAsInt(0, 0, INT32_MAX, s.numberOfMessages);
-s.lingerTimeoutMs = cp.getOption(optLinger).getParamAsInt(0, 0, 60 * 60 * 1000, s.lingerTimeoutMs);
-
-return s;
-}
-
-int main(int argc, char** argv)
-{
-CommandOptionParser cp;
-cp.addOption(CommandOption(optHelp,     0, 0, "                Displays help information."));
-cp.addOption(CommandOption(optPrefix,   1, 1, "dir             Prefix directory for aeron driver."));
-cp.addOption(CommandOption(optChannel,  1, 1, "channel         Channel."));
-cp.addOption(CommandOption(optStreamId, 1, 1, "streamId        Stream ID."));
-cp.addOption(CommandOption(optMessages, 1, 1, "number          Number of Messages."));
-cp.addOption(CommandOption(optLinger,   1, 1, "milliseconds    Linger timeout in milliseconds."));
-
-signal (SIGINT, sigIntHandler);
-
-try
-{
-Settings settings = parseCmdLine(cp, argc, argv);
-
-std::cout << "Publishing to channel " << settings.channel << " on Stream ID " << settings.streamId << std::endl;
-
-aeron::Context context;
-
-if (!settings.dirPrefix.empty())
-{
-context.aeronDir(settings.dirPrefix);
-}
-
-context.newPublicationHandler(
-[](const std::string& channel, std::int32_t streamId, std::int32_t sessionId, std::int64_t correlationId)
-{
-std::cout << "Publication: " << channel << " " << correlationId << ":" << streamId << ":" << sessionId << std::endl;
-});
-
-std::shared_ptr<Aeron> aeron = Aeron::connect(context);
-
-// add the publication to start the process
-std::int64_t id = aeron->addPublication(settings.channel, settings.streamId);
-
-std::shared_ptr<Publication> publication = aeron->findPublication(id);
-// wait for the publication to be valid
-while (!publication)
-{
-std::this_thread::yield();
-publication = aeron->findPublication(id);
-}
-
-const std::int64_t channelStatus = publication->channelStatus();
-
-std::cout << "Publication channel status (id=" << publication->channelStatusId() << ") "
-<< (channelStatus == ChannelEndpointStatus::CHANNEL_ENDPOINT_ACTIVE ?
-"ACTIVE" : std::to_string(channelStatus))
-<< std::endl;
-
-AERON_DECL_ALIGNED(buffer_t buffer, 16);
-concurrent::AtomicBuffer srcBuffer(&buffer[0], buffer.size());
-char message[256];
-
-for (long i = 0; i < settings.numberOfMessages && running; i++)
-{
-#if _MSC_VER
-const int messageLen = ::sprintf_s(message, sizeof(message), "Hello World! %ld", i);
-#else
-const int messageLen = ::snprintf(message, sizeof(message), "Hello World! %ld", i);
-#endif
-
-srcBuffer.putBytes(0, reinterpret_cast<std::uint8_t *>(message), messageLen);
-
-std::cout << "offering " << i << "/" << settings.numberOfMessages << " - ";
-std::cout.flush();
-
-const std::int64_t result = publication->offer(srcBuffer, 0, messageLen);
-
-if (result < 0)
-{
-if (BACK_PRESSURED == result)
-{
-std::cout << "Offer failed due to back pressure" << std::endl;
-}
-else if (NOT_CONNECTED == result)
-{
-std::cout << "Offer failed because publisher is not connected to subscriber" << std::endl;
-}
-else if (ADMIN_ACTION == result)
-{
-std::cout << "Offer failed because of an administration action in the system" << std::endl;
-}
-else if (PUBLICATION_CLOSED == result)
-{
-std::cout << "Offer failed publication is closed" << std::endl;
-}
-else
-{
-std::cout << "Offer failed due to unknown reason" << result << std::endl;
-}
-}
-else
-{
-std::cout << "yay!" << std::endl;
-}
-
-if (!publication->isConnected())
-{
-std::cout << "No active subscribers detected" << std::endl;
-}
-
-std::this_thread::sleep_for(std::chrono::seconds(1));
-}
-
-std::cout << "Done sending." << std::endl;
-
-if (settings.lingerTimeoutMs > 0)
-{
-std::cout << "Lingering for " << settings.lingerTimeoutMs << " milliseconds." << std::endl;
-std::this_thread::sleep_for(std::chrono::milliseconds(settings.lingerTimeoutMs));
-}
-}
-catch (const CommandOptionException& e)
-{
-std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
-cp.displayOptionsHelp(std::cerr);
-return -1;
-}
-catch (const SourcedException& e)
-{
-std::cerr << "FAILED: " << e.what() << " : " << e.where() << std::endl;
-return -1;
-}
-catch (const std::exception& e)
-{
-std::cerr << "FAILED: " << e.what() << " : " << std::endl;
-return -1;
-}
-
-return 0;
-}
-*/

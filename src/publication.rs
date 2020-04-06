@@ -30,11 +30,11 @@ use crate::utils::errors::AeronError;
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::types::Index;
 
-pub(crate) const NOT_CONNECTED: i64 = -1;
-pub(crate) const BACK_PRESSURED: i64 = -2;
-pub(crate) const ADMIN_ACTION: i64 = -3;
-pub(crate) const PUBLICATION_CLOSED: i64 = -4;
-pub(crate) const MAX_POSITION_EXCEEDED: i64 = -5;
+pub const NOT_CONNECTED: i64 = -1;
+pub const BACK_PRESSURED: i64 = -2;
+pub const ADMIN_ACTION: i64 = -3;
+pub const PUBLICATION_CLOSED: i64 = -4;
+pub const MAX_POSITION_EXCEEDED: i64 = -5;
 
 pub trait BulkPubSize {
     const SIZE: usize;

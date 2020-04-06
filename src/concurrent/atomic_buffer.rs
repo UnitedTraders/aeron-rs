@@ -276,7 +276,7 @@ impl AtomicBuffer {
     pub fn get_string(&self, offset: Index) -> CString {
         self.bounds_check(offset, 4);
 
-        // String in Aeron has first 4 bytes as length and rest "length" bytes is string body
+        // String in Aeron has first 4 bytes as length and rest "length" bytes is string body in ASCII
         let length: i32 = self.get::<i32>(offset);
         self.get_string_without_length(offset + I32_SIZE, length)
     }
@@ -285,15 +285,15 @@ impl AtomicBuffer {
     pub fn get_string_without_length(&self, offset: Index, length: Index) -> CString {
         self.bounds_check(offset, length);
 
-        // Strings in Aeron are zero terminated and are not UTF-8 encoded.
-        // We can't go with Rust UTF strings as Media Driver will not understand us.
+        unsafe {
+            // NOTE: we need to add trailing zero after the "length" bytes read from the buffer
+            let str_slice = std::slice::from_raw_parts(self.at(offset) as *const u8, length as usize);
+            let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
+            zero_terminated.extend_from_slice(str_slice);
+            zero_terminated.push(0);
 
-        let c_str = unsafe {
-            let ptr = self.at(offset) as *const i8;
-            CStr::from_ptr(ptr)
-        };
-
-        CString::from(c_str)
+            CString::from(CStr::from_bytes_with_nul_unchecked(&zero_terminated))
+        }
     }
 
     #[inline]

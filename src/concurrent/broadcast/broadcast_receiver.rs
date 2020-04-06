@@ -54,10 +54,10 @@ impl BroadcastReceiver {
             lapped_count: AtomicU64::new(0),
         };
 
-        let _cursor = rx.buffer.get::<i64>(rx.latest_counter_index);
-        let _next_record = rx.cursor;
+        rx.cursor = rx.buffer.get::<i64>(rx.latest_counter_index);
+        rx.next_record = rx.cursor;
 
-        rx.record_offset = (rx.cursor & rx.mask as i64) as Index;
+        rx.record_offset = rx.cursor as Index & rx.mask;
 
         Ok(rx)
     }
@@ -92,14 +92,12 @@ impl BroadcastReceiver {
         let mut cursor = self.next_record;
 
         if tail > cursor {
-            // let mut record_offset: Index = (cursor & self.mask as i64) as isize;
-
             if !self.do_validate(cursor as Index) {
-                //                self.m_lappedCount += 1;
+                let _ignored = self.lapped_count.fetch_add(1, Ordering::SeqCst);
                 cursor = self.buffer.get::<i64>(self.latest_counter_index);
-            };
+            }
 
-            let mut record_offset: Index = (cursor & self.mask as i64) as Index;
+            let mut record_offset: Index = cursor as Index & self.mask;
 
             self.cursor = cursor;
             self.next_record = cursor
