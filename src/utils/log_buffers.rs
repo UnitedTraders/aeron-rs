@@ -39,6 +39,8 @@ impl LogBuffers {
     ) -> Result<Self, AeronError> {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
+        log::trace!("from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
+
         let log_len = MemoryMappedFile::file_size(&file_path)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
@@ -71,6 +73,8 @@ impl LogBuffers {
         }
 
         buffers.push(meta_buffer);
+
+        log::trace!("from_existing: file mapped successfully, term_length {}", term_length);
 
         Ok(Self {
             memory_mapped_file: Some(memory_mapped_file),

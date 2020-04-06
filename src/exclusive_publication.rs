@@ -680,7 +680,8 @@ impl ExclusivePublication {
 impl Drop for ExclusivePublication {
     fn drop(&mut self) {
         self.is_closed.store(true, Ordering::Release);
-        self.conductor
+        let _unused = self
+            .conductor
             .lock()
             .expect("Mutex poisoned")
             .release_exclusive_publication(self.registration_id);
