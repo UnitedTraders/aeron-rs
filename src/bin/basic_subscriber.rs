@@ -51,7 +51,7 @@ impl Settings {
         Self {
             dir_prefix: String::new(),
             channel: String::from(DEFAULT_CHANNEL),
-            stream_id: DEFAULT_STREAM_ID,
+            stream_id: DEFAULT_STREAM_ID.parse().unwrap(),
         }
     }
 }
