@@ -84,6 +84,7 @@ fn str_to_c(val: &str) -> CString {
 }
 
 fn main() {
+    pretty_env_logger::init();
     ctrlc::set_handler(move || {
         println!("received Ctrl+C!");
         sig_int_handler();
