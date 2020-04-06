@@ -59,7 +59,7 @@ impl DriverProxy {
             publication_message.set_client_id(self.client_id);
             publication_message.set_correlation_id(correlation_id);
             publication_message.set_stream_id(stream_id);
-            publication_message.set_channel(channel.as_bytes_with_nul());
+            publication_message.set_channel(channel.as_bytes());
 
             *length = publication_message.length();
 
@@ -77,7 +77,7 @@ impl DriverProxy {
             publication_message.set_client_id(self.client_id);
             publication_message.set_correlation_id(correlation_id);
             publication_message.set_stream_id(stream_id);
-            publication_message.set_channel(channel.as_bytes_with_nul());
+            publication_message.set_channel(channel.as_bytes());
 
             *length = publication_message.length();
 
@@ -115,7 +115,7 @@ impl DriverProxy {
             subscription_message.set_registration_correlation_id(-1);
             subscription_message.set_correlation_id(correlation_id);
             subscription_message.set_stream_id(stream_id);
-            subscription_message.set_channel(channel.as_bytes_with_nul());
+            subscription_message.set_channel(channel.as_bytes());
 
             *length = subscription_message.length();
 
@@ -164,7 +164,7 @@ impl DriverProxy {
             add_message.set_client_id(self.client_id);
             add_message.set_registration_id(publication_registration_id);
             add_message.set_correlation_id(correlation_id);
-            add_message.set_channel(channel.as_bytes_with_nul());
+            add_message.set_channel(channel.as_bytes());
 
             *length = add_message.length();
 
@@ -183,7 +183,7 @@ impl DriverProxy {
             remove_message.set_client_id(self.client_id);
             remove_message.set_registration_id(publication_registration_id);
             remove_message.set_correlation_id(correlation_id);
-            remove_message.set_channel(channel.as_bytes_with_nul());
+            remove_message.set_channel(channel.as_bytes());
 
             *length = remove_message.length();
 
@@ -202,7 +202,7 @@ impl DriverProxy {
             add_message.set_client_id(self.client_id);
             add_message.set_registration_id(subscription_registration_id);
             add_message.set_correlation_id(correlation_id);
-            add_message.set_channel(channel.as_bytes_with_nul());
+            add_message.set_channel(channel.as_bytes());
 
             *length = add_message.length();
 
@@ -221,7 +221,7 @@ impl DriverProxy {
             remove_message.set_client_id(self.client_id);
             remove_message.set_registration_id(subscription_registration_id);
             remove_message.set_correlation_id(correlation_id);
-            remove_message.set_channel(channel.as_bytes_with_nul());
+            remove_message.set_channel(channel.as_bytes());
 
             *length = remove_message.length();
 
@@ -241,7 +241,7 @@ impl DriverProxy {
             command.set_correlation_id(correlation_id);
             command.set_type_id(type_id);
             command.set_key_buffer(key.as_ptr(), key.len() as i32);
-            command.set_label(label.as_bytes_with_nul());
+            command.set_label(label.as_bytes());
 
             *length = command.length();
 

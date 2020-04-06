@@ -54,7 +54,7 @@ impl Settings {
             channel: String::from(DEFAULT_CHANNEL),
             stream_id: DEFAULT_STREAM_ID,
             number_of_warmup_messages: 0, //DEFAULT_NUMBER_OF_WARM_UP_MESSAGES,
-            number_of_messages: 1,        //DEFAULT_NUMBER_OF_MESSAGES,
+            number_of_messages: 10,        //DEFAULT_NUMBER_OF_MESSAGES,
             message_length: DEFAULT_MESSAGE_LENGTH,
             linger_timeout_ms: 100,
         }

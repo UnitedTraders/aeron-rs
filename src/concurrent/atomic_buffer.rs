@@ -303,6 +303,7 @@ impl AtomicBuffer {
         self.get::<i32>(offset) as Index
     }
 
+    // This function expects ASCII string WITHOUT trailing zero as its input.
     #[inline]
     pub fn put_string(&self, offset: Index, string: &[u8]) {
         self.bounds_check(offset, string.len() as Index + I32_SIZE);
@@ -437,12 +438,12 @@ mod tests {
         let src = AlignedBuffer::with_capacity(16);
         let atomic_buffer = AtomicBuffer::from_aligned(&src);
 
-        let test_string = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]; // zero terminated C-style
+        let test_string = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // without trailing zero
 
         atomic_buffer.put_string(2, &test_string);
-        let read_str = atomic_buffer.get_string(2);
+        let read_str = atomic_buffer.get_string(2); // trailing zero added here while reading from AB
 
         assert_eq!(read_str.as_bytes().len(), 9);
-        assert_eq!(read_str.as_bytes_with_nul(), test_string);
+        assert_eq!(read_str.as_bytes(), test_string); // as_bytes() returns string body without trailing zero
     }
 }

@@ -342,7 +342,7 @@ impl CountersManager {
 
         let label = conv_result.unwrap();
 
-        if label.as_bytes_with_nul().len() > MAX_LABEL_LENGTH as usize {
+        if label.as_bytes().len() > MAX_LABEL_LENGTH as usize {
             return Err(AeronError::IllegalArgumentException(String::from("allocate: label too long")));
         }
 
@@ -380,7 +380,7 @@ impl CountersManager {
 
         self.reader
             .metadata_buffer
-            .put_string(record_offset + *LABEL_LENGTH_OFFSET, label.as_bytes_with_nul());
+            .put_string(record_offset + *LABEL_LENGTH_OFFSET, label.as_bytes());
 
         self.reader
             .metadata_buffer
@@ -599,7 +599,7 @@ mod tests {
         // Check counters known by CountersManager
         for (id, counter) in counters_manager.iter().enumerate() {
             assert_eq!(
-                &utils::misc::aeron_str_no_len_to_rust(&counter.label.val[0] as *const u8),
+                &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length),
                 allocated.get(&(id as i32)).unwrap()
             );
             allocated.remove(&(id as i32));
@@ -744,7 +744,7 @@ mod tests {
         for (counter_id, counter) in counters_manager.iter().enumerate() {
             assert_eq!(counter_id, num_counters);
             assert_eq!(
-                &utils::misc::aeron_str_no_len_to_rust(&counter.label.val[0] as *const u8),
+                &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length),
                 labels[num_counters]
             );
 

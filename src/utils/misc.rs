@@ -1,5 +1,4 @@
 use std::alloc::{alloc_zeroed, dealloc, Layout};
-use std::ffi::CStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cache_line_size::CACHE_LINE_SIZE;
@@ -25,24 +24,15 @@ pub fn unix_time_ns() -> Moment {
     since_the_epoch.as_secs() * 1_000_000_000 + since_the_epoch.subsec_nanos() as u64
 }
 
-// Converts Aeron string in to Rust string
-// Aeron string has first 4 bytes as its length, then N bytes of the string itself, then \0 termination byte.
-// So it is C-style zero terminated string preceded with 4 bytes of its length
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub fn aeron_str_to_rust(raw_str: *const u8) -> String {
+// Accepts Aeron style ASCII string (without zero termination). Outputs Rust String.
+pub fn aeron_str_to_rust(raw_str: *const u8, length: i32) -> String {
     unsafe {
-        let length: i32 = *(raw_str as *const i32);
-        let ret = String::from(CStr::from_ptr(raw_str.offset(4) as *const i8).to_str().unwrap());
+        let str_slice = std::slice::from_raw_parts(raw_str, length as usize);
+        let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
+        zero_terminated.extend_from_slice(str_slice);
 
-        assert_eq!((length - 1) as usize, ret.len());
-
-        ret
+        String::from_utf8_unchecked(zero_terminated)
     }
-}
-
-// Accepts C-style zero terminated string
-pub fn aeron_str_no_len_to_rust(raw_str: *const u8) -> String {
-    unsafe { String::from(CStr::from_ptr(raw_str as *const i8).to_str().unwrap()) }
 }
 
 pub fn semantic_version_compose(major: i32, minor: i32, patch: i32) -> i32 {
