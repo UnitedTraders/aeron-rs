@@ -2,7 +2,7 @@
 name = "aeron-rs"
 version = "0.1.0"
 authors = ["Denis Komissarov <denisxor@gmail.com>; Kirill Karbushev <kiriosk@yandex.ru>; Florian Doyon <florian.doyon@gmail.com>; Alexander Ostrovskiy <alexander.ostrovskiy@gmail.com>",]
-test = false
+autotests = false
 edition = "2018"
 
 [dependencies]
