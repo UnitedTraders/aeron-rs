@@ -23,7 +23,7 @@ use rand::distributions::Uniform;
 use crate::client_conductor::ClientConductor;
 use crate::cnc_file_descriptor;
 use crate::concurrent::agent_invoker::AgentInvoker;
-use crate::concurrent::agent_runner::AgentRunner;
+use crate::concurrent::agent_runner::{AgentRunner, AgentStopper};
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
 use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
@@ -68,7 +68,7 @@ pub struct Aeron {
 
     conductor: Arc<Mutex<ClientConductor>>, // need mutable access to conductor
     idle_strategy: Arc<SleepingIdleStrategy>,
-    conductor_runner: Arc<Mutex<AgentRunner<ClientConductor, SleepingIdleStrategy>>>,
+    conductor_stopper: Option<AgentStopper>,
     conductor_invoker: AgentInvoker<ClientConductor>,
 }
 
@@ -95,11 +95,8 @@ impl Aeron {
         let local_to_clients_atomic_buffer = cnc_file_descriptor::create_to_clients_buffer(&cnc_buf);
         let local_counters_metadata_buffer = cnc_file_descriptor::create_counter_metadata_buffer(&cnc_buf);
         let local_counters_value_buffer = cnc_file_descriptor::create_counter_values_buffer(&cnc_buf);
-        let local_to_driver_ring_buffer =
-            Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer)?);
-        let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(
-            BroadcastReceiver::new(local_to_clients_atomic_buffer)?,
-        ));
+        let local_to_driver_ring_buffer = Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer)?);
+        let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(BroadcastReceiver::new(local_to_clients_atomic_buffer)?));
         let local_driver_proxy = Arc::new(DriverProxy::new(local_to_driver_ring_buffer.clone()));
         let local_idle_strategy = Arc::new(SleepingIdleStrategy::new(IDLE_SLEEP_MS));
         let local_copy_broadcast_receiver = Arc::new(Mutex::new(CopyBroadcastReceiver::new(
@@ -142,21 +139,16 @@ impl Aeron {
             to_clients_copy_receiver: CopyBroadcastReceiver::new(local_to_clients_broadcast_receiver),
             conductor: local_conductor.clone(),
             idle_strategy: local_idle_strategy.clone(),
-
-            // Arc<Mutex> used here to avoid self reference of Aeron fields on each other and to be able to mutate conductor_runner
-            conductor_runner: Arc::new(Mutex::new(AgentRunner::new(
-                local_conductor.clone(),
-                local_idle_strategy,
-                context.error_handler(),
-                AGENT_NAME,
-            ))),
-            conductor_invoker: AgentInvoker::new(local_conductor, context.error_handler()),
+            conductor_stopper: None,
+            conductor_invoker: AgentInvoker::new(local_conductor.clone(), context.error_handler()),
         };
+
+        let conductor_runner = AgentRunner::new(local_conductor, local_idle_strategy, context.error_handler(), AGENT_NAME);
 
         if use_agent_invoker {
             aeronchik.conductor_invoker.start();
         } else {
-            AgentRunner::start(aeronchik.conductor_runner.clone())?;
+            aeronchik.conductor_stopper = Some(AgentRunner::start(conductor_runner)?);
         }
 
         Ok(aeronchik)
@@ -179,7 +171,7 @@ impl Aeron {
      * @param context for configuration of the client.
      * @return the new Aeron instance connected to the Media Driver.
      */
-    pub fn connect_ctx(context: Context) ->  Arc<Result<Aeron, AeronError>> {
+    pub fn connect_ctx(context: Context) -> Arc<Result<Aeron, AeronError>> {
         Arc::new(Aeron::new(context))
     }
 
@@ -598,7 +590,7 @@ impl Drop for Aeron {
         if self.context.use_conductor_agent_invoker() {
             self.conductor_invoker.close();
         } else {
-            // self.conductor_runner.lock().expect("Mutex poisoned").close(); FIXME: resolve issues with moving ConductorRunner in to close()
+            self.conductor_stopper.as_mut().unwrap().stop();
         }
     }
 }

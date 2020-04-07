@@ -128,7 +128,9 @@ impl fmt::Display for RingBufferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
             RingBufferError::InsufficientCapacity => "Insufficient capacity".into(),
-            RingBufferError::MessageTooLong { msg, max } => format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg),
+            RingBufferError::MessageTooLong { msg, max } => {
+                format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg)
+            }
             RingBufferError::NonPositiveMessageTypeId(type_id) => {
                 format!("Message type id must be greater than zero, msgTypeId={}", type_id)
             }
@@ -177,7 +179,13 @@ impl ManyToOneRingBuffer {
         })
     }
 
-    pub fn write(&self, cmd: AeronCommand, src_buffer: AtomicBuffer, src_index: Index, length: Index) -> Result<(), RingBufferError> {
+    pub fn write(
+        &self,
+        cmd: AeronCommand,
+        src_buffer: AtomicBuffer,
+        src_index: Index,
+        length: Index,
+    ) -> Result<(), RingBufferError> {
         record_descriptor::check_msg_type_id(cmd as i32)?;
         self.check_msg_length(length)?;
 

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+use crate::concurrent;
 use crate::concurrent::broadcast::BroadcastTransmitError;
+use crate::concurrent::ring_buffer::RingBufferError;
 use std::fmt::Display;
 use std::{fmt, io};
-use crate::concurrent::ring_buffer::RingBufferError;
-use crate::concurrent;
 
 #[derive(Debug)]
 pub enum AeronError {

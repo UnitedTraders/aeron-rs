@@ -14,18 +14,39 @@
  * limitations under the License.
  */
 
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
+
 use crate::concurrent::logbuffer::term_reader::ErrorHandler;
 use crate::concurrent::strategies::Strategy;
 use crate::utils::errors::AeronError;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
 
 // The trait to be implemented by agents run within AgentRunner
 pub trait Agent {
     fn on_start(&mut self) -> Result<(), AeronError>;
     fn do_work(&mut self) -> Result<i32, AeronError>;
     fn on_close(&mut self) -> Result<(), AeronError>;
+}
+
+pub struct AgentStopper {
+    thread: Option<thread::JoinHandle<()>>,
+    tx: Sender<bool>,
+}
+
+impl AgentStopper {
+    pub fn new(thread: thread::JoinHandle<()>, tx: Sender<bool>) -> Self {
+        Self {
+            thread: Some(thread),
+            tx,
+        }
+    }
+
+    pub fn stop(&mut self) {
+        self.tx.send(true).expect("Can't send stop command to AgentRunner");
+
+        let _b = self.thread.take().unwrap().join();
+    }
 }
 
 pub struct AgentRunner<
@@ -35,9 +56,6 @@ pub struct AgentRunner<
     agent: Arc<Mutex<A>>, // need mutable Agent here as AgentRunner will change Agent state while running it
     idle_strategy: Arc<I>,
     exception_handler: ErrorHandler,
-    is_running: AtomicBool,
-    is_closed: AtomicBool,
-    thread: Option<thread::JoinHandle<()>>,
     name: String,
 }
 
@@ -51,9 +69,6 @@ impl<
             agent,
             idle_strategy,
             exception_handler,
-            is_running: AtomicBool::from(false),
-            is_closed: AtomicBool::from(false),
-            thread: None,
             name: String::from(name),
         }
     }
@@ -72,59 +87,41 @@ impl<
     }
 
     /**
-     * Is the Agent running?
-     *
-     * @return is the Agent been started successfully and not closed?
-     */
-    pub fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
-    }
-
-    /**
-     * Has the Agent been closed?
-     *
-     * @return has the Agent been closed?
-     */
-    pub fn is_closed(&self) -> bool {
-        self.is_closed.load(Ordering::SeqCst)
-    }
-
-    /**
      * Start the Agent running
      *
      * Will spawn a std::thread.
+     * Returns closure which is once called will shutdown the runner.
      */
-    pub fn start(this: Arc<Mutex<Self>>) -> Result<(), AeronError> {
-        let self_for_thread = this.clone();
-        let mut selfy = this.lock().expect("mutex is poisoned");
-        let th = thread::Builder::new().name(selfy.name.clone()).spawn(move || {
-            self_for_thread.lock().expect("mutex is poisoned").run();
+    pub fn start(mut this: Self) -> Result<AgentStopper, AeronError> {
+        let (tx, rx) = channel::<bool>();
+
+        let th = thread::Builder::new().name(this.name.clone()).spawn(move || {
+            this.run(rx);
         });
 
         if let Ok(handle) = th {
-            selfy.thread = Some(handle);
+            Ok(AgentStopper::new(handle, tx))
         } else {
             return Err(AeronError::GenericError(format!("Agent start failed: {:?}", th.err())));
         }
-
-        Ok(())
     }
 
     /**
      * Run the Agent duty cycle until closed
      */
-    pub fn run(&mut self) {
-        // Set is_running to true if its currently false.
-        let _res = self
-            .is_running
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
-
+    pub fn run(&mut self, stop_rx: Receiver<bool>) {
         if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_start() {
             (self.exception_handler)(error);
-            self.is_running.store(false, Ordering::SeqCst);
         }
 
-        while self.is_running.load(Ordering::SeqCst) {
+        loop {
+            // Monitor message from main thread and be ready to finish the work
+            if let Ok(time_to_stop) = stop_rx.try_recv() {
+                if time_to_stop {
+                    break;
+                }
+            }
+
             match self.agent.lock().expect("Mutex poisoned").do_work() {
                 Ok(work_cnt) => self.idle_strategy.idle_opt(work_cnt),
                 Err(error) => (self.exception_handler)(error),
@@ -133,24 +130,6 @@ impl<
 
         if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_close() {
             (self.exception_handler)(error);
-        }
-    }
-
-    /**
-     * Close the agent and stop the associated thread from running. This method waits for the thread to join.
-     * Consumes self as join() consumes thread handle.
-     */
-    pub fn close(self) {
-        // Atomically compare and set is_running value
-        // If is_running currently true then it will be set to false and Ok(true) is returned
-        // If is_running currently false then no change will be done and Err(false) is returned
-        if let Ok(_prev_value) = self
-            .is_running
-            .compare_exchange(true, false, Ordering::SeqCst, Ordering::Acquire)
-        {
-            if let Some(handle) = self.thread {
-                let _ret = handle.join();
-            }
         }
     }
 }
