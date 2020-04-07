@@ -214,7 +214,14 @@ fn main() {
     context.set_pre_touch_mapped_memory(true);
     //context.set_use_conductor_agent_invoker(true); // start it in one thread for debugging
 
-    let mut aeron = Aeron::new(context);
+    let aeron = Aeron::new(context);
+
+    if aeron.is_err() {
+        println!("Error creating Aeron instance: {:?}", aeron.err());
+        return;
+    }
+
+    let mut aeron = aeron.unwrap();
 
     let subscription_id = aeron
         .add_subscription(str_to_c(&settings.pong_channel), settings.pong_stream_id)

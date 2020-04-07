@@ -36,11 +36,11 @@ pub const CONSUMER_HEARTBEAT_OFFSET: Index = CACHE_LINE_LENGTH * 10;
 // Total length of the trailer in bytes
 pub const TRAILER_LENGTH: Index = CACHE_LINE_LENGTH * 12;
 
-fn check_capacity(capacity: Index) -> Result<(), Error> {
+fn check_capacity(capacity: Index) -> Result<(), RingBufferError> {
     if is_power_of_two(capacity) {
         Ok(())
     } else {
-        Err(Error::CapacityIsNotTwoPower { capacity })
+        Err(RingBufferError::CapacityIsNotTwoPower { capacity })
     }
 }
 
@@ -62,7 +62,7 @@ mod record_descriptor {
      *  +---------------------------------------------------------------+
      * </pre>
      */
-    use super::Error;
+    use super::RingBufferError;
     use crate::command::control_protocol_events::AeronCommand;
     use crate::utils::types::{Index, I32_SIZE};
 
@@ -108,31 +108,31 @@ mod record_descriptor {
     }
 
     #[inline]
-    pub fn check_msg_type_id(msg_type_id: i32) -> Result<(), Error> {
+    pub fn check_msg_type_id(msg_type_id: i32) -> Result<(), RingBufferError> {
         if msg_type_id < 1 {
-            return Err(Error::NonPositiveMessageTypeId(msg_type_id));
+            return Err(RingBufferError::NonPositiveMessageTypeId(msg_type_id));
         }
         Ok(())
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Error {
+pub enum RingBufferError {
     InsufficientCapacity,
     MessageTooLong { msg: Index, max: Index },
     NonPositiveMessageTypeId(i32),
     CapacityIsNotTwoPower { capacity: Index },
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for RingBufferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
-            Error::InsufficientCapacity => "Insufficient capacity".into(),
-            Error::MessageTooLong { msg, max } => format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg),
-            Error::NonPositiveMessageTypeId(type_id) => {
+            RingBufferError::InsufficientCapacity => "Insufficient capacity".into(),
+            RingBufferError::MessageTooLong { msg, max } => format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg),
+            RingBufferError::NonPositiveMessageTypeId(type_id) => {
                 format!("Message type id must be greater than zero, msgTypeId={}", type_id)
             }
-            Error::CapacityIsNotTwoPower { capacity } => format!(
+            RingBufferError::CapacityIsNotTwoPower { capacity } => format!(
                 "Capacity must be a positive power of 2 + TRAILER_LENGTH: capacity={}",
                 capacity
             ),
@@ -155,7 +155,7 @@ pub struct ManyToOneRingBuffer {
 }
 
 impl ManyToOneRingBuffer {
-    pub fn new(buffer: AtomicBuffer) -> Result<Self, Error> {
+    pub fn new(buffer: AtomicBuffer) -> Result<Self, RingBufferError> {
         let capacity = buffer.capacity() - TRAILER_LENGTH;
         check_capacity(capacity)?;
         let max_msg_len = capacity / 8;
@@ -177,7 +177,7 @@ impl ManyToOneRingBuffer {
         })
     }
 
-    pub fn write(&self, cmd: AeronCommand, src_buffer: AtomicBuffer, src_index: Index, length: Index) -> Result<(), Error> {
+    pub fn write(&self, cmd: AeronCommand, src_buffer: AtomicBuffer, src_index: Index, length: Index) -> Result<(), RingBufferError> {
         record_descriptor::check_msg_type_id(cmd as i32)?;
         self.check_msg_length(length)?;
 
@@ -342,7 +342,7 @@ impl ManyToOneRingBuffer {
         unblocked
     }
 
-    fn claim(&self, required_capacity: Index) -> Result<Index, Error> {
+    fn claim(&self, required_capacity: Index) -> Result<Index, RingBufferError> {
         let mask = (self.capacity - 1) as i64;
         let mut head = self.buffer.get_volatile::<i64>(self.head_cache_position);
 
@@ -353,7 +353,7 @@ impl ManyToOneRingBuffer {
             if required_capacity > available_capacity {
                 head = self.buffer.get_volatile::<i64>(self.head_position);
                 if required_capacity > (self.capacity - (tail - head) as Index) {
-                    return Err(Error::InsufficientCapacity);
+                    return Err(RingBufferError::InsufficientCapacity);
                 }
                 self.buffer.put_ordered::<i64>(self.head_cache_position, head);
             }
@@ -368,7 +368,7 @@ impl ManyToOneRingBuffer {
                     head = self.buffer.get_volatile::<i64>(self.head_position);
                     head_index = (head & mask) as Index;
                     if required_capacity > head_index {
-                        return Err(Error::InsufficientCapacity);
+                        return Err(RingBufferError::InsufficientCapacity);
                     }
                     self.buffer.put_ordered::<i64>(self.head_cache_position, head);
                 }
@@ -389,9 +389,9 @@ impl ManyToOneRingBuffer {
         }
     }
 
-    fn check_msg_length(&self, length: Index) -> Result<(), Error> {
+    fn check_msg_length(&self, length: Index) -> Result<(), RingBufferError> {
         if length > self.max_msg_len {
-            return Err(Error::MessageTooLong {
+            return Err(RingBufferError::MessageTooLong {
                 msg: length,
                 max: self.max_msg_len,
             });
@@ -496,7 +496,7 @@ mod tests {
         let ring_res = ManyToOneRingBuffer::new(ab);
         assert_eq!(
             ring_res.unwrap_err(),
-            Error::CapacityIsNotTwoPower {
+            RingBufferError::CapacityIsNotTwoPower {
                 capacity: ODD_BUFFER_SZ - TRAILER_LENGTH
             }
         );
@@ -510,7 +510,7 @@ mod tests {
             .ring_buffer
             .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, size);
 
-        assert_eq!(write_res.unwrap_err(), Error::MessageTooLong { msg: 129, max: 128 });
+        assert_eq!(write_res.unwrap_err(), RingBufferError::MessageTooLong { msg: 129, max: 128 });
     }
 
     #[test]
@@ -553,7 +553,7 @@ mod tests {
             .ring_buffer
             .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
             .unwrap_err();
-        assert_eq!(err, Error::InsufficientCapacity);
+        assert_eq!(err, RingBufferError::InsufficientCapacity);
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), tail as i64);
     }
 
@@ -573,7 +573,7 @@ mod tests {
             .ring_buffer
             .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
             .unwrap_err();
-        assert_eq!(err, Error::InsufficientCapacity);
+        assert_eq!(err, RingBufferError::InsufficientCapacity);
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), tail as i64);
     }
 

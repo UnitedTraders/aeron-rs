@@ -17,6 +17,8 @@
 use crate::concurrent::broadcast::BroadcastTransmitError;
 use std::fmt::Display;
 use std::{fmt, io};
+use crate::concurrent::ring_buffer::RingBufferError;
+use crate::concurrent;
 
 #[derive(Debug)]
 pub enum AeronError {
@@ -31,6 +33,7 @@ pub enum AeronError {
     ChannelEndpointException((i64, String)), // correlation ID + error message
     ClientTimeoutException(String),
     BroadcastTransmitError(BroadcastTransmitError),
+    RingBufferError(RingBufferError),
 }
 
 impl Display for AeronError {
@@ -47,7 +50,20 @@ impl Display for AeronError {
             AeronError::ChannelEndpointException(err) => write!(f, "ChannelEndpointException: {:?}", err),
             AeronError::ClientTimeoutException(err) => write!(f, "ClientTimeoutException: {:?}", err),
             AeronError::BroadcastTransmitError(err) => write!(f, "BroadcastTransmitError: {:?}", err),
+            AeronError::RingBufferError(err) => write!(f, "RingBufferError: {:?}", err),
         }
+    }
+}
+
+impl std::convert::From<concurrent::ring_buffer::RingBufferError> for AeronError {
+    fn from(err: RingBufferError) -> Self {
+        AeronError::RingBufferError(err)
+    }
+}
+
+impl std::convert::From<concurrent::broadcast::BroadcastTransmitError> for AeronError {
+    fn from(err: BroadcastTransmitError) -> Self {
+        AeronError::BroadcastTransmitError(err)
     }
 }
 

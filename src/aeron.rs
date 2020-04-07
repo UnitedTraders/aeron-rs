@@ -88,17 +88,17 @@ impl Aeron {
      * @param context for configuration of the client.
      */
 
-    pub fn new(context: Context) -> Self {
+    pub fn new(context: Context) -> Result<Self, AeronError> {
         // Most of Aeron internal field will be represented as Arc's to avoid self referencing.
-        let cnc_buf = Self::map_cnc_file(&context).expect("Error mapping CnC file");
+        let cnc_buf = Self::map_cnc_file(&context)?;
         let local_to_driver_atomic_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_buf);
         let local_to_clients_atomic_buffer = cnc_file_descriptor::create_to_clients_buffer(&cnc_buf);
         let local_counters_metadata_buffer = cnc_file_descriptor::create_counter_metadata_buffer(&cnc_buf);
         let local_counters_value_buffer = cnc_file_descriptor::create_counter_values_buffer(&cnc_buf);
         let local_to_driver_ring_buffer =
-            Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer).expect("Failed to create RingBuffer"));
+            Arc::new(ManyToOneRingBuffer::new(local_to_driver_atomic_buffer)?);
         let local_to_clients_broadcast_receiver = Arc::new(Mutex::new(
-            BroadcastReceiver::new(local_to_clients_atomic_buffer).expect("Failed to create BroadcastReceiver"),
+            BroadcastReceiver::new(local_to_clients_atomic_buffer)?,
         ));
         let local_driver_proxy = Arc::new(DriverProxy::new(local_to_driver_ring_buffer.clone()));
         let local_idle_strategy = Arc::new(SleepingIdleStrategy::new(IDLE_SLEEP_MS));
@@ -156,10 +156,10 @@ impl Aeron {
         if use_agent_invoker {
             aeronchik.conductor_invoker.start();
         } else {
-            AgentRunner::start(aeronchik.conductor_runner.clone()).expect("Error starting AgentRunner");
+            AgentRunner::start(aeronchik.conductor_runner.clone())?;
         }
 
-        aeronchik
+        Ok(aeronchik)
     }
 
     /**
@@ -179,7 +179,7 @@ impl Aeron {
      * @param context for configuration of the client.
      * @return the new Aeron instance connected to the Media Driver.
      */
-    pub fn connect_ctx(context: Context) -> Arc<Aeron> {
+    pub fn connect_ctx(context: Context) ->  Arc<Result<Aeron, AeronError>> {
         Arc::new(Aeron::new(context))
     }
 
@@ -190,7 +190,7 @@ impl Aeron {
      *
      * @return the new Aeron instance connected to the Media Driver.
      */
-    pub fn connect() -> Arc<Aeron> {
+    pub fn connect() -> Arc<Result<Aeron, AeronError>> {
         Arc::new(Aeron::new(Context::new()))
     }
 
@@ -531,7 +531,7 @@ impl Aeron {
         let start_ms = unix_time_ms();
 
         loop {
-            while MemoryMappedFile::file_size(context.cnc_file_name()).expect("file_size error") == 0 {
+            while MemoryMappedFile::file_size(context.cnc_file_name())? == 0 {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
                     return Err(AeronError::DriverTimeout(format!(
                         "CnC file not created: {}",

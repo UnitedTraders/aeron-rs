@@ -133,7 +133,14 @@ fn main() {
     context.set_error_handler(error_handler);
     context.set_pre_touch_mapped_memory(true);
 
-    let mut aeron = Aeron::new(context);
+    let aeron = Aeron::new(context);
+
+    if aeron.is_err() {
+        println!("Error creating Aeron instance: {:?}", aeron.err());
+        return;
+    }
+
+    let mut aeron = aeron.unwrap();
 
     let subscription_id = aeron
         .add_subscription(str_to_c(&settings.channel), settings.stream_id)
