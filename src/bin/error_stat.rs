@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use log::{error, trace};
-
 use aeron_rs::cnc_file_descriptor;
 use aeron_rs::cnc_file_descriptor::{CNC_FILE, CNC_VERSION};
 use aeron_rs::context::Context;
@@ -48,16 +46,19 @@ fn main() {
     pretty_env_logger::init();
     let settings = parse_cmd_line();
 
-    let cnc_file = MemoryMappedFile::map_existing(settings.base_path + "/" + CNC_FILE, true).expect("Cannot map file");
+    let cnc_file_name = settings.base_path + "/" + CNC_FILE;
+
+    println!("Opening CnC file: {}", cnc_file_name.clone());
+
+    let cnc_file = MemoryMappedFile::map_existing(&cnc_file_name, false).expect("Cannot map file");
     let cnc_version = cnc_file_descriptor::cnc_version_volatile(&cnc_file);
 
     if semantic_version_major(cnc_version) != semantic_version_major(CNC_VERSION) {
-        error!(
+        panic!(
             "CNC version is not supported:\n file={}\n app={}",
             semantic_version_to_string(cnc_version),
             semantic_version_to_string(CNC_VERSION)
         );
-        panic!();
     }
 
     let error_buffer = cnc_file_descriptor::create_error_log_buffer(&cnc_file);
@@ -65,7 +66,7 @@ fn main() {
     let distinct_error_count = error_log_reader::read(
         error_buffer,
         |observation_count, first_observation_timestamp, last_observation_timestamp, encoded_exception| {
-            trace!(
+            println!(
                 "***\n{} observations from {} to {} for:\n {}\n",
                 observation_count,
                 format_date(first_observation_timestamp),
@@ -76,5 +77,5 @@ fn main() {
         0,
     );
 
-    trace!("\n{} distinct errors observed.\n", distinct_error_count);
+    println!("\n{} distinct errors observed.\n", distinct_error_count);
 }
