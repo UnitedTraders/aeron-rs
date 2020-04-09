@@ -54,7 +54,7 @@ fn sig_int_handler() {
 }
 
 #[derive(StructOpt, Clone, Debug)]
-#[structopt(name = "Aeron ping example")]
+#[structopt(name = "Aeron ping")]
 struct CmdOpts {
     #[structopt(short = "p", long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
     dir_prefix: String,
@@ -82,7 +82,7 @@ fn parse_cmd_line() -> CmdOpts {
 
 fn send_ping_and_receive_pong(
     fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header),
-    publication: Arc<Publication>,
+    publication: Arc<Mutex<Publication>>,
     subscription: Arc<Mutex<Subscription>>,
     settings: &CmdOpts,
 ) {
@@ -108,7 +108,11 @@ fn send_ping_and_receive_pong(
                 let slice = ::std::slice::from_raw_parts(&mut start as *mut Instant as *mut u8, std::mem::size_of_val(&start));
                 src_buffer.put_bytes(0, slice);
             }
-            let position = publication.offer_part(src_buffer, 0, settings.message_length).unwrap();
+            let position = publication
+                .lock()
+                .unwrap()
+                .offer_part(src_buffer, 0, settings.message_length)
+                .unwrap();
 
             if position < 0 {
                 break position; // One of control statuses e.g. BACK_PRESSURED
@@ -186,8 +190,6 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     let settings = parse_cmd_line();
-
-    println!("Running ping example...\n{:#?}", settings);
 
     println!(
         "Subscribing Pong at {} on Stream ID {}",

@@ -62,8 +62,8 @@ enum RegistrationStatus {
 
 struct PublicationStateDefn {
     error_message: CString,
-    buffers: Option<Arc<LogBuffers>>,       // PublicationStateDefn could be created without it
-    publication: Option<Weak<Publication>>, // and then these fields will be set later.
+    buffers: Option<Arc<LogBuffers>>, // PublicationStateDefn could be created without it
+    publication: Option<Weak<Mutex<Publication>>>, // and then these fields will be set later.
     channel: CString,
     registration_id: i64,
     original_registration_id: i64,
@@ -99,7 +99,7 @@ impl PublicationStateDefn {
 struct ExclusivePublicationStateDefn {
     error_message: CString,
     buffers: Option<Arc<LogBuffers>>,
-    publication: Option<Weak<ExclusivePublication>>,
+    publication: Option<Weak<Mutex<ExclusivePublication>>>,
     channel: CString,
     registration_id: i64,
     // original_registration_id: i64,
@@ -583,7 +583,7 @@ impl ClientConductor {
         Ok(registration_id)
     }
 
-    pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Publication>, AeronError> {
+    pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Mutex<Publication>>, AeronError> {
         /*
         let _guard = self
             .admin_lock
@@ -644,7 +644,7 @@ impl ClientConductor {
                                 buffers.clone(),
                             );
 
-                            let new_pub = Arc::new(publication);
+                            let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
                             log::trace!(
                                 "find_publication: publication with registration_id {} CREATED",
@@ -750,7 +750,10 @@ impl ClientConductor {
         Ok(registration_id)
     }
 
-    pub(crate) fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
+    pub(crate) fn find_exclusive_publication(
+        &mut self,
+        registration_id: i64,
+    ) -> Result<Arc<Mutex<ExclusivePublication>>, AeronError> {
         /*
         let _guard = self
             .admin_lock
@@ -810,7 +813,7 @@ impl ClientConductor {
                                 buffers.clone(),
                             );
 
-                            let new_pub = Arc::new(publication);
+                            let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
 
                             log::trace!(
@@ -1422,7 +1425,7 @@ impl ClientConductor {
         for pub_defn in self.publication_by_registration_id.values() {
             if let Some(maybe_publication) = &pub_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
-                    publication.close();
+                    publication.lock().expect("Mutex on pub poisoned").close();
                 }
             }
         }
@@ -1431,7 +1434,7 @@ impl ClientConductor {
         for pub_defn in self.exclusive_publication_by_registration_id.values() {
             if let Some(maybe_publication) = &pub_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
-                    publication.close();
+                    publication.lock().expect("Mutex on ExPub poisoned").close();
                 }
             }
         }
@@ -1764,14 +1767,16 @@ impl DriverListener for ClientConductor {
         for (reg_id, publication_defn) in &self.publication_by_registration_id {
             if let Some(maybe_publication) = &publication_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
-                    if publication.channel_status_id() == offending_command_correlation_id as i32 {
+                    if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
+                        == offending_command_correlation_id as i32
+                    {
                         log::trace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
                         (self.error_handler)(ChannelEndpointException((
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
                         )));
-                        publication.close();
+                        publication.lock().expect("Mutex on pub poisoned").close();
                         publication_to_remove.push(*reg_id);
                     }
                 }
@@ -1786,12 +1791,14 @@ impl DriverListener for ClientConductor {
         for (reg_id, publication_defn) in &self.exclusive_publication_by_registration_id {
             if let Some(maybe_publication) = &publication_defn.publication {
                 if let Some(publication) = maybe_publication.upgrade() {
-                    if publication.channel_status_id() == offending_command_correlation_id as i32 {
+                    if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
+                        == offending_command_correlation_id as i32
+                    {
                         (self.error_handler)(ChannelEndpointException((
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
                         )));
-                        publication.close();
+                        publication.lock().expect("Mutex on pub poisoned").close();
                         epublication_to_remove.push(*reg_id);
                     }
                 }
@@ -2386,6 +2393,7 @@ mod tests {
         );
 
         let publication = test.conductor.lock().unwrap().find_publication(id).unwrap();
+        let publication = publication.lock().unwrap();
 
         assert_eq!(publication.registration_id(), id);
         assert_eq!(publication.channel(), str_to_c(CHANNEL));
@@ -2621,6 +2629,7 @@ mod tests {
         );
 
         let publication = test.conductor.lock().unwrap().find_exclusive_publication(id).unwrap();
+        let publication = publication.lock().unwrap();
 
         assert_eq!(publication.registration_id(), id);
         assert_eq!(publication.channel(), str_to_c(CHANNEL));
@@ -3837,7 +3846,7 @@ mod tests {
             .lock()
             .unwrap()
             .close_all_resources(*test.current_time.lock().unwrap());
-        assert!(publication.unwrap().is_closed());
+        assert!(publication.unwrap().lock().unwrap().is_closed());
     }
 
     #[test]
@@ -3869,7 +3878,7 @@ mod tests {
             .lock()
             .unwrap()
             .close_all_resources(*test.current_time.lock().unwrap());
-        assert!(publication.unwrap().is_closed());
+        assert!(publication.unwrap().lock().unwrap().is_closed());
     }
 
     #[test]
@@ -3972,9 +3981,9 @@ mod tests {
             .lock()
             .unwrap()
             .close_all_resources(*test.current_time.lock().unwrap());
-        assert!(publication.unwrap().is_closed());
+        assert!(publication.unwrap().lock().unwrap().is_closed());
         assert!(subscription.unwrap().lock().unwrap().is_closed());
-        assert!(ex_pub.unwrap().is_closed());
+        assert!(ex_pub.unwrap().lock().unwrap().is_closed());
     }
 
     #[test]

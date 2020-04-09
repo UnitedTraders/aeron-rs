@@ -132,7 +132,7 @@ fn main() {
 
     let publication = publication.unwrap();
 
-    let channel_status = publication.channel_status();
+    let channel_status = publication.lock().unwrap().channel_status();
 
     println!(
         "Publication channel status {}: {} ",
@@ -156,7 +156,7 @@ fn main() {
         println!("offering {}/{}", i + 1, settings.number_of_messages);
         let _unused = stdout().flush();
 
-        let result = publication.offer_part(src_buffer, 0, c_str_msg.len() as i32);
+        let result = publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32);
 
         if let Ok(code) = result {
             match code {
@@ -176,7 +176,7 @@ fn main() {
             println!("offer with error: {:?}", result.err());
         }
 
-        if !publication.is_connected() {
+        if !publication.lock().unwrap().is_connected() {
             println!("No active subscribers detected");
         }
 

@@ -220,7 +220,7 @@ impl Aeron {
      * @param registration_id of the Publication returned by Aeron::add_publication
      * @return Publication associated with the registration_id
      */
-    pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Publication>, AeronError> {
+    pub fn find_publication(&mut self, registration_id: i64) -> Result<Arc<Mutex<Publication>>, AeronError> {
         self.conductor
             .lock()
             .expect("Mutex poisoned")
@@ -258,7 +258,7 @@ impl Aeron {
      * @param registration_id of the ExclusivePublication returned by Aeron::add_exclusive_publication
      * @return ExclusivePublication associated with the registration_id
      */
-    pub fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<ExclusivePublication>, AeronError> {
+    pub fn find_exclusive_publication(&mut self, registration_id: i64) -> Result<Arc<Mutex<ExclusivePublication>>, AeronError> {
         self.conductor
             .lock()
             .expect("Mutex poisoned")
