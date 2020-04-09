@@ -40,10 +40,6 @@ pub trait BulkPubSize {
     const SIZE: usize;
 }
 
-// FIXME: this is temporary solution to introduce ExclusivePublication
-// It needs to be carefully ported thereafter
-// pub type ExclusivePublication = Publication;
-
 /**
  * @example basic_publisher.rs
  */
@@ -388,7 +384,7 @@ impl Publication {
                     term_id,
                     position as Index,
                     resulting_offset.expect("Something wrong with resulting offset"),
-                ); // FIXME: overflow of Index possible here
+                );
             } else {
                 new_position = self.back_pressure_status(position, length);
             }
@@ -518,7 +514,6 @@ impl Publication {
                 );
             } else {
                 new_position = self.back_pressure_status(position, length as Index);
-                // FIXME: possible Index overflow
             }
         }
 
@@ -538,7 +533,7 @@ impl Publication {
      * @throws IllegalArgumentException if the length is greater than max payload length within an MTU.
      * @see BufferClaim::commit
      */
-    pub fn try_claim(&mut self, length: Index, mut buffer_claim: BufferClaim) -> Result<i64, AeronError> {
+    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<i64, AeronError> {
         self.check_payload_length(length)?;
         let mut new_position = PUBLICATION_CLOSED;
 
@@ -558,7 +553,7 @@ impl Publication {
             }
 
             if position < limit {
-                let resulting_offset = term_appender.claim(&self.header_writer, length, &mut buffer_claim, term_id);
+                let resulting_offset = term_appender.claim(&self.header_writer, length, buffer_claim, term_id);
                 new_position = self.new_position(
                     term_count,
                     term_offset as i32,
@@ -974,11 +969,11 @@ mod tests {
     #[test]
     fn should_ensure_the_publication_is_open_before_claim() {
         let mut test = PublicationTest::new();
-        let buffer_claim = BufferClaim::default();
+        let mut buffer_claim = BufferClaim::default();
 
         test.publication.close();
         assert!(test.publication.is_closed());
-        assert_eq!(test.publication.try_claim(1024, buffer_claim).unwrap(), PUBLICATION_CLOSED);
+        assert_eq!(test.publication.try_claim(1024, &mut buffer_claim).unwrap(), PUBLICATION_CLOSED);
     }
 
     #[test]
@@ -1060,10 +1055,10 @@ mod tests {
         );
         test.publication_limit.set(i32::max_value() as i64);
 
-        let buffer_claim = BufferClaim::default();
+        let mut buffer_claim = BufferClaim::default();
 
         assert_eq!(test.publication.position(), initial_position as i64);
-        assert_eq!(test.publication.try_claim(1024, buffer_claim).unwrap(), ADMIN_ACTION);
+        assert_eq!(test.publication.try_claim(1024, &mut buffer_claim).unwrap(), ADMIN_ACTION);
 
         let next_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1 + 1);
         assert_eq!(
@@ -1077,7 +1072,7 @@ mod tests {
         );
 
         assert!(
-            test.publication.try_claim(1024, buffer_claim).unwrap()
+            test.publication.try_claim(1024, &mut buffer_claim).unwrap()
                 > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
         assert!(test.publication.position() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);

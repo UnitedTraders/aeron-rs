@@ -258,7 +258,7 @@ fn main() {
 
 
 
-                while publication.lock().unwrap().try_claim(settings.message_length, buffer_claim).unwrap() < 0 {
+                while publication.lock().unwrap().try_claim(settings.message_length, &mut buffer_claim).unwrap() < 0 {
                     back_pressure_count += 1;
                     offer_idle_strategy.idle();
                 }

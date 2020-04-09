@@ -410,7 +410,6 @@ impl ExclusivePublication {
                 };
 
                 new_position = self.new_position(resulting_offset);
-            // FIXME: overflow of Index possible here
             } else {
                 new_position = self.back_pressure_status(position, length);
             }
@@ -520,7 +519,6 @@ impl ExclusivePublication {
     //             new_position = self.new_position(resulting_offset);
     //         } else {
     //             new_position = self.back_pressure_status(position, length as Index);
-    //             // FIXME: possible Index overflow
     //         }
     //     }
     //

@@ -832,7 +832,6 @@ mod tests {
 
         let mut times_called = 0;
 
-        // FIXME: Check read signature
         let mut exception_threw: bool = false;
 
         let handler = |_command, _buffer| {
