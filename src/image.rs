@@ -84,6 +84,9 @@ pub struct Image {
     correlation_id: i64,
 }
 
+unsafe impl Send for Image {}
+unsafe impl Sync for Image {}
+
 enum ImageError {}
 
 impl Image {
