@@ -17,21 +17,22 @@
 extern crate aeron_rs;
 
 use std::ffi::CString;
-use std::slice;
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::time::Duration;
+use std::{slice, thread};
 
 use aeron_rs::aeron::Aeron;
 use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use aeron_rs::concurrent::logbuffer::header::Header;
 use aeron_rs::concurrent::status::status_indicator_reader::CHANNEL_ENDPOINT_ACTIVE;
-use aeron_rs::concurrent::strategies::{SleepingIdleStrategy, Strategy};
+use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, SleepingIdleStrategy, Strategy};
 use aeron_rs::context::Context;
 use aeron_rs::utils::errors::AeronError;
-use aeron_rs::utils::types::{Index, I32_SIZE};
+use aeron_rs::utils::types::{Index, I64_SIZE};
 use lazy_static::lazy_static;
 
 use crate::common::{str_to_c, TEST_CHANNEL, TEST_STREAM_ID};
+use aeron_rs::concurrent::logbuffer::buffer_claim::BufferClaim;
 use aeron_rs::fragment_assembler::FragmentAssembler;
 
 // IMPORTANT NOTICE: currently integration test can only work sequentially
@@ -327,18 +328,21 @@ fn test_fragmented_msg() {
 }
 
 lazy_static! {
-    pub static ref ON_NEW_FRAGMENT_CALLED2: AtomicBool = AtomicBool::from(false);
-    pub static ref LAST_RECEIVED_SEQ_NO: AtomicI32 = AtomicI32::from(0);
+    pub static ref SEQ_CHECK_FAILED: AtomicBool = AtomicBool::from(false);
+    pub static ref LAST_RECEIVED_SEQ_NO: AtomicI64 = AtomicI64::from(-1);
 }
 
 fn on_new_fragment_check_seq_no(buffer: &AtomicBuffer, offset: Index, length: Index, _header: &Header) {
-    ON_NEW_FRAGMENT_CALLED2.store(true, Ordering::SeqCst);
-    assert_eq!(length, I32_SIZE);
+    assert_eq!(length, I64_SIZE);
 
     let prev_seq_no = LAST_RECEIVED_SEQ_NO.load(Ordering::SeqCst);
 
     unsafe {
-        let this_seq_no = buffer.buffer().offset(offset as isize) as *mut i32;
+        let this_seq_no = buffer.buffer().offset(offset as isize) as *mut i64;
+
+        if *this_seq_no != prev_seq_no + 1 {
+            SEQ_CHECK_FAILED.store(true, Ordering::SeqCst);
+        }
 
         assert_eq!(*this_seq_no, prev_seq_no + 1);
     }
@@ -346,9 +350,13 @@ fn on_new_fragment_check_seq_no(buffer: &AtomicBuffer, offset: Index, length: In
     LAST_RECEIVED_SEQ_NO.store(prev_seq_no + 1, Ordering::SeqCst);
 }
 
+// This test creates two threads: publisher and subscriber. They work simultaneously sending/receiving
+// messages with monotonically growing sequence numbers.
 #[test]
 fn test_sequential_consistency() {
     let md = common::start_aeron_md();
+
+    let messages_to_send: i64 = 10000000;
 
     let mut context = Context::new();
 
@@ -389,45 +397,35 @@ fn test_sequential_consistency() {
     assert_eq!(subscription.lock().unwrap().channel_status(), CHANNEL_ENDPOINT_ACTIVE);
     assert_eq!(publication.lock().unwrap().channel_status(), CHANNEL_ENDPOINT_ACTIVE);
 
-    let buffer = AlignedBuffer::with_capacity(256);
-    let src_buffer = AtomicBuffer::from_aligned(&buffer);
+    let subscriber_thread = thread::Builder::new()
+        .name(String::from("Subscriber thread"))
+        .spawn(move || {
+            let poll_idle_strategy = BusySpinIdleStrategy::default();
+            for _messages_received in 0..messages_to_send {
+                let fragments_read = subscription.lock().unwrap().poll(&mut on_new_fragment_check_seq_no, 100);
 
-    // Fill in the buffer with exact data
-    for i in 0..src_buffer.capacity() {
-        src_buffer.put::<u8>(i, i as u8);
-    }
-
-    let result = publication.lock().unwrap().offer(src_buffer);
-
-    if let Ok(code) = result {
-        match code {
-            aeron_rs::publication::BACK_PRESSURED => println!("Offer failed due to back pressure"),
-            aeron_rs::publication::NOT_CONNECTED => println!("Offer failed because publisher is not connected to subscriber"),
-            aeron_rs::publication::ADMIN_ACTION => println!("Offer failed because of an administration action in the system"),
-            aeron_rs::publication::PUBLICATION_CLOSED => println!("Offer failed publication is closed"),
-            _ => {
-                if code < 0 {
-                    panic!("Offer failed due to unknown reason, ret code {}", code);
-                } else {
-                    println!("sent!");
-                }
+                poll_idle_strategy.idle_opt(fragments_read);
             }
+        })
+        .expect("Can't start Subscriber thread");
+
+    let offer_idle_strategy = BusySpinIdleStrategy::default();
+    let mut buffer_claim = BufferClaim::default();
+
+    for seq_no in 0..messages_to_send {
+        offer_idle_strategy.reset();
+
+        while publication.lock().unwrap().try_claim(I64_SIZE, &mut buffer_claim).unwrap() < 0 {
+            offer_idle_strategy.idle();
         }
-    } else {
-        panic!("offer with error: {:?}", result.err());
+
+        buffer_claim.buffer().put::<i64>(buffer_claim.offset(), seq_no);
+        buffer_claim.commit();
     }
 
-    let idle_strategy = SleepingIdleStrategy::new(1000);
-
-    for _i in 0..3 {
-        let fragments_read = subscription.lock().expect("Fu").poll(&mut on_new_fragment_check_payload, 10);
-        if fragments_read > 0 {
-            break;
-        }
-        idle_strategy.idle_opt(fragments_read);
-    }
-
-    assert_eq!(ON_NEW_FRAGMENT_CALLED.load(Ordering::SeqCst), true);
+    let _unused = subscriber_thread.join();
 
     common::stop_aeron_md(md);
+
+    assert!(!SEQ_CHECK_FAILED.load(Ordering::SeqCst));
 }

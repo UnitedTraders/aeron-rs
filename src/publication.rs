@@ -973,7 +973,10 @@ mod tests {
 
         test.publication.close();
         assert!(test.publication.is_closed());
-        assert_eq!(test.publication.try_claim(1024, &mut buffer_claim).unwrap(), PUBLICATION_CLOSED);
+        assert_eq!(
+            test.publication.try_claim(1024, &mut buffer_claim).unwrap(),
+            PUBLICATION_CLOSED
+        );
     }
 
     #[test]
