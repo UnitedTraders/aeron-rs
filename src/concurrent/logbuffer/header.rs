@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::data_frame_header::DataFrameHeaderDefn;
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
-use crate::utils::bit_utils::align;
-use crate::utils::bit_utils::number_of_trailing_zeroes;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{
+        data_frame_header::{self, DataFrameHeaderDefn},
+        frame_descriptor, log_buffer_descriptor,
+    },
+};
+use crate::utils::{
+    bit_utils::{align, number_of_trailing_zeroes},
+    types::Index,
+};
 
 /**
  * Represents the header of the data frame for accessing meta data fields.

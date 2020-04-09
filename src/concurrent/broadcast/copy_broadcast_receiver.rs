@@ -14,14 +14,6 @@
  * limitations under the License.
  */
 
-//typedef std::array<std::uint8_t, 4096> scratch_buffer_t;
-
-//** The data handler function signature */
-//typedef std::function<void(std::int32_t, concurrent::AtomicBuffer&, util::index_t, util::index_t)> handler_t;
-
-trait Handler {
-    fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);
-}
 use std::sync::{Arc, Mutex};
 
 use super::broadcast_receiver::BroadcastReceiver;
@@ -29,6 +21,10 @@ use super::BroadcastTransmitError;
 use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use crate::utils::types::Index;
+
+trait Handler {
+    fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);
+}
 
 pub struct CopyBroadcastReceiver {
     receiver: Arc<Mutex<BroadcastReceiver>>,

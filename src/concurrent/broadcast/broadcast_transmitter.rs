@@ -15,12 +15,12 @@
  */
 
 use crate::command::control_protocol_events::AeronCommand;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::atomics;
-use crate::concurrent::broadcast::record_descriptor;
-use crate::concurrent::broadcast::{broadcast_buffer_descriptor, BroadcastTransmitError};
-use crate::utils::bit_utils::align;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    atomics,
+    broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
+};
+use crate::utils::{bit_utils::align, types::Index};
 
 #[derive(Debug)]
 pub struct BroadcastTransmitter {
@@ -299,10 +299,6 @@ mod tests {
 
     #[test]
     fn should_transmit_into_end_of_buffer() {
-        //    TEST_F(BroadcastTransmitterTest, shouldTransmitIntoEndOfBuffer)
-        //    {
-        //    AERON_DECL_ALIGNED(src_buffer_t buffer, 16);
-
         let mut test = BroadcastTransmitterTest::new(CAPACITY);
 
         //    AtomicBuffer srcBuffer(&buffer[0], buffer.size());
@@ -341,55 +337,4 @@ mod tests {
         transmitter.transmit(MSG_TYPE_ID, &src_buffer, LENGTH, 16).unwrap();
         dbg!(test.buffer);
     }
-
-    //    TEST_F(BroadcastTransmitterTest, shouldApplyPaddingWhenInsufficientSpaceAtEndOfBuffer)
-    //    {
-    //    AERON_DECL_ALIGNED(src_buffer_t buffer, 16);
-    //    AtomicBuffer srcBuffer(&buffer[0], buffer.size());
-    //    std::int64_t tail = CAPACITY - RecordDescriptor::RECORD_ALIGNMENT;
-    //    std::int32_t recordOffset = (std::int32_t)tail;
-    //    const std::int32_t length = RecordDescriptor::RECORD_ALIGNMENT + 8;
-    //    const std::int32_t recordLength = length + RecordDescriptor::HEADER_LENGTH;
-    //    const std::int32_t alignedRecordLength = util::BitUtil::align(recordLength, RecordDescriptor::RECORD_ALIGNMENT);
-    //    const std::int32_t toEndOfBuffer = CAPACITY - recordOffset;
-    //    const util::index_t srcIndex = 0;
-    //    testing::Sequence sequence;
-    //
-    //    EXPECT_CALL(m_mockBuffer, getInt64(TAIL_COUNTER_INDEX))
-    //    .Times(1)
-    //    .InSequence(sequence)
-    //    .WillOnce(testing::Return(tail));
-    //
-    //    EXPECT_CALL(m_mockBuffer, putInt64Ordered(TAIL_INTENT_COUNTER_INDEX, tail + alignedRecordLength + toEndOfBuffer))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //    EXPECT_CALL(m_mockBuffer, putInt32(RecordDescriptor::lengthOffset(recordOffset), toEndOfBuffer))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //    EXPECT_CALL(m_mockBuffer, putInt32(RecordDescriptor::typeOffset(recordOffset), RecordDescriptor::PADDING_MSG_TYPE_ID))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //
-    //    tail += toEndOfBuffer;
-    //    recordOffset = 0;
-    //
-    //    EXPECT_CALL(m_mockBuffer, putInt32(RecordDescriptor::lengthOffset(recordOffset), recordLength))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //    EXPECT_CALL(m_mockBuffer, putInt32(RecordDescriptor::typeOffset(recordOffset), MSG_TYPE_ID))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //    EXPECT_CALL(m_mockBuffer, putBytes(RecordDescriptor::msgOffset(recordOffset), testing::Ref(srcBuffer), srcIndex, length))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //
-    //    EXPECT_CALL(m_mockBuffer, putInt64(LATEST_COUNTER_INDEX, tail))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //    EXPECT_CALL(m_mockBuffer, putInt64Ordered(TAIL_COUNTER_INDEX, tail + alignedRecordLength))
-    //    .Times(1)
-    //    .InSequence(sequence);
-    //
-    //    m_broadcastTransmitter.transmit(MSG_TYPE_ID, srcBuffer, srcIndex, length);
-    //    }
 }

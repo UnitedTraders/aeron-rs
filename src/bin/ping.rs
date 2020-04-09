@@ -19,14 +19,12 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use hdrhistogram::Histogram;
-use lazy_static::lazy_static;
-use structopt::StructOpt;
-
 use aeron_rs::aeron::Aeron;
-use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-use aeron_rs::concurrent::logbuffer::header::Header;
-use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
+use aeron_rs::concurrent::{
+    atomic_buffer::{AlignedBuffer, AtomicBuffer},
+    logbuffer::header::Header,
+    strategies::{BusySpinIdleStrategy, Strategy},
+};
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{
     DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL,
@@ -36,8 +34,10 @@ use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::image::Image;
 use aeron_rs::publication::Publication;
 use aeron_rs::subscription::Subscription;
-use aeron_rs::utils::errors::AeronError;
-use aeron_rs::utils::types::Index;
+use aeron_rs::utils::{errors::AeronError, types::Index};
+use hdrhistogram::Histogram;
+use lazy_static::lazy_static;
+use structopt::StructOpt;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);

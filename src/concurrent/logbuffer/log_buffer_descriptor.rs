@@ -18,20 +18,21 @@ use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
-use crate::utils::bit_utils::is_power_of_two;
-use crate::utils::errors::AeronError;
-use crate::utils::misc::CACHE_LINE_LENGTH;
-use crate::utils::types::I64_SIZE;
-use crate::utils::types::{Index, I32_SIZE};
+use crate::utils::{
+    bit_utils::is_power_of_two,
+    errors::AeronError,
+    misc::CACHE_LINE_LENGTH,
+    types::{Index, I32_SIZE, I64_SIZE},
+};
 
 pub(crate) const TERM_MIN_LENGTH: Index = 64 * 1024;
-pub const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
+pub(crate) const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
 pub(crate) const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
 const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
 pub const PARTITION_COUNT: Index = 3;
 
-/*
+/**
  * Layout description for log buffers which contains partitions of terms with associated term meta data,
  * plus ending with overall log meta data.
  *
