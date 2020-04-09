@@ -21,6 +21,7 @@ use aeron_rs::utils::{
     memory_mapped_file::MemoryMappedFile,
     misc::{semantic_version_major, semantic_version_to_string},
 };
+use chrono::{Local, TimeZone};
 
 struct CmdOpts {
     base_path: String,
@@ -38,9 +39,10 @@ fn parse_cmd_line() -> CmdOpts {
     CmdOpts::default()
 }
 
-fn format_date(_milliseconds_since_epoch: i64) -> String {
+fn format_date(milliseconds_since_epoch: i64) -> String {
     // yyyy-MM-dd HH:mm:ss.SSSZ
-    String::new()
+    let time = Local.timestamp_millis(milliseconds_since_epoch);
+    time.to_string()
 }
 
 fn main() {
@@ -68,7 +70,7 @@ fn main() {
         error_buffer,
         |observation_count, first_observation_timestamp, last_observation_timestamp, encoded_exception| {
             println!(
-                "***\n{} observations from {} to {} for:\n {}\n",
+                "***\n{} observations from {} to {} for:\n{}\n",
                 observation_count,
                 format_date(first_observation_timestamp),
                 format_date(last_observation_timestamp),
