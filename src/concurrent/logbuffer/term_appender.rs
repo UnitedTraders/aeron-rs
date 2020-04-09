@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor};
-use crate::utils::bit_utils;
-use crate::utils::errors::AeronError;
-use crate::utils::types::{Index, I64_SIZE};
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{buffer_claim::BufferClaim, data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor},
+};
+use crate::utils::{
+    bit_utils,
+    errors::AeronError,
+    types::{Index, I64_SIZE},
+};
 
 /**
  * Supplies the reserved value field for a data frame header. The returned value will be set in the header as
@@ -417,9 +420,10 @@ impl TermAppender {
 
 #[cfg(test)]
 mod tests {
+    use lazy_static::lazy_static;
+
     use super::*;
     use crate::concurrent::atomic_buffer::AlignedBuffer;
-    use lazy_static::lazy_static;
 
     const TERM_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
     const META_DATA_BUFFER_CAPACITY: Index = log_buffer_descriptor::LOG_META_DATA_LENGTH;

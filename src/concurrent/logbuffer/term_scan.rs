@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor};
-use crate::utils::bit_utils;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{data_frame_header, frame_descriptor},
+};
+use crate::utils::{bit_utils, types::Index};
 
 /**
  * Callback for handling a block of messages being read from a log.
@@ -158,8 +159,10 @@ pub fn scan_for_availability(term_buffer: &AtomicBuffer, offset: Index, max_leng
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concurrent::atomic_buffer::AlignedBuffer;
-    use crate::concurrent::logbuffer::{log_buffer_descriptor, term_scan};
+    use crate::concurrent::{
+        atomic_buffer::AlignedBuffer,
+        logbuffer::{log_buffer_descriptor, term_scan},
+    };
 
     const LOG_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
     const TERM_ID: i32 = 1;

@@ -14,19 +14,23 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::{
+    ffi::CString,
+    io::{stdout, Write},
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
 use aeron_rs::aeron::Aeron;
-use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-use aeron_rs::concurrent::status::status_indicator_reader::channel_status_to_str;
+use aeron_rs::concurrent::{
+    atomic_buffer::{AlignedBuffer, AtomicBuffer},
+    status::status_indicator_reader::channel_status_to_str,
+};
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{DEFAULT_CHANNEL, DEFAULT_MESSAGE_LENGTH, DEFAULT_STREAM_ID};
 use aeron_rs::utils::errors::AeronError;
 use lazy_static::lazy_static;
 use nix::NixPath;
-use std::io::{stdout, Write};
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);

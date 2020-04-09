@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use log::{error, trace};
-
-use aeron_rs::cnc_file_descriptor;
-use aeron_rs::cnc_file_descriptor::{CNC_FILE, CNC_VERSION};
+use aeron_rs::cnc_file_descriptor::{self, CNC_FILE, CNC_VERSION};
 use aeron_rs::context::Context;
-use aeron_rs::utils::errors::error_log_reader;
-use aeron_rs::utils::memory_mapped_file::MemoryMappedFile;
-use aeron_rs::utils::misc::{semantic_version_major, semantic_version_to_string};
+use aeron_rs::utils::{
+    errors::error_log_reader,
+    memory_mapped_file::MemoryMappedFile,
+    misc::{semantic_version_major, semantic_version_to_string},
+};
+use log::{error, trace};
 
 struct CmdOpts {
     base_path: String,
@@ -48,7 +48,7 @@ fn main() {
     pretty_env_logger::init();
     let settings = parse_cmd_line();
 
-    let cnc_file = MemoryMappedFile::map_existing(settings.base_path + "/" + CNC_FILE, true).expect("Cannot map file");
+    let cnc_file = MemoryMappedFile::map_existing(settings.base_path + "/" + CNC_FILE, false).expect("Cannot map file");
     let cnc_version = cnc_file_descriptor::cnc_version_volatile(&cnc_file);
 
     if semantic_version_major(cnc_version) != semantic_version_major(CNC_VERSION) {

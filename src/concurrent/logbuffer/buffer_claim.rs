@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::data_frame_header;
+use crate::concurrent::{atomic_buffer::AtomicBuffer, logbuffer::data_frame_header};
 use crate::utils::types::Index;
 
 /**

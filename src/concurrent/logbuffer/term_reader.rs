@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::header::Header;
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor};
-use crate::utils::bit_utils;
-use crate::utils::errors::AeronError;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{
+        header::Header,
+        {data_frame_header, frame_descriptor},
+    },
+};
+use crate::utils::{bit_utils, errors::AeronError, types::Index};
 
 pub type ErrorHandler = fn(AeronError);
 
