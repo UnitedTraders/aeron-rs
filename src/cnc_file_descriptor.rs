@@ -70,8 +70,8 @@ use crate::utils::{bit_utils, misc};
 * </pre>
 */
 
-pub(crate) static CNC_FILE: &str = "cnc.dat";
-pub(crate) const CNC_VERSION: i32 = 16;
+pub static CNC_FILE: &str = "cnc.dat";
+pub const CNC_VERSION: i32 = 16;
 
 #[derive(Copy, Clone)]
 #[repr(C, packed(4))]

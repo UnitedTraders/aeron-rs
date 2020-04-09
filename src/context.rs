@@ -482,6 +482,7 @@ impl Context {
     }
 
     pub fn default_aeron_path() -> String {
-        String::from("/dev/shm/aeron-") + &Context::get_user_name()
+        String::from("/var/folders/rm/_g_4mzkj2z59n0ghz5t97vy40000gn/T/aeron-kirios")
+        // String::from("/dev/shm/aeron-") + &Context::get_user_name()
     }
 }
