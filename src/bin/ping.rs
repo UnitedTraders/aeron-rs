@@ -27,8 +27,7 @@ use aeron_rs::concurrent::{
 };
 use aeron_rs::context::Context;
 use aeron_rs::example_config::{
-    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID, DEFAULT_PONG_CHANNEL,
-    DEFAULT_PONG_STREAM_ID,
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID,
 };
 use aeron_rs::fragment_assembler::FragmentAssembler;
 use aeron_rs::image::Image;
@@ -60,11 +59,11 @@ struct CmdOpts {
     dir_prefix: String,
     #[structopt(short = "c", long = "ping_channel", default_value = DEFAULT_PING_CHANNEL, help = "Ping channel")]
     ping_channel: String,
-    #[structopt(short = "C", long = "pong_channel", default_value = DEFAULT_PONG_CHANNEL, help = "Pong channel")]
+    #[structopt(short = "C", long = "pong_channel", default_value = DEFAULT_PING_CHANNEL, help = "Pong channel")]
     pong_channel: String,
     #[structopt(short = "s", long, default_value = DEFAULT_PING_STREAM_ID, help = "Ping Stream ID")]
     ping_stream_id: i32,
-    #[structopt(short = "S", long, default_value = DEFAULT_PONG_STREAM_ID, help = "Pong Stream ID")]
+    #[structopt(short = "S", long, default_value = DEFAULT_PING_STREAM_ID, help = "Pong Stream ID")]
     pong_stream_id: i32,
     #[structopt(short = "w", long, default_value = "0", help = "Number of Messages for warmup")]
     number_of_warmup_messages: i64,
@@ -89,16 +88,6 @@ fn send_ping_and_receive_pong(
     let buffer = AlignedBuffer::with_capacity(settings.message_length);
     let src_buffer = AtomicBuffer::from_aligned(&buffer);
     let idle_strategy: BusySpinIdleStrategy = Default::default();
-    let mut subscription = subscription.lock().unwrap();
-
-    let mut maybe_image = subscription.image_by_index(0);
-
-    while maybe_image.is_none() {
-        maybe_image = subscription.image_by_index(0);
-        std::thread::sleep(Duration::from_millis(1000));
-    }
-
-    let image = maybe_image.unwrap();
 
     for _i in 0..settings.number_of_messages {
         let position = loop {
@@ -114,15 +103,23 @@ fn send_ping_and_receive_pong(
                 .offer_part(src_buffer, 0, settings.message_length)
                 .unwrap();
 
-            if position < 0 {
-                break position; // One of control statuses e.g. BACK_PRESSURED
+            if position > 0 {
+                break position;
             }
         };
 
+        // Wait for image
+        while subscription.lock().unwrap().image_by_index(0).is_none() {
+            std::thread::sleep(Duration::from_millis(1000));
+        }
+
+        let mut subscription = subscription.lock().unwrap(); // Lock subscription. Means that it can't be changed by incoming messages (e.g. new images)
+        let image = subscription.image_by_index(0).unwrap();
+
         idle_strategy.reset();
+
         loop {
             while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
-                std::thread::sleep(Duration::from_millis(1000));
                 idle_strategy.idle();
             }
 
