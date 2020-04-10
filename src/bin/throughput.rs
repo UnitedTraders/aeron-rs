@@ -202,7 +202,7 @@ fn main() {
     let offer_idle_strategy = BusySpinIdleStrategy::default();
     let poll_idle_strategy = BusySpinIdleStrategy::default();
 
-    let rate_reporter = Arc::new(Mutex::new(RateReporter::new(1000000, print_rate)));
+    let rate_reporter = Arc::new(Mutex::new(RateReporter::new(1_000_000, print_rate)));
 
     let rate_reporter_thread: Option<thread::JoinHandle<()>> = None;
 

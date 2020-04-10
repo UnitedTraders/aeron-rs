@@ -204,6 +204,7 @@ impl TermAppender {
     }
 
     // This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
+    #[allow(clippy::too_many_arguments)]
     pub fn append_fragmented_message(
         &self,
         header: &HeaderWriter,

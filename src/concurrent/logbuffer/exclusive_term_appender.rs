@@ -86,6 +86,7 @@ impl ExclusiveTermAppender {
         resulting_offset
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn append_unfragmented_message(
         &mut self,
         term_id: i32,
@@ -164,6 +165,7 @@ impl ExclusiveTermAppender {
     }
     */
 
+    #[allow(clippy::too_many_arguments)]
     pub fn append_fragmented_message(
         &mut self,
         term_id: i32,

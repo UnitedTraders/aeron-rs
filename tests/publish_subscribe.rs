@@ -332,6 +332,8 @@ lazy_static! {
     pub static ref LAST_RECEIVED_SEQ_NO: AtomicI64 = AtomicI64::from(-1);
 }
 
+#[allow(dead_code)]
+#[allow(clippy::cast_ptr_alignment)]
 fn on_new_fragment_check_seq_no(buffer: &AtomicBuffer, offset: Index, length: Index, _header: &Header) {
     assert_eq!(length, I64_SIZE);
 
@@ -356,7 +358,7 @@ fn on_new_fragment_check_seq_no(buffer: &AtomicBuffer, offset: Index, length: In
 fn test_sequential_consistency() {
     let md = common::start_aeron_md();
 
-    let messages_to_send: i64 = 10000000;
+    let messages_to_send: i64 = 10_000_000;
 
     let mut context = Context::new();
 

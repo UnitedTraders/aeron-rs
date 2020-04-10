@@ -47,7 +47,6 @@ use crate::utils::misc::CallbackGuard;
 use crate::utils::types::{Moment, MAX_MOMENT};
 
 type EpochClock = fn() -> Moment;
-type NanoClock = fn() -> Moment;
 
 const KEEPALIVE_TIMEOUT_MS: Moment = 500;
 const RESOURCE_TIMEOUT_MS: Moment = 1000;
@@ -197,6 +196,7 @@ impl CounterStateDefn {
     }
 }
 
+#[allow(dead_code)]
 struct ImageListLingerDefn {
     image_array: Vec<Image>,
     time_of_last_state_change_ms: Moment,
@@ -225,6 +225,7 @@ impl LogBuffersDefn {
     }
 }
 
+#[allow(dead_code)]
 struct DestinationStateDefn {
     error_message: CString,
     correlation_id: i64,
@@ -247,6 +248,7 @@ impl DestinationStateDefn {
     }
 }
 
+#[allow(dead_code)]
 pub struct ClientConductor {
     publication_by_registration_id: HashMap<i64, PublicationStateDefn>,
     exclusive_publication_by_registration_id: HashMap<i64, ExclusivePublicationStateDefn>,
@@ -293,6 +295,7 @@ pub struct ClientConductor {
 }
 
 impl ClientConductor {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         epoch_clock: EpochClock,
         driver_proxy: Arc<DriverProxy>,

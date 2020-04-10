@@ -71,6 +71,7 @@ pub struct MemoryMappedFile {
 }
 
 impl MemoryMappedFile {
+    #[allow(dead_code)]
     fn page_size() -> usize {
         // ::getpagesize() todo whats that?
         0
@@ -167,6 +168,7 @@ mod tests {
         MemoryMappedFile::create_new(Path::new("abc.file"), 0, 128).unwrap();
     }
 
+    #[allow(dead_code)]
     fn create_file() -> (File, PathBuf) {
         let tmp_dir = tempfile::tempdir().unwrap();
         let file_path = tmp_dir.path().join("mapped.file");

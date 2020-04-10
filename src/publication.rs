@@ -81,6 +81,7 @@ pub struct Publication {
 }
 
 impl Publication {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         conductor: Arc<Mutex<ClientConductor>>,
         channel: CString,

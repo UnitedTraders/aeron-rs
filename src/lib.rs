@@ -16,8 +16,6 @@
 
 // TODO: Eliminate later
 #![allow(dead_code)]
-#![allow(clippy::cast_ptr_alignment)]
-#![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_safety_doc)]
 
 pub mod aeron;

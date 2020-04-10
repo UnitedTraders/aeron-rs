@@ -73,18 +73,10 @@ mod loss_report_descriptor {
         stream_id: i32,
     }
 
-    pub(crate) const CHANNEL_OFFSET: Index = std::mem::size_of::<LossReportEntryDefn>() as Index;
-    //
+    pub(super) const CHANNEL_OFFSET: Index = std::mem::size_of::<LossReportEntryDefn>() as Index;
+
+    #[allow(dead_code)]
     const LOSS_REPORT_FILE_NAME: &str = "loss-report.dat";
-    //
-    // inline static std::string file(std::string& aeronDirectoryName)
-    // {
-    // #if defined(_MSC_VER)
-    // return aeronDirectoryName + "\\" + LOSS_REPORT_FILE_NAME;
-    // #else
-    // return aeronDirectoryName + "/" + LOSS_REPORT_FILE_NAME;
-    // #endif
-    // }
 }
 
 lazy_static! {
@@ -102,6 +94,7 @@ pub type LossConsumerHandler = fn(i64, LossReportEntryDefn, CString /*channel*/,
  * @return the number of entries read.
  */
 #[inline]
+#[allow(dead_code)]
 fn read(buffer: &AtomicBuffer, consumer: LossConsumerHandler) -> i32 {
     let mut records_read = 0;
     let mut offset = 0;
