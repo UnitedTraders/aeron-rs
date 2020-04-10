@@ -38,9 +38,9 @@ struct SubscriptionReadyDefn {
     channel_status_indicator_id: i32,
 }
 
-const SUBSCRIPTION_READY_LENGTH: Index = std::mem::size_of::<SubscriptionReadyDefn>() as Index;
+pub const SUBSCRIPTION_READY_LENGTH: Index = std::mem::size_of::<SubscriptionReadyDefn>() as Index;
 
-pub(crate) struct SubscriptionReadyFlyweight {
+pub struct SubscriptionReadyFlyweight {
     flyweight: Flyweight<SubscriptionReadyDefn>,
 }
 

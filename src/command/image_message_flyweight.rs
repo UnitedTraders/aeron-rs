@@ -53,7 +53,7 @@ struct ImageMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub(crate) struct ImageMessageFlyweight {
+pub struct ImageMessageFlyweight {
     flyweight: Flyweight<ImageMessageDefn>,
 }
 

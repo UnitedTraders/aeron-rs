@@ -56,7 +56,7 @@ struct SubscriptionMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub(crate) struct SubscriptionMessageFlyweight {
+pub struct SubscriptionMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut SubscriptionMessageDefn,
 }

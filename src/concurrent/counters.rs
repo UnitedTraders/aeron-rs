@@ -270,6 +270,7 @@ impl<'a> Iterator for CountersReaderIter<'a> {
     }
 }
 
+#[allow(dead_code)]
 type KeyFunc = fn(&mut AtomicBuffer);
 type SysTimeProvider = fn() -> u64;
 
@@ -722,6 +723,7 @@ mod tests {
     #[test]
     #[allow(unused_mut)]
     #[allow(unused_must_use)]
+    #[allow(clippy::cast_ptr_alignment)]
     fn test_counters_store_meta_data() {
         gen_counters_manager!(counters_manager);
 

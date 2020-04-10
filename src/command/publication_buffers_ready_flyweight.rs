@@ -63,7 +63,7 @@ struct PublicationBuffersReadyDefn {
     log_file_data: [i8; 1],
 }
 
-pub(crate) struct PublicationBuffersReadyFlyweight {
+pub struct PublicationBuffersReadyFlyweight {
     flyweight: Flyweight<PublicationBuffersReadyDefn>,
 }
 

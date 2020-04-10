@@ -30,7 +30,7 @@ struct DestinationMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub(crate) struct DestinationMessageFlyweight {
+pub struct DestinationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut DestinationMessageDefn, // This is actually part of above field memory space
 }

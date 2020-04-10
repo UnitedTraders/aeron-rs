@@ -47,6 +47,8 @@ use crate::utils::types::Moment;
  * <p>
  * A client application requires only one Aeron object per Media Driver.
  */
+
+#[allow(dead_code)]
 pub struct Aeron {
     random_engine: rand::rngs::ThreadRng,
     session_id_distribution: rand::distributions::Uniform<i32>,

@@ -45,7 +45,7 @@ struct RemoveMessageDefn {
 
 const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as Index;
 
-pub(crate) struct RemoveMessageFlyweight {
+pub struct RemoveMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut RemoveMessageDefn, // This is actually part of above field memory space
 }

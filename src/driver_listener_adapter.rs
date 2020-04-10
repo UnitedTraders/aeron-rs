@@ -32,6 +32,7 @@ use crate::utils::errors::AeronError;
 use crate::utils::types::Index;
 
 pub trait DriverListener {
+    #[allow(clippy::too_many_arguments)]
     fn on_new_publication(
         &mut self,
         registration_id: i64,
@@ -43,6 +44,7 @@ pub trait DriverListener {
         log_filename: CString,
     );
 
+    #[allow(clippy::too_many_arguments)]
     fn on_new_exclusive_publication(
         &mut self,
         registration_id: i64,

@@ -167,6 +167,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn put_atomic_i64(&self, offset: Index, val: i64) {
         self.bounds_check(offset, I64_SIZE);
         unsafe {
@@ -176,6 +177,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn compare_and_set_i32(&self, position: Index, expected: i32, update: i32) -> bool {
         self.bounds_check(position, I32_SIZE);
         unsafe {
@@ -187,6 +189,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn compare_and_set_i64(&self, position: Index, expected: i64, update: i64) -> bool {
         self.bounds_check(position, I64_SIZE);
         unsafe {
@@ -330,6 +333,7 @@ impl AtomicBuffer {
      * @param delta  for to be applied to the value.
      * @return the value before applying the delta.
      */
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn get_and_add_i64(&self, offset: Index, delta: i64) -> i64 {
         self.bounds_check(offset, I64_SIZE);
         unsafe {

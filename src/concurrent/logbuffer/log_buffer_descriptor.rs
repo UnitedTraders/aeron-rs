@@ -102,7 +102,7 @@ pub const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
  * </pre>
  */
 
-const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
+pub const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 
 #[repr(C, packed(4))]
 struct LogMetaDataDefn {

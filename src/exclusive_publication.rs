@@ -83,6 +83,7 @@ pub struct ExclusivePublication {
 }
 
 impl ExclusivePublication {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         conductor: Arc<Mutex<ClientConductor>>,
         channel: CString,

@@ -53,7 +53,7 @@ pub struct PublicationMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub(crate) struct PublicationMessageFlyweight {
+pub struct PublicationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut PublicationMessageDefn, // This is actually part of above field memory space
 }
