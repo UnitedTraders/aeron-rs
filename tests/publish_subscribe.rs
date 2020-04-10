@@ -331,6 +331,8 @@ lazy_static! {
     pub static ref LAST_RECEIVED_SEQ_NO: AtomicI32 = AtomicI32::from(0);
 }
 
+#[allow(dead_code)]
+#[allow(clippy::cast_ptr_alignment)]
 fn on_new_fragment_check_seq_no(buffer: &AtomicBuffer, offset: Index, length: Index, _header: &Header) {
     ON_NEW_FRAGMENT_CALLED2.store(true, Ordering::SeqCst);
     assert_eq!(length, I32_SIZE);

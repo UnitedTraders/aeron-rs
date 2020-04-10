@@ -202,7 +202,7 @@ fn main() {
     let offer_idle_strategy = BusySpinIdleStrategy::default();
     let poll_idle_strategy = BusySpinIdleStrategy::default();
 
-    let rate_reporter = Arc::new(Mutex::new(RateReporter::new(1000000, print_rate)));
+    let rate_reporter = Arc::new(Mutex::new(RateReporter::new(1_000_000, print_rate)));
 
     let rate_reporter_thread: Option<thread::JoinHandle<()>> = None;
 
@@ -228,66 +228,69 @@ fn main() {
             let mut fragment_handler = fragment_assembler.handler();
 
             while RUNNING.load(Ordering::SeqCst) {
-                let fragments_read = subscription
-                    .lock()
-                    .unwrap()
-                    .poll(&mut fragment_handler, fragment_count_limit);
+                let fragments_read = subscription.lock().unwrap().poll(&mut fragment_handler, fragment_count_limit);
 
                 poll_idle_strategy.idle_opt(fragments_read);
             }
         })
         .expect("Can't start poll thread");
 
-        while RUNNING.load(Ordering::SeqCst) {
-            let mut buffer_claim = BufferClaim::default();
-            let mut back_pressure_count = 0;
+    while RUNNING.load(Ordering::SeqCst) {
+        let mut buffer_claim = BufferClaim::default();
+        let mut back_pressure_count = 0;
 
-            PRINTING_ACTIVE.store(true, Ordering::SeqCst);
+        PRINTING_ACTIVE.store(true, Ordering::SeqCst);
 
-            if rate_reporter_thread.is_none() {
-                rate_reporter.lock().unwrap().reset();
-            }
-
-            for i in 0..settings.number_of_messages {
-
-                if ! RUNNING.load(Ordering::SeqCst) {
-                    break;
-                }
-
-                offer_idle_strategy.reset();
-
-
-
-                while publication.lock().unwrap().try_claim(settings.message_length, buffer_claim).unwrap() < 0 {
-                    back_pressure_count += 1;
-                    offer_idle_strategy.idle();
-                }
-
-                buffer_claim.buffer().put::<i64>(buffer_claim.offset(), i);
-                buffer_claim.commit();
-            }
-
-            if rate_reporter_thread.is_none() {
-                // Don't have dedicated reporting thread thus report here
-                rate_reporter.lock().unwrap().report();
-            }
-
-            println!("Done streaming. Back pressure ratio {}", back_pressure_count / settings.number_of_messages);
-
-            if RUNNING.load(Ordering::SeqCst) && settings.linger_timeout_ms > 0 {
-                println!("Lingering for {} milliseconds.", settings.linger_timeout_ms);
-                std::thread::sleep(Duration::from_millis(settings.linger_timeout_ms as u64));
-            }
-
-            PRINTING_ACTIVE.store(false, Ordering::SeqCst);
+        if rate_reporter_thread.is_none() {
+            rate_reporter.lock().unwrap().reset();
         }
 
-        RUNNING.store(false, Ordering::SeqCst);
+        for i in 0..settings.number_of_messages {
+            if !RUNNING.load(Ordering::SeqCst) {
+                break;
+            }
 
-        rate_reporter.lock().unwrap().halt();
-        let _unused = poll_thread.join();
+            offer_idle_strategy.reset();
 
-        if let Some(handle) = rate_reporter_thread {
-            let _unused = handle.join();
+            while publication
+                .lock()
+                .unwrap()
+                .try_claim(settings.message_length, buffer_claim)
+                .unwrap()
+                < 0
+            {
+                back_pressure_count += 1;
+                offer_idle_strategy.idle();
+            }
+
+            buffer_claim.buffer().put::<i64>(buffer_claim.offset(), i);
+            buffer_claim.commit();
         }
+
+        if rate_reporter_thread.is_none() {
+            // Don't have dedicated reporting thread thus report here
+            rate_reporter.lock().unwrap().report();
+        }
+
+        println!(
+            "Done streaming. Back pressure ratio {}",
+            back_pressure_count / settings.number_of_messages
+        );
+
+        if RUNNING.load(Ordering::SeqCst) && settings.linger_timeout_ms > 0 {
+            println!("Lingering for {} milliseconds.", settings.linger_timeout_ms);
+            std::thread::sleep(Duration::from_millis(settings.linger_timeout_ms as u64));
+        }
+
+        PRINTING_ACTIVE.store(false, Ordering::SeqCst);
+    }
+
+    RUNNING.store(false, Ordering::SeqCst);
+
+    rate_reporter.lock().unwrap().halt();
+    let _unused = poll_thread.join();
+
+    if let Some(handle) = rate_reporter_thread {
+        let _unused = handle.join();
+    }
 }

@@ -40,10 +40,6 @@ pub trait BulkPubSize {
     const SIZE: usize;
 }
 
-// FIXME: this is temporary solution to introduce ExclusivePublication
-// It needs to be carefully ported thereafter
-// pub type ExclusivePublication = Publication;
-
 /**
  * @example basic_publisher.rs
  */
