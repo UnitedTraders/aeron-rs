@@ -29,6 +29,10 @@ use crate::utils::types::{Index, Moment};
 use std::ffi::CString;
 use std::sync::Arc;
 
+// This name is used for conductor thread and useful when debugging or examining logs from
+// application with several Aeron instances which run simultaneously.
+const AGENT_NAME: &str = "client-conductor";
+
 /**
  * Used to represent a null value for when some value is not yet set.
  */
@@ -167,6 +171,7 @@ pub struct Context {
     use_conductor_agent_invoker: bool,
     is_on_new_exclusive_publication_handler_set: bool,
     pre_touch_mapped_memory: bool,
+    agent_name: String,
 }
 
 impl Default for Context {
@@ -193,6 +198,7 @@ impl Context {
             use_conductor_agent_invoker: false,
             is_on_new_exclusive_publication_handler_set: false,
             pre_touch_mapped_memory: false,
+            agent_name: String::from(AGENT_NAME),
         }
     }
 
@@ -202,6 +208,14 @@ impl Context {
         }
 
         self
+    }
+
+    pub fn agent_name(&self) -> String {
+        self.agent_name.clone()
+    }
+
+    pub fn set_agent_name(&mut self, name: &str) {
+        self.agent_name = String::from(name);
     }
 
     /**

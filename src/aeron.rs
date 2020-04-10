@@ -77,8 +77,6 @@ const IDLE_SLEEP_MS_1: Moment = 1;
 const IDLE_SLEEP_MS_16: Moment = 16;
 const IDLE_SLEEP_MS_100: Moment = 100;
 
-const AGENT_NAME: &str = "client-conductor";
-
 impl Aeron {
     /**
      * Create an Aeron instance and connect to the media driver.
@@ -143,7 +141,12 @@ impl Aeron {
             conductor_invoker: AgentInvoker::new(local_conductor.clone(), context.error_handler()),
         };
 
-        let conductor_runner = AgentRunner::new(local_conductor, local_idle_strategy, context.error_handler(), AGENT_NAME);
+        let conductor_runner = AgentRunner::new(
+            local_conductor,
+            local_idle_strategy,
+            context.error_handler(),
+            &context.agent_name(),
+        );
 
         if use_agent_invoker {
             aeronchik.conductor_invoker.start();

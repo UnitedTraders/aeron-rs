@@ -6,6 +6,7 @@ use crate::concurrent::logbuffer::log_buffer_descriptor;
 use crate::concurrent::logbuffer::log_buffer_descriptor::{
     check_page_size, check_term_length, page_size, term_length, PARTITION_COUNT,
 };
+use crate::ttrace;
 use crate::utils::errors::AeronError;
 use crate::utils::memory_mapped_file::MemoryMappedFile;
 use crate::utils::types::Index;
@@ -43,7 +44,7 @@ impl LogBuffers {
     ) -> Result<Self, AeronError> {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
-        log::trace!("from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
+        ttrace!("from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
 
         let log_len = MemoryMappedFile::file_size(&file_path)?;
 
@@ -78,7 +79,7 @@ impl LogBuffers {
 
         buffers.push(meta_buffer);
 
-        log::trace!("from_existing: file mapped successfully, term_length {}", term_length);
+        ttrace!("from_existing: file mapped successfully, term_length {}", term_length);
 
         Ok(Self {
             memory_mapped_file: Some(memory_mapped_file),

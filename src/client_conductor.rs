@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::utils::types::{Moment, MAX_MOMENT};
 use std::collections::HashMap;
+use std::ffi::{CStr, CString};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
-
-use std::ffi::{CStr, CString};
 
 use crate::concurrent::agent_runner::Agent;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
@@ -41,10 +39,12 @@ use crate::heartbeat_timestamp;
 use crate::image::Image;
 use crate::publication::Publication;
 use crate::subscription::Subscription;
+use crate::ttrace;
 use crate::utils::errors::AeronError;
 use crate::utils::errors::AeronError::{ChannelEndpointException, ClientTimeoutException};
 use crate::utils::log_buffers::LogBuffers;
 use crate::utils::misc::CallbackGuard;
+use crate::utils::types::{Moment, MAX_MOMENT};
 
 type EpochClock = fn() -> Moment;
 type NanoClock = fn() -> Moment;
@@ -428,7 +428,7 @@ impl ClientConductor {
                 self.inter_service_timeout_ms
             ));
 
-            log::trace!("on_heartbeat_check_timeouts: {:?}", &err);
+            ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
             (self.error_handler)(err);
         }
@@ -441,7 +441,7 @@ impl ClientConductor {
 
                 let err = AeronError::DriverTimeout(format!("driver has been inactive for over {} ms", self.driver_timeout_ms));
 
-                log::trace!("on_heartbeat_check_timeouts: {:?}", &err);
+                ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
                 (self.error_handler)(err);
             }
@@ -460,7 +460,7 @@ impl ClientConductor {
 
                     let err = AeronError::GenericError(String::from("client heartbeat timestamp not active"));
 
-                    log::trace!("on_heartbeat_check_timeouts: {:?}", &err);
+                    ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
                     (self.error_handler)(err);
                 }
@@ -561,7 +561,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_publication");
             */
-        log::trace!(
+        ttrace!(
             "add_publication: on channel:{} stream:{}",
             channel.clone().to_str().unwrap(),
             stream_id
@@ -578,7 +578,7 @@ impl ClientConductor {
             PublicationStateDefn::new(channel, registration_id, stream_id, (self.epoch_clock)()),
         );
 
-        log::trace!("add_publication: publication ADDED with registration_id {}", registration_id);
+        ttrace!("add_publication: publication ADDED with registration_id {}", registration_id);
 
         Ok(registration_id)
     }
@@ -590,7 +590,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in find_publication");
             */
-        log::trace!("find_publication: with registration_id {}", registration_id);
+        ttrace!("find_publication: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -602,7 +602,7 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    log::trace!(
+                    ttrace!(
                         "find_publication: existing publication with registration_id {} FOUND",
                         registration_id
                     );
@@ -646,7 +646,7 @@ impl ClientConductor {
 
                             let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
-                            log::trace!(
+                            ttrace!(
                                 "find_publication: publication with registration_id {} CREATED",
                                 registration_id
                             );
@@ -696,19 +696,19 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in release_publication");
             */
-        log::trace!("release_publication: with registration_id {}", registration_id);
+        ttrace!("release_publication: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.publication_by_registration_id.get(&registration_id) {
             let _result = self.driver_proxy.remove_publication(registration_id);
             self.publication_by_registration_id.remove(&registration_id);
-            log::trace!(
+            ttrace!(
                 "release_publication: publication with registration_id {} RELEASED",
                 registration_id
             );
         } else {
-            log::trace!(
+            ttrace!(
                 "release_publication: publication with registration_id {} not found",
                 registration_id
             );
@@ -725,7 +725,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_exclusive_publication");
             */
-        log::trace!(
+        ttrace!(
             "add_exclusive_publication: on channel:{} stream:{}",
             channel.clone().to_str().unwrap(),
             stream_id
@@ -742,7 +742,7 @@ impl ClientConductor {
             ExclusivePublicationStateDefn::new(channel, registration_id, stream_id, (self.epoch_clock)()),
         );
 
-        log::trace!(
+        ttrace!(
             "add_exclusive_publication: exclusive publication ADDED with registration_id {}",
             registration_id
         );
@@ -760,7 +760,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in find_exclusive_publication");
             */
-        log::trace!("find_exclusive_publication: with registration_id {}", registration_id);
+        ttrace!("find_exclusive_publication: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -771,7 +771,7 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    log::trace!(
+                    ttrace!(
                         "find_exclusive_publication: existing exclusive publication with registration_id {} FOUND",
                         registration_id
                     );
@@ -816,7 +816,7 @@ impl ClientConductor {
                             let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
 
-                            log::trace!(
+                            ttrace!(
                                 "find_exclusive_publication: exclusive publication with registration_id {} CREATED",
                                 registration_id
                             );
@@ -858,19 +858,19 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in release_exclusive_publication");
             */
-        log::trace!("release_exclusive_publication: with registration_id {}", registration_id);
+        ttrace!("release_exclusive_publication: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.exclusive_publication_by_registration_id.get(&registration_id) {
             let _result = self.driver_proxy.remove_publication(registration_id);
             self.exclusive_publication_by_registration_id.remove(&registration_id);
-            log::trace!(
+            ttrace!(
                 "release_exclusive_publication: exclusive publication with registration_id {} RELEASED",
                 registration_id
             );
         } else {
-            log::trace!(
+            ttrace!(
                 "release_exclusive_publication: exclusive publication with registration_id {} not found",
                 registration_id
             );
@@ -892,7 +892,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_subscription");
             */
-        log::trace!(
+        ttrace!(
             "add_subscription: on channel:{} stream:{}",
             channel.clone().to_str().unwrap(),
             stream_id
@@ -916,7 +916,7 @@ impl ClientConductor {
             ),
         );
 
-        log::trace!(
+        ttrace!(
             "add_subscription: subscription ADDED with registration_id {}",
             registration_id
         );
@@ -931,7 +931,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in find_subscription");
             */
-        log::trace!("find_subscription: with registration_id {}", registration_id);
+        ttrace!("find_subscription: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -944,7 +944,7 @@ impl ClientConductor {
             if let Some(maybe_subscription) = &state.subscription {
                 // If there is subscription - just return it
                 let this_arm_result = if let Some(subscription) = maybe_subscription.upgrade() {
-                    log::trace!(
+                    ttrace!(
                         "find_subscription: existing subscription with registration_id {} FOUND",
                         registration_id
                     );
@@ -996,7 +996,7 @@ impl ClientConductor {
 
     pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) -> Result<(), AeronError> {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in release_subscription");
-        log::trace!("release_subscription: with registration_id {}", registration_id);
+        ttrace!("release_subscription: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
 
@@ -1011,7 +1011,7 @@ impl ClientConductor {
                 (subscription.on_unavailable_image_handler)(&image);
             }
         } else {
-            log::trace!(
+            ttrace!(
                 "release_subscription: subscription with registration_id {} not found",
                 registration_id
             );
@@ -1020,7 +1020,7 @@ impl ClientConductor {
 
         self.linger_all_resources((self.epoch_clock)(), images);
         self.subscription_by_registration_id.remove(&registration_id);
-        log::trace!(
+        ttrace!(
             "release_subscription: subscription with registration_id {} RELEASED together with its images",
             registration_id
         );
@@ -1030,7 +1030,7 @@ impl ClientConductor {
 
     pub fn add_counter(&mut self, type_id: i32, key_buffer: &[u8], label: &str) -> Result<i64, AeronError> {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in add_counter");
-        log::trace!("add_counter: with type_id:{} label:{}", type_id, label);
+        ttrace!("add_counter: with type_id:{} label:{}", type_id, label);
 
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
@@ -1057,7 +1057,7 @@ impl ClientConductor {
         self.counter_by_registration_id
             .insert(registration_id, CounterStateDefn::new(registration_id, (self.epoch_clock)()));
 
-        log::trace!(
+        ttrace!(
             "add_counter: counter type_id:{} label:{} ADDED with registration_id {}",
             type_id,
             label,
@@ -1069,7 +1069,7 @@ impl ClientConductor {
 
     pub fn find_counter(&mut self, registration_id: i64) -> Result<Arc<Counter>, AeronError> {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in find_counter");
-        log::trace!("find_counter: with registration_id {}", registration_id);
+        ttrace!("find_counter: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -1081,7 +1081,7 @@ impl ClientConductor {
             if let Some(maybe_counter) = &state.counter {
                 // If there is counter - just return it
                 let this_arm_result = if let Some(counter) = maybe_counter.upgrade() {
-                    log::trace!(
+                    ttrace!(
                         "find_counter: existing counter with registration_id {} FOUND",
                         registration_id
                     );
@@ -1143,9 +1143,9 @@ impl ClientConductor {
         if let Some(_counter) = self.counter_by_registration_id.get(&registration_id) {
             self.driver_proxy.remove_counter(registration_id)?;
             self.counter_by_registration_id.remove(&registration_id);
-            log::trace!("release_counter: counter with registration_id {} RELEASED", registration_id);
+            ttrace!("release_counter: counter with registration_id {} RELEASED", registration_id);
         } else {
-            log::trace!("release_counter: counter with registration_id {} not found", registration_id);
+            ttrace!("release_counter: counter with registration_id {} not found", registration_id);
             return Err(AeronError::GenericError(String::from("Unknown registration_id")));
         }
 
@@ -1159,7 +1159,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_destination");
             */
-        log::trace!(
+        ttrace!(
             "add_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
             endpoint_channel.clone().to_str().unwrap()
@@ -1178,7 +1178,7 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, publication_registration_id, (self.epoch_clock)()),
         );
 
-        log::trace!("add_destination: destination ADDED with correlation_id {}", correlation_id);
+        ttrace!("add_destination: destination ADDED with correlation_id {}", correlation_id);
 
         Ok(correlation_id)
     }
@@ -1190,7 +1190,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in remove_destination");
             */
-        log::trace!(
+        ttrace!(
             "remove_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
             endpoint_channel.clone().to_str().unwrap()
@@ -1211,7 +1211,7 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, publication_registration_id, (self.epoch_clock)()),
         );
 
-        log::trace!("remove_destination: destination REMOVED correlation_id:{}", correlation_id);
+        ttrace!("remove_destination: destination REMOVED correlation_id:{}", correlation_id);
 
         Ok(correlation_id)
     }
@@ -1227,7 +1227,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_rcv_destination");
             */
-        log::trace!(
+        ttrace!(
             "add_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
             endpoint_channel.clone().to_str().unwrap()
@@ -1246,7 +1246,7 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, subscription_registration_id, (self.epoch_clock)()),
         );
 
-        log::trace!(
+        ttrace!(
             "add_rcv_destination: rcv destination ADDED with correlation_id {}",
             correlation_id
         );
@@ -1265,7 +1265,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in remove_rcv_destination");
             */
-        log::trace!(
+        ttrace!(
             "remove_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
             endpoint_channel.clone().to_str().unwrap()
@@ -1284,7 +1284,7 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, subscription_registration_id, (self.epoch_clock)()),
         );
 
-        log::trace!(
+        ttrace!(
             "remove_rcv_destination: rcv destination REMOVED correlation_id:{}",
             correlation_id
         );
@@ -1418,7 +1418,7 @@ impl ClientConductor {
     }
 
     pub fn close_all_resources(&mut self, now_ms: Moment) {
-        log::trace!("close_all_resources: closing all resources");
+        ttrace!("close_all_resources: closing all resources");
 
         self.is_closed.store(true, Ordering::Release);
 
@@ -1537,7 +1537,7 @@ impl ClientConductor {
 
 impl Agent for ClientConductor {
     fn on_start(&mut self) -> Result<(), AeronError> {
-        log::trace!("on_start: started as agent");
+        ttrace!("on_start: started as agent");
         Ok(())
     }
 
@@ -1552,7 +1552,7 @@ impl Agent for ClientConductor {
     }
 
     fn on_close(&mut self) -> Result<(), AeronError> {
-        log::trace!("on_close: stopping as agent");
+        ttrace!("on_close: stopping as agent");
         if !self.is_closed.load(Ordering::SeqCst) {
             //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_close"); // don't allow other threads do close_all_resources() in parallel
             self.close_all_resources((self.epoch_clock)());
@@ -1579,7 +1579,7 @@ impl DriverListener for ClientConductor {
         let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.publication_by_registration_id.get(&registration_id) {
-            log::trace!("on_new_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
+            ttrace!("on_new_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
                 registration_id,
                 original_registration_id,
                 stream_id,
@@ -1636,7 +1636,7 @@ impl DriverListener for ClientConductor {
         let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get(&registration_id) {
-            log::trace!("on_new_exclusive_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
+            ttrace!("on_new_exclusive_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
                 registration_id,
                 original_registration_id,
                 stream_id,
@@ -1682,7 +1682,7 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_subscription_ready");
             */
         if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
-            log::trace!(
+            ttrace!(
                 "on_subscription_ready: registration_id {}, channel_status_id {}",
                 registration_id,
                 channel_status_id
@@ -1713,7 +1713,7 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_operation_success");
             */
         if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
-            log::trace!("on_operation_success: correlation_id {}", correlation_id);
+            ttrace!("on_operation_success: correlation_id {}", correlation_id);
 
             if state.status == RegistrationStatus::Awaiting {
                 state.status = RegistrationStatus::Registered;
@@ -1732,7 +1732,7 @@ impl DriverListener for ClientConductor {
                 if let Some(protected_subscription) = maybe_subscription.upgrade() {
                     let mut subscription = protected_subscription.lock().expect("Mutex poisoned");
                     if subscription.channel_status_id() == offending_command_correlation_id as i32 {
-                        log::trace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+                        ttrace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
                         (self.error_handler)(ChannelEndpointException((
                             offending_command_correlation_id,
@@ -1770,7 +1770,7 @@ impl DriverListener for ClientConductor {
                     if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
                         == offending_command_correlation_id as i32
                     {
-                        log::trace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+                        ttrace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
                         (self.error_handler)(ChannelEndpointException((
                             offending_command_correlation_id,
@@ -1821,7 +1821,7 @@ impl DriverListener for ClientConductor {
             .subscription_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            log::trace!(
+            ttrace!(
                 "on_error_response: for subscription, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1834,7 +1834,7 @@ impl DriverListener for ClientConductor {
         }
 
         if let Some(publication) = self.publication_by_registration_id.get_mut(&offending_command_correlation_id) {
-            log::trace!(
+            ttrace!(
                 "on_error_response: for publication, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1850,7 +1850,7 @@ impl DriverListener for ClientConductor {
             .exclusive_publication_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            log::trace!("on_error_response: for exclusive publication, offending_command_correlation_id {}, error_code {}, error_message {}", offending_command_correlation_id, error_code, error_message.to_str().unwrap());
+            ttrace!("on_error_response: for exclusive publication, offending_command_correlation_id {}, error_code {}, error_message {}", offending_command_correlation_id, error_code, error_message.to_str().unwrap());
             publication.status = RegistrationStatus::Errored;
             publication.error_code = error_code;
             publication.error_message = error_message;
@@ -1858,7 +1858,7 @@ impl DriverListener for ClientConductor {
         }
 
         if let Some(counter) = self.counter_by_registration_id.get_mut(&offending_command_correlation_id) {
-            log::trace!(
+            ttrace!(
                 "on_error_response: for counter, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1874,7 +1874,7 @@ impl DriverListener for ClientConductor {
             .destination_state_by_correlation_id
             .get_mut(&offending_command_correlation_id)
         {
-            log::trace!(
+            ttrace!(
                 "on_error_response: for destination, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1906,7 +1906,7 @@ impl DriverListener for ClientConductor {
                 if let Some(_subscription) = maybe_subscription.upgrade() {
                     maybe_channel = Some(subscr_defn.channel.clone());
 
-                    log::trace!(
+                    ttrace!(
                         "on_available_image correlation_id {}, session_id {}, subscriber_position_id {}, subscription_registration_id {}, log_filename {}, source_identity {}",
                         correlation_id,
                         session_id,
@@ -1968,7 +1968,7 @@ impl DriverListener for ClientConductor {
         let mut linger_images: Option<Vec<Image>> = None;
 
         if let Some(subscr_defn) = self.subscription_by_registration_id.get(&subscription_registration_id) {
-            log::trace!(
+            ttrace!(
                 "on_unavailable_image correlation_id {}, subscription_registration_id {}",
                 correlation_id,
                 subscription_registration_id,
@@ -2004,7 +2004,7 @@ impl DriverListener for ClientConductor {
             */
 
         if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
-            log::trace!(
+            ttrace!(
                 "on_available_counter registration_id {}, counter_id {}",
                 registration_id,
                 counter_id,
@@ -2023,11 +2023,11 @@ impl DriverListener for ClientConductor {
                 state.counter = Some(Arc::downgrade(&cnt));
                 state.counter_cache = Some(cnt);
             }
-
-            for handler in &self.on_available_counter_handlers {
-                let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                handler(&self.counters_reader, registration_id, counter_id);
-            }
+        }
+        // Handler are called for all counters (not only those created by this Aeron client)
+        for handler in &self.on_available_counter_handlers {
+            let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
+            handler(&self.counters_reader, registration_id, counter_id);
         }
     }
 
@@ -2039,7 +2039,7 @@ impl DriverListener for ClientConductor {
             .expect("Failed to obtain admin_lock in on_unavailable_counter");
             */
 
-        log::trace!(
+        ttrace!(
             "on_unavailable_counter registration_id {}, counter_id {}",
             registration_id,
             counter_id,
@@ -2053,7 +2053,7 @@ impl DriverListener for ClientConductor {
 
     fn on_client_timeout(&mut self, client_id: i64) {
         if self.driver_proxy.client_id() == client_id && !self.is_closed() {
-            log::trace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
+            ttrace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
 
             //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_client_timeout");
             self.close_all_resources((self.epoch_clock)());
@@ -2076,11 +2076,11 @@ unsafe impl Sync for ClientConductor {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use lazy_static::lazy_static;
     use nix::unistd;
+
+    use lazy_static::lazy_static;
 
     use crate::command::control_protocol_events::AeronCommand;
     use crate::command::counter_message_flyweight::CounterMessageFlyweight;
@@ -2096,6 +2096,8 @@ mod tests {
     use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
     use crate::utils::memory_mapped_file::MemoryMappedFile;
     use crate::utils::misc::unix_time_ms;
+
+    use super::*;
 
     const CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
     const STREAM_ID: i32 = 10;

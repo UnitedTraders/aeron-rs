@@ -80,12 +80,12 @@ impl AeronCommand {
             0xF06 => Self::ResponseOnExclusivePublicationReady,
             0xF07 => Self::ResponseOnSubscriptionReady,
             0xF08 => Self::ResponseOnCounterReady,
-            0xF9 => Self::ResponseOnUnavailableCounter,
+            0xF09 => Self::ResponseOnUnavailableCounter,
             0xF0A => Self::ResponseOnClientTimeout,
 
             #[cfg(test)]
             0x65 => Self::UnitTestMessageTypeID,
-            _ => unreachable!("Unexpected control protocol event: {}", command_id),
+            _ => unreachable!("Unexpected control protocol event: {:x}", command_id),
         }
     }
 }

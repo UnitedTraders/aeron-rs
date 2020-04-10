@@ -36,7 +36,7 @@ use aeron_rs::concurrent::logbuffer::buffer_claim::BufferClaim;
 use aeron_rs::fragment_assembler::FragmentAssembler;
 
 // IMPORTANT NOTICE: currently integration test can only work sequentially
-// Run them with command: $ cargo test --integration -- --test-threads=1
+// Run them with command: $ cargo test -- --test-threads=1
 // Each test start Aeron media driver then stops it at the end. All driver runs are done
 // with same /dev/shm/ directory thus parallel testing is not supported.
 mod common;
