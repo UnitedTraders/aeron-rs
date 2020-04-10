@@ -16,7 +16,11 @@ pub struct LogBuffers {
 }
 
 impl LogBuffers {
-    pub unsafe fn new(address: *mut u8, log_length: isize, term_length: i32) -> Self {
+    /// # Safety
+    ///
+    /// LogBuffer is created internally by Publication and Image and not designed to
+    /// be created by application level code.
+    pub(crate) unsafe fn new(address: *mut u8, log_length: isize, term_length: i32) -> Self {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
         Self {
@@ -33,7 +37,7 @@ impl LogBuffers {
         }
     }
 
-    pub fn from_existing<P: std::fmt::Display + AsRef<Path> + Into<OsString>>(
+    pub(crate) fn from_existing<P: std::fmt::Display + AsRef<Path> + Into<OsString>>(
         file_path: P,
         pre_touch: bool,
     ) -> Result<Self, AeronError> {
