@@ -487,9 +487,8 @@ impl Aeron {
      *
      * @return CountersReader for the Aeron media driver in use.
      */
-    pub fn counters_reader(&self) -> Result<&CountersReader, AeronError> {
-        Err(AeronError::GenericError(String::from("Unimplemented!"))) //FIXME: design the way to return CountersReader
-                                                                      //self.conductor.lock().expect("Mutex poisoned").counters_reader()
+    pub fn counters_reader(&self) -> Result<Arc<CountersReader>, AeronError> {
+        self.conductor.lock().expect("Mutex poisoned").counters_reader()
     }
 
     /**

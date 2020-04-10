@@ -27,8 +27,6 @@ struct DestinationMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     registration_id: i64,
     channel_length: i32,
-
-    // FIXME: Check correctness
     channel_data: [i8; 1],
 }
 

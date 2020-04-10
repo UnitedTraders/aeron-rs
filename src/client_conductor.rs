@@ -260,7 +260,7 @@ pub struct ClientConductor {
     driver_proxy: Arc<DriverProxy>,
     driver_listener_adapter: Option<DriverListenerAdapter<ClientConductor>>,
 
-    counters_reader: CountersReader,
+    counters_reader: Arc<CountersReader>,
     counter_values_buffer: AtomicBuffer,
 
     on_new_publication_handler: OnNewPublication,
@@ -321,7 +321,7 @@ impl ClientConductor {
             lingering_image_lists: vec![],
             driver_proxy,
             driver_listener_adapter: None,
-            counters_reader: CountersReader::new(counter_metadata_buffer, counter_values_buffer),
+            counters_reader: Arc::new(CountersReader::new(counter_metadata_buffer, counter_values_buffer)),
             counter_values_buffer,
             on_new_publication_handler,
             on_new_exclusive_publication_handler,
@@ -384,9 +384,9 @@ impl ClientConductor {
         self.on_unavailable_counter_handlers.push(handler);
     }
 
-    pub fn counters_reader(&self) -> Result<&CountersReader, AeronError> {
+    pub fn counters_reader(&self) -> Result<Arc<CountersReader>, AeronError> {
         self.ensure_open()?;
-        Ok(&self.counters_reader)
+        Ok(self.counters_reader.clone())
     }
 
     pub fn channel_status(&self, counter_id: i32) -> i64 {
@@ -1501,7 +1501,7 @@ impl ClientConductor {
     }
 
     pub fn on_check_managed_resources(&mut self, now_ms: Moment) {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in self.on_check_managed_resources"); FIXME: is it needed?
+        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in self.on_check_managed_resources");
 
         let mut log_buffers_to_remove: Vec<i64> = Vec::new();
         for (id, mut entry) in &mut self.log_buffers_by_registration_id {

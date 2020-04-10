@@ -255,7 +255,7 @@ fn main() {
             while publication
                 .lock()
                 .unwrap()
-                .try_claim(settings.message_length, buffer_claim)
+                .try_claim(settings.message_length, &mut buffer_claim)
                 .unwrap()
                 < 0
             {
