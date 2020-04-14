@@ -13,22 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use crate::client_conductor::ClientConductor;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-use crate::concurrent::logbuffer::header::HeaderWriter;
-use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender};
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
-use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-use crate::concurrent::status::status_indicator_reader;
-use crate::utils::bit_utils::number_of_trailing_zeroes;
-use crate::utils::errors::AeronError;
-use crate::utils::log_buffers::LogBuffers;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{
+        buffer_claim::BufferClaim,
+        data_frame_header, frame_descriptor,
+        header::HeaderWriter,
+        log_buffer_descriptor,
+        term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender},
+    },
+    position::{ReadablePosition, UnsafeBufferPosition},
+    status::status_indicator_reader,
+};
+use crate::utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index};
 
 pub const NOT_CONNECTED: i64 = -1;
 pub const BACK_PRESSURED: i64 = -2;
@@ -55,6 +60,7 @@ pub trait BulkPubSize {
  * @see Aeron#findPublication
  */
 
+#[allow(dead_code)]
 pub struct Publication {
     conductor: Arc<Mutex<ClientConductor>>,
     log_meta_data_buffer: AtomicBuffer,
@@ -717,26 +723,34 @@ mod tests {
 
     use lazy_static::lazy_static;
 
-    use crate::client_conductor::ClientConductor;
-    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-    use crate::concurrent::broadcast::broadcast_buffer_descriptor;
-    use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
-    use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
-    use crate::concurrent::counters::CountersReader;
-    use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-    use crate::concurrent::logbuffer::data_frame_header::LENGTH;
-    use crate::concurrent::logbuffer::frame_descriptor;
-    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
-    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-    use crate::concurrent::ring_buffer;
-    use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
-    use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
-    use crate::driver_proxy::DriverProxy;
-    use crate::publication::{Publication, ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED};
-    use crate::utils::errors::AeronError;
-    use crate::utils::log_buffers::LogBuffers;
-    use crate::utils::misc::unix_time_ms;
-    use crate::utils::types::{Index, Moment, I64_SIZE};
+    use crate::{
+        client_conductor::ClientConductor,
+        concurrent::{
+            atomic_buffer::{AlignedBuffer, AtomicBuffer},
+            broadcast::{
+                broadcast_buffer_descriptor, broadcast_receiver::BroadcastReceiver,
+                copy_broadcast_receiver::CopyBroadcastReceiver,
+            },
+            counters::CountersReader,
+            logbuffer::{
+                buffer_claim::BufferClaim,
+                data_frame_header::LENGTH,
+                frame_descriptor,
+                log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH},
+            },
+            position::{ReadablePosition, UnsafeBufferPosition},
+            ring_buffer::{self, ManyToOneRingBuffer},
+            status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED},
+        },
+        driver_proxy::DriverProxy,
+        publication::{Publication, ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED},
+        utils::{
+            errors::AeronError,
+            log_buffers::LogBuffers,
+            misc::unix_time_ms,
+            types::{Index, Moment, I64_SIZE},
+        },
+    };
 
     lazy_static! {
         pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
@@ -755,12 +769,12 @@ mod tests {
     const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
     const PRE_TOUCH_MAPPED_MEMORY: bool = false;
 
-    const LOG_FILE_LENGTH: i32 = ((TERM_MIN_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+    // const LOG_FILE_LENGTH: i32 = ((TERM_MIN_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
 
     const CAPACITY: i32 = 1024;
     const MANY_TO_ONE_RING_BUFFER_LENGTH: i32 = CAPACITY + ring_buffer::TRAILER_LENGTH;
     const BROADCAST_BUFFER_LENGTH: i32 = CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH;
-    const COUNTER_VALUES_BUFFER_LENGTH: i32 = 1024 * 1024;
+    // const COUNTER_VALUES_BUFFER_LENGTH: i32 = 1024 * 1024;
     const COUNTER_METADATA_BUFFER_LENGTH: i32 = 4 * 1024 * 1024;
 
     #[inline]
@@ -789,6 +803,7 @@ mod tests {
 
     fn on_close_client_handler() {}
 
+    #[allow(dead_code)]
     struct PublicationTest {
         src: AlignedBuffer,
         log: AlignedBuffer,

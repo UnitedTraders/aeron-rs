@@ -18,7 +18,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
 use crate::utils::types::Index;
 
-const SETUP_DEFN_SIZE: Index = std::mem::size_of::<SetupDefn>() as Index;
+pub const SETUP_DEFN_SIZE: Index = std::mem::size_of::<SetupDefn>() as Index;
 
 /**
  * HeaderFlyweight for Setup Frames
@@ -39,7 +39,8 @@ struct SetupDefn {
     mtu: i32,
 }
 
-struct SetupFlyweight {
+#[allow(dead_code)]
+pub struct SetupFlyweight {
     header_flyweight: HeaderFlyweight,
     m_struct: *mut SetupDefn, // This is actually part of above field memory space
 }

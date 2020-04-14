@@ -15,19 +15,21 @@
  */
 
 use std::env;
-
-use crate::cnc_file_descriptor;
-use crate::concurrent::counters::CountersReader;
-use crate::concurrent::logbuffer::term_reader::ErrorHandler;
-use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
-use crate::driver_proxy::DriverProxy;
-use crate::image::Image;
-use crate::utils::errors::AeronError;
-use crate::utils::memory_mapped_file::MemoryMappedFile;
-use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
-use crate::utils::types::{Index, Moment};
 use std::ffi::CString;
 use std::sync::Arc;
+
+use crate::{
+    cnc_file_descriptor,
+    concurrent::{counters::CountersReader, logbuffer::term_reader::ErrorHandler, ring_buffer::ManyToOneRingBuffer},
+    driver_proxy::DriverProxy,
+    image::Image,
+    utils::{
+        errors::AeronError,
+        memory_mapped_file::MemoryMappedFile,
+        misc::{semantic_version_major, semantic_version_to_string},
+        types::{Index, Moment},
+    },
+};
 
 // This name is used for conductor thread and useful when debugging or examining logs from
 // application with several Aeron instances which run simultaneously.
@@ -36,7 +38,7 @@ const AGENT_NAME: &str = "client-conductor";
 /**
  * Used to represent a null value for when some value is not yet set.
  */
-const NULL_VALUE: i32 = -1; // TODO replace on Option
+pub const NULL_VALUE: i32 = -1; // TODO replace on Option
 
 /**
  * Function called by Aeron to deliver notification of an available image.

@@ -22,9 +22,11 @@ use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
-use crate::utils::errors::*;
-use crate::utils::misc::CACHE_LINE_LENGTH;
-use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
+use crate::utils::{
+    errors::*,
+    misc::CACHE_LINE_LENGTH,
+    types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
+};
 
 /**
  * Reads the counters metadata and values buffers.
@@ -472,14 +474,15 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use crate::concurrent::atomic_buffer::AlignedBuffer;
-    use crate::concurrent::counters;
-    use crate::concurrent::position::ReadablePosition;
-    use crate::concurrent::position::UnsafeBufferPosition;
+    use crate::concurrent::{
+        atomic_buffer::AlignedBuffer,
+        counters,
+        position::{ReadablePosition, UnsafeBufferPosition},
+    };
     use crate::utils;
 
     const NUM_COUNTERS: Index = 4;
-    const INT_MAX: i32 = std::i32::MAX;
+    // const INT_MAX: i32 = std::i32::MAX;
     const FREE_TO_REUSE_TIMEOUT: u64 = 1000;
 
     macro_rules! gen_counters_manager {
@@ -600,7 +603,7 @@ mod tests {
         // Check counters known by CountersManager
         for (id, counter) in counters_manager.iter().enumerate() {
             assert_eq!(
-                &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length),
+                unsafe { &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length) },
                 allocated.get(&(id as i32)).unwrap()
             );
             allocated.remove(&(id as i32));
@@ -746,7 +749,7 @@ mod tests {
         for (counter_id, counter) in counters_manager.iter().enumerate() {
             assert_eq!(counter_id, num_counters);
             assert_eq!(
-                &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length),
+                unsafe { &utils::misc::aeron_str_to_rust(&counter.label.val[0] as *const u8, counter.label_length) },
                 labels[num_counters]
             );
 

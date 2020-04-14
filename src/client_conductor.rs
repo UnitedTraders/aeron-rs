@@ -13,38 +13,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, Weak};
-
-use crate::concurrent::agent_runner::Agent;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::atomic_counter::AtomicCounter;
-use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
-use crate::concurrent::counters;
-use crate::concurrent::counters::CountersReader;
-use crate::concurrent::logbuffer::term_reader::ErrorHandler;
-use crate::concurrent::position::UnsafeBufferPosition;
-use crate::concurrent::status::status_indicator_reader;
-use crate::context::{
-    OnAvailableCounter, OnAvailableImage, OnCloseClient, OnNewPublication, OnNewSubscription, OnUnavailableCounter,
-    OnUnavailableImage,
+use std::{
+    collections::HashMap,
+    ffi::{CStr, CString},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Weak,
+    },
 };
-use crate::counter::Counter;
-use crate::driver_listener_adapter::{DriverListener, DriverListenerAdapter};
-use crate::driver_proxy::DriverProxy;
-use crate::exclusive_publication::ExclusivePublication;
-use crate::heartbeat_timestamp;
-use crate::image::Image;
-use crate::publication::Publication;
-use crate::subscription::Subscription;
-use crate::ttrace;
-use crate::utils::errors::AeronError;
-use crate::utils::errors::AeronError::{ChannelEndpointException, ClientTimeoutException};
-use crate::utils::log_buffers::LogBuffers;
-use crate::utils::misc::CallbackGuard;
-use crate::utils::types::{Moment, MAX_MOMENT};
+
+use crate::{
+    concurrent::{
+        agent_runner::Agent,
+        atomic_buffer::AtomicBuffer,
+        atomic_counter::AtomicCounter,
+        broadcast::copy_broadcast_receiver::CopyBroadcastReceiver,
+        counters::{self, CountersReader},
+        logbuffer::term_reader::ErrorHandler,
+        position::UnsafeBufferPosition,
+        status::status_indicator_reader,
+    },
+    context::{
+        OnAvailableCounter, OnAvailableImage, OnCloseClient, OnNewPublication, OnNewSubscription, OnUnavailableCounter,
+        OnUnavailableImage,
+    },
+    counter::Counter,
+    driver_listener_adapter::{DriverListener, DriverListenerAdapter},
+    driver_proxy::DriverProxy,
+    exclusive_publication::ExclusivePublication,
+    heartbeat_timestamp,
+    image::Image,
+    publication::Publication,
+    subscription::Subscription,
+    ttrace,
+    utils::{
+        errors::AeronError::{self, ChannelEndpointException, ClientTimeoutException},
+        log_buffers::LogBuffers,
+        misc::CallbackGuard,
+        types::{Moment, MAX_MOMENT},
+    },
+};
 
 type EpochClock = fn() -> Moment;
 
@@ -2125,13 +2133,13 @@ mod tests {
     const DRIVER_TIMEOUT_MS: Moment = 10 * 1000;
     const RESOURCE_LINGER_TIMEOUT_MS: Moment = 5 * 1000;
     const INTER_SERVICE_TIMEOUT_NS: Moment = 5 * 1000 * 1000 * 1000;
-    const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
+    // const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
     const PRE_TOUCH_MAPPED_MEMORY: bool = false;
 
-    type TestManyToOneRingBuffer = [u8; MANY_TO_ONE_RING_BUFFER_LENGTH as usize];
-    type TestBroadcastBuffer = [u8; BROADCAST_BUFFER_LENGTH as usize];
-    type TestCounterValuesBuffer = [u8; COUNTER_VALUES_BUFFER_LENGTH as usize];
-    type TestCounterMetadataBuffer = [u8; COUNTER_METADATA_BUFFER_LENGTH as usize];
+    // type TestManyToOneRingBuffer = [u8; MANY_TO_ONE_RING_BUFFER_LENGTH as usize];
+    // type TestBroadcastBuffer = [u8; BROADCAST_BUFFER_LENGTH as usize];
+    // type TestCounterValuesBuffer = [u8; COUNTER_VALUES_BUFFER_LENGTH as usize];
+    // type TestCounterMetadataBuffer = [u8; COUNTER_METADATA_BUFFER_LENGTH as usize];
 
     fn make_temp_file_name() -> String {
         match unistd::mkstemp("/tmp/aeron-c.XXXXXXX") {
@@ -2157,6 +2165,7 @@ mod tests {
 
     fn on_unavailable_counter_handler(_counters_reader: &CountersReader, _registration_id: i64, _counter_id: i32) {}
 
+    #[allow(dead_code)]
     struct ClientConductorTest {
         log_file_name: String,
         log_file_name2: String,
@@ -2236,6 +2245,8 @@ mod tests {
             );
 
             fn on_close_client_handler() {}
+
+            #[allow(dead_code)]
             fn on_media_driver_timeout() {}
 
             let instance = Self {
@@ -3161,6 +3172,7 @@ mod tests {
         assert!(ERR_HANDLER_CALLED.load(Ordering::SeqCst));
     }
 
+    #[allow(dead_code)]
     fn error_handler2(error: AeronError) {
         ERR_HANDLER_CALLED2.store(true, Ordering::SeqCst);
         assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));

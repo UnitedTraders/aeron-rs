@@ -1,16 +1,16 @@
 use std::ffi::OsString;
 use std::path::Path;
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::log_buffer_descriptor;
-use crate::concurrent::logbuffer::log_buffer_descriptor::{
-    check_page_size, check_term_length, page_size, term_length, PARTITION_COUNT,
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::log_buffer_descriptor::{self, check_page_size, check_term_length, page_size, term_length, PARTITION_COUNT},
+    },
+    ttrace,
+    utils::{errors::AeronError, memory_mapped_file::MemoryMappedFile, types::Index},
 };
-use crate::ttrace;
-use crate::utils::errors::AeronError;
-use crate::utils::memory_mapped_file::MemoryMappedFile;
-use crate::utils::types::Index;
 
+#[allow(dead_code)]
 pub struct LogBuffers {
     memory_mapped_file: Option<MemoryMappedFile>,
     buffers: [AtomicBuffer; log_buffer_descriptor::PARTITION_COUNT as usize + 1],
@@ -21,7 +21,7 @@ impl LogBuffers {
     ///
     /// LogBuffer is created internally by Publication and Image and not designed to
     /// be created by application level code.
-    pub(crate) unsafe fn new(address: *mut u8, log_length: isize, term_length: i32) -> Self {
+    pub unsafe fn new(address: *mut u8, log_length: isize, term_length: i32) -> Self {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
         Self {

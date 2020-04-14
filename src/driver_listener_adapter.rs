@@ -16,21 +16,23 @@
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
-use crate::client_conductor::ClientConductor;
-use crate::command::client_timeout_flyweight::ClientTimeoutFlyweight;
-use crate::command::control_protocol_events::AeronCommand;
-use crate::command::counter_update_flyweight::CounterUpdateFlyweight;
-use crate::command::error_response_flyweight::{ErrorResponseFlyweight, ERROR_CODE_CHANNEL_ENDPOINT_ERROR};
-use crate::command::image_buffers_ready_flyweight::ImageBuffersReadyFlyweight;
-use crate::command::image_message_flyweight::ImageMessageFlyweight;
-use crate::command::operation_succeeded_flyweight::OperationSucceededFlyweight;
-use crate::command::publication_buffers_ready_flyweight::*;
-use crate::command::subscription_ready_flyweight::SubscriptionReadyFlyweight;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
-use crate::ttrace;
-use crate::utils::errors::AeronError;
-use crate::utils::types::Index;
+use crate::{
+    client_conductor::ClientConductor,
+    command::{
+        client_timeout_flyweight::ClientTimeoutFlyweight,
+        control_protocol_events::AeronCommand,
+        counter_update_flyweight::CounterUpdateFlyweight,
+        error_response_flyweight::{ErrorResponseFlyweight, ERROR_CODE_CHANNEL_ENDPOINT_ERROR},
+        image_buffers_ready_flyweight::ImageBuffersReadyFlyweight,
+        image_message_flyweight::ImageMessageFlyweight,
+        operation_succeeded_flyweight::OperationSucceededFlyweight,
+        publication_buffers_ready_flyweight::*,
+        subscription_ready_flyweight::SubscriptionReadyFlyweight,
+    },
+    concurrent::{atomic_buffer::AtomicBuffer, broadcast::copy_broadcast_receiver::CopyBroadcastReceiver},
+    ttrace,
+    utils::{errors::AeronError, types::Index},
+};
 
 pub trait DriverListener {
     #[allow(clippy::too_many_arguments)]
@@ -84,6 +86,7 @@ pub trait DriverListener {
     fn on_client_timeout(&mut self, client_id: i64);
 }
 
+#[allow(dead_code)]
 pub struct DriverListenerAdapter<T: DriverListener> {
     broadcast_receiver: Arc<Mutex<CopyBroadcastReceiver>>,
     driver_listener: Arc<Mutex<T>>, // Driver listener is ClientConductor and we want it to be mutable

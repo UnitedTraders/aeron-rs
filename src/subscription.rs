@@ -1,16 +1,36 @@
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+/*
+ * Copyright 2020 UT OVERSEAS INC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-use crate::client_conductor::ClientConductor;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::atomic_vec::AtomicVec;
-use crate::concurrent::logbuffer::header::Header;
-use crate::concurrent::logbuffer::term_scan::BlockHandler;
-use crate::concurrent::status::status_indicator_reader;
-use crate::image::{ControlledPollAction, Image};
-use crate::utils::errors::AeronError;
-use crate::utils::types::Index;
+use std::ffi::CString;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+
+use crate::{
+    client_conductor::ClientConductor,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        atomic_vec::AtomicVec,
+        logbuffer::{header::Header, term_scan::BlockHandler},
+        status::status_indicator_reader,
+    },
+    image::{ControlledPollAction, Image},
+    utils::{errors::AeronError, types::Index},
+};
 
 pub struct Subscription {
     conductor: Arc<Mutex<ClientConductor>>,

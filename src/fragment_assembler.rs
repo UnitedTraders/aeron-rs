@@ -16,12 +16,14 @@
 
 use std::collections::HashMap;
 
-use crate::buffer_builder::BufferBuilder;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::data_frame_header;
-use crate::concurrent::logbuffer::frame_descriptor;
-use crate::concurrent::logbuffer::header::Header;
-use crate::utils::types::Index;
+use crate::{
+    buffer_builder::BufferBuilder,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{data_frame_header, frame_descriptor, header::Header},
+    },
+    utils::types::Index,
+};
 
 const DEFAULT_FRAGMENT_ASSEMBLY_BUFFER_LENGTH: isize = 4096;
 
@@ -121,14 +123,19 @@ mod test {
 
     use lazy_static::lazy_static;
 
-    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-    use crate::concurrent::logbuffer::data_frame_header::{self, DataFrameHeaderDefn};
-    use crate::concurrent::logbuffer::header::Header;
-    use crate::concurrent::logbuffer::{frame_descriptor, log_buffer_descriptor};
+    use crate::concurrent::{
+        atomic_buffer::{AlignedBuffer, AtomicBuffer},
+        logbuffer::{
+            data_frame_header::{self, DataFrameHeaderDefn},
+            frame_descriptor,
+            header::Header,
+            log_buffer_descriptor,
+        },
+    };
     use crate::fragment_assembler::FragmentAssembler;
     use crate::utils::{bit_utils, types::Index};
 
-    const CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
+    // const CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
     const STREAM_ID: i32 = 10;
     const SESSION_ID: i32 = 200;
     const TERM_LENGTH: i32 = log_buffer_descriptor::TERM_MIN_LENGTH;
@@ -141,6 +148,7 @@ mod test {
         pub static ref CALLED: AtomicBool = AtomicBool::new(false);
     }
 
+    #[allow(dead_code)]
     struct FragmentAssemblerTest {
         fragment: AlignedBuffer,
         buffer: AtomicBuffer,

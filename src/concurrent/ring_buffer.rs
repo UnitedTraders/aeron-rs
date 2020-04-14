@@ -44,7 +44,7 @@ fn check_capacity(capacity: Index) -> Result<(), RingBufferError> {
     }
 }
 
-mod record_descriptor {
+pub mod record_descriptor {
     /**
      * Header length made up of fields for message length, message type, and then the encoded message.
      * <p>
@@ -455,8 +455,8 @@ mod tests {
         ab: AtomicBuffer,
         src_ab: AtomicBuffer,
         ring_buffer: ManyToOneRingBuffer,
-        buffer: AlignedBuffer,
-        src_buffer: AlignedBuffer,
+        _buffer: AlignedBuffer,
+        _src_buffer: AlignedBuffer,
     }
 
     impl Test {
@@ -473,8 +473,8 @@ mod tests {
                 ab,
                 src_ab,
                 ring_buffer,
-                buffer,
-                src_buffer,
+                _buffer: buffer,
+                _src_buffer: src_buffer,
             }
         }
     }

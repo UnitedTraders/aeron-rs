@@ -18,7 +18,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
 use crate::utils::types::Index;
 
-const NAK_DEFN_SIZE: Index = std::mem::size_of::<NakDefn>() as Index;
+pub const NAK_DEFN_SIZE: Index = std::mem::size_of::<NakDefn>() as Index;
 
 /**
  * Data recovery retransmit message:
@@ -37,7 +37,8 @@ struct NakDefn {
     length: i32,
 }
 
-struct NakFlyweight {
+#[allow(dead_code)]
+pub struct NakFlyweight {
     header_flyweight: HeaderFlyweight,
     m_struct: *mut NakDefn, // This is actually part of above field memory space
 }

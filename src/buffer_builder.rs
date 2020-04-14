@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::data_frame_header;
-use crate::concurrent::logbuffer::header::Header;
-use crate::utils::bit_utils;
-use crate::utils::errors::AeronError;
-use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::Index;
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{data_frame_header, header::Header},
+    },
+    utils::{
+        bit_utils,
+        errors::AeronError,
+        misc::{alloc_buffer_aligned, dealloc_buffer_aligned},
+        types::Index,
+    },
+};
 
 const BUFFER_BUILDER_MAX_CAPACITY: Index = std::u32::MAX as Index - 8;
 

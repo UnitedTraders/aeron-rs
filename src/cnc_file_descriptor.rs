@@ -17,9 +17,7 @@ use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::offset_of;
-use crate::utils::memory_mapped_file::MemoryMappedFile;
-use crate::utils::types::Index;
-use crate::utils::{bit_utils, misc};
+use crate::utils::{bit_utils, memory_mapped_file::MemoryMappedFile, misc, types::Index};
 
 /**
 * Description of the command and control file used between driver and clients

@@ -23,8 +23,7 @@ use std::path::Path;
 use memmap::MmapMut;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::errors::AeronError;
-use crate::utils::types::Index;
+use crate::utils::{errors::AeronError, types::Index};
 
 #[derive(Debug)]
 struct FileHandle {
@@ -81,28 +80,6 @@ impl MemoryMappedFile {
         let metadata = fs::metadata(file).map_err(AeronError::MemMappedFileError)?;
         Ok(metadata.len())
     }
-
-    // fn fill(fd: FileHandle, size: usize, value: *mut u8) -> bool {
-    // std::unique_ptr < uint8_t[] > buffer(new uint8_t[m_page_size]);
-    // memset(buffer.get(), value, m_page_size);
-
-    // while size >= Self::page_size() {
-    //     if (static_cast < size_t > (write(fd.handle, buffer.get(), m_page_size)) != m_page_size)
-    //     {
-    //         return false;
-    //     }
-    //
-    //     size -= m_page_size;
-    // }
-    //
-    // if size {
-    //     if write(fd.handle, buffer.get(), size)) != size
-    //     {
-    //         return false;
-    //     }
-    // }
-    // true
-    // }
 
     pub fn create_new<P: AsRef<Path> + Into<OsString>>(path: P, offset: Index, size: Index) -> Result<Self, AeronError> {
         let fd = FileHandle::create(path, size)?;

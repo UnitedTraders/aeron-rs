@@ -15,7 +15,6 @@
  */
 
 // TODO: Eliminate later
-#![allow(dead_code)]
 #![allow(clippy::missing_safety_doc)]
 
 pub mod aeron;

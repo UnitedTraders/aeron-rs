@@ -14,21 +14,32 @@
  * limitations under the License.
  */
 
-use std::cmp::min;
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::{
+    cmp::min,
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::header::Header;
-use crate::concurrent::logbuffer::term_reader::{ErrorHandler, ReadOutcome};
-use crate::concurrent::logbuffer::term_scan::{scan, BlockHandler};
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor, term_reader};
-use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
-use crate::utils::errors::AeronError;
-use crate::utils::log_buffers::LogBuffers;
-use crate::utils::types::Index;
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    logbuffer::{
+        data_frame_header, frame_descriptor,
+        header::Header,
+        log_buffer_descriptor,
+        term_reader::{self, ErrorHandler, ReadOutcome},
+        term_scan::{scan, BlockHandler},
+    },
+    position::{ReadablePosition, UnsafeBufferPosition},
+};
+use crate::utils::{
+    bit_utils::{align, number_of_trailing_zeroes},
+    errors::AeronError,
+    log_buffers::LogBuffers,
+    types::Index,
+};
 
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
@@ -87,6 +98,7 @@ pub struct Image {
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
+#[allow(dead_code)]
 enum ImageError {}
 
 impl Image {
@@ -723,12 +735,13 @@ impl Image {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::concurrent::atomic_buffer::AlignedBuffer;
-    use crate::concurrent::logbuffer::data_frame_header::DataFrameHeaderDefn;
-    use crate::utils::bit_utils::align;
-    use crate::utils::bit_utils::number_of_trailing_zeroes;
     use lazy_static::lazy_static;
+
+    use super::*;
+    use crate::{
+        concurrent::{atomic_buffer::AlignedBuffer, logbuffer::data_frame_header::DataFrameHeaderDefn},
+        utils::bit_utils::{align, number_of_trailing_zeroes},
+    };
 
     const TERM_LENGTH: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
     const PAGE_SIZE: Index = log_buffer_descriptor::AERON_PAGE_MIN_SIZE;
@@ -737,8 +750,8 @@ mod tests {
     const COUNTER_VALUES_BUFFER_LENGTH: Index = 1024 * 1024;
     const LOG_BUFFER_LENGTH: Index = TERM_LENGTH * 3 + LOG_META_DATA_LENGTH;
 
-    type TermBuffer = [u8; LOG_BUFFER_LENGTH as usize];
-    type SrcBuffer = [u8; SRC_BUFFER_LENGTH as usize];
+    // type TermBuffer = [u8; LOG_BUFFER_LENGTH as usize];
+    // type SrcBuffer = [u8; SRC_BUFFER_LENGTH as usize];
 
     const STREAM_ID: i32 = 10;
     const SESSION_ID: i32 = 200;
@@ -763,6 +776,7 @@ mod tests {
         println!("error_handler: {:?}", err)
     }
 
+    #[allow(dead_code)]
     fn fragment_handler(_buf: &AtomicBuffer, _offset: Index, _length: Index, _header: &Header) {
         println!("fragment_handler called");
     }

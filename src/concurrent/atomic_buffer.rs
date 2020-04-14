@@ -1,10 +1,14 @@
-use std::ffi::{CStr, CString};
-use std::fmt::{Debug, Error, Formatter};
-use std::slice;
-use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
+use std::{
+    ffi::{CStr, CString},
+    fmt::{Debug, Error, Formatter},
+    slice,
+    sync::atomic::{fence, AtomicI32, AtomicI64, Ordering},
+};
 
-use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
-use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
+use crate::utils::{
+    misc::{alloc_buffer_aligned, dealloc_buffer_aligned},
+    types::{Index, I32_SIZE, I64_SIZE},
+};
 
 // Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {

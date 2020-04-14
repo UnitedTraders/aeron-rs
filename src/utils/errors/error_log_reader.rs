@@ -17,8 +17,7 @@
 use std::ffi::CString;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::bit_utils::align;
-use crate::utils::errors::error_log_descriptor;
+use crate::utils::{bit_utils::align, errors::error_log_descriptor};
 
 /**
 Handler have four arguments:

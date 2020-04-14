@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::counters::CountersReader;
+use crate::concurrent::{atomic_buffer::AtomicBuffer, counters::CountersReader};
 use crate::utils::types::{Index, I64_SIZE};
 
 pub const CHANNEL_ENDPOINT_INITIALIZING: i64 = 0;

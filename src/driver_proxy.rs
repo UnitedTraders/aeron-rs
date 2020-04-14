@@ -16,18 +16,20 @@
 use std::ffi::CString;
 use std::sync::Arc;
 
-use crate::command::control_protocol_events::AeronCommand;
-use crate::command::correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH};
-use crate::command::counter_message_flyweight::CounterMessageFlyweight;
-use crate::command::destination_message_flyweight::DestinationMessageFlyweight;
-use crate::command::publication_message_flyweight::PublicationMessageFlyweight;
-use crate::command::remove_message_flyweight::RemoveMessageFlyweight;
-use crate::command::subscription_message_flyweight::SubscriptionMessageFlyweight;
-use crate::command::terminate_driver_flyweight::TerminateDriverFlyweight;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
-use crate::utils::errors::AeronError;
-use crate::utils::types::Index;
+use crate::{
+    command::{
+        control_protocol_events::AeronCommand,
+        correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH},
+        counter_message_flyweight::CounterMessageFlyweight,
+        destination_message_flyweight::DestinationMessageFlyweight,
+        publication_message_flyweight::PublicationMessageFlyweight,
+        remove_message_flyweight::RemoveMessageFlyweight,
+        subscription_message_flyweight::SubscriptionMessageFlyweight,
+        terminate_driver_flyweight::TerminateDriverFlyweight,
+    },
+    concurrent::{atomic_buffer::AtomicBuffer, ring_buffer::ManyToOneRingBuffer},
+    utils::{errors::AeronError, types::Index},
+};
 
 pub struct DriverProxy {
     to_driver_command_buffer: Arc<ManyToOneRingBuffer>,
@@ -240,7 +242,9 @@ impl DriverProxy {
             command.set_client_id(self.client_id);
             command.set_correlation_id(correlation_id);
             command.set_type_id(type_id);
-            command.set_key_buffer(key.as_ptr(), key.len() as i32);
+            unsafe {
+                command.set_key_buffer(key.as_ptr(), key.len() as i32);
+            }
             command.set_label(label.as_bytes());
 
             *length = command.length();
@@ -292,7 +296,9 @@ impl DriverProxy {
 
             request.set_client_id(self.client_id);
             request.set_correlation_id(-1);
-            request.set_token_buffer(token_buffer, token_length);
+            unsafe {
+                request.set_token_buffer(token_buffer, token_length);
+            }
 
             *length = request.length();
 

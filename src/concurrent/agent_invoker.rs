@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::concurrent::agent_runner::Agent;
-use crate::concurrent::logbuffer::term_reader::ErrorHandler;
 use std::sync::{Arc, Mutex};
+
+use crate::concurrent::{agent_runner::Agent, logbuffer::term_reader::ErrorHandler};
 
 pub struct AgentInvoker<T: Agent> {
     agent: Arc<Mutex<T>>,

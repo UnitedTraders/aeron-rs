@@ -17,9 +17,7 @@
 use std::fmt::Display;
 use std::{fmt, io};
 
-use crate::concurrent;
-use crate::concurrent::broadcast::BroadcastTransmitError;
-use crate::concurrent::ring_buffer::RingBufferError;
+use crate::concurrent::{self, broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
 
 mod distinct_error_log;
 pub(crate) mod error_log_descriptor;

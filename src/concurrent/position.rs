@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::counters::CountersReader;
-use crate::utils::types::Index;
+use crate::{
+    concurrent::{atomic_buffer::AtomicBuffer, counters::CountersReader},
+    utils::types::Index,
+};
 
 pub trait ReadablePosition {
     type P: ReadablePosition;

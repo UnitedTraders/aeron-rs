@@ -18,7 +18,7 @@ use crate::command::flyweight::Flyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
-const HEADER_DEFN_SIZE: Index = std::mem::size_of::<HeaderDefn>() as Index;
+pub const HEADER_DEFN_SIZE: Index = std::mem::size_of::<HeaderDefn>() as Index;
 
 /**
  * Flyweight for command header fields.
@@ -32,7 +32,7 @@ pub(crate) struct HeaderDefn {
     h_type: i16,
 }
 
-pub(crate) struct HeaderFlyweight {
+pub struct HeaderFlyweight {
     pub(crate) flyweight: Flyweight<HeaderDefn>,
 }
 

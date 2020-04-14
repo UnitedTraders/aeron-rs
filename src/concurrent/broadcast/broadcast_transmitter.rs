@@ -134,12 +134,12 @@ mod tests {
     use crate::concurrent::atomic_buffer::AlignedBuffer;
 
     const CAPACITY: Index = (1024);
-    const TOTAL_BUFFER_LENGTH: Index = (CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH);
-    const SRC_BUFFER_SIZE: i32 = (1024);
+    // const TOTAL_BUFFER_LENGTH: Index = (CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH);
+    // const SRC_BUFFER_SIZE: i32 = (1024);
     const MSG_TYPE_ID: i32 = (7);
-    const TAIL_INTENT_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET);
-    const TAIL_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
-    const LATEST_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::LATEST_COUNTER_OFFSET);
+    // const TAIL_INTENT_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET);
+    // const TAIL_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
+    // const LATEST_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::LATEST_COUNTER_OFFSET);
 
     struct BroadcastTransmitterTest {
         buffer: AtomicBuffer,
@@ -181,6 +181,7 @@ mod tests {
     }
 
     #[inline]
+    #[allow(dead_code)]
     fn sized_buffer_filled_with_range(capacity: Index) -> (AtomicBuffer, Vec<u8>) {
         assert!(capacity < 255);
 
@@ -240,8 +241,6 @@ mod tests {
 
     #[test]
     fn should_transmit_into_empty_buffer() {
-        const TAIL: i64 = 0;
-        const RECORD_OFFSET: i32 = TAIL as i32;
         const LENGTH: Index = 8;
         const RECORD_LENGTH: Index = LENGTH + record_descriptor::HEADER_LENGTH;
         let _aligned_record_length: Index = align(RECORD_LENGTH, record_descriptor::RECORD_ALIGNMENT);
@@ -267,8 +266,6 @@ mod tests {
 
     #[test]
     fn should_transmit_into_used_buffer() {
-        const TAIL: i64 = (record_descriptor::RECORD_ALIGNMENT * 3) as i64;
-        const RECORD_OFFSET: i32 = TAIL as i32;
         const LENGTH: Index = 8;
         const RECORD_LENGTH: Index = LENGTH + record_descriptor::HEADER_LENGTH;
         let _aligned_record_length: Index = align(RECORD_LENGTH, record_descriptor::RECORD_ALIGNMENT);
@@ -318,9 +315,6 @@ mod tests {
 
         //    const std::int32_t recordOffset = (std::int32_t)tail;
         let _record_offset = tail as Index;
-
-        //    const util::index_t srcIndex = 0;
-        const SRC_INDEX: Index = 0;
 
         //    m_broadcastTransmitter.transmit(MSG_TYPE_ID, srcBuffer, srcIndex, length);
         let mut transmitter = test.create_transmitter();

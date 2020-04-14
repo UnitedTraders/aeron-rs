@@ -18,7 +18,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
 use crate::utils::types::Index;
 
-const DATA_HEADER_DEFN_SIZE: Index = std::mem::size_of::<DataHeaderDefn>() as Index;
+pub const DATA_HEADER_DEFN_SIZE: Index = std::mem::size_of::<DataHeaderDefn>() as Index;
 
 /**
  * HeaderFlyweight for Data Header
@@ -37,7 +37,8 @@ struct DataHeaderDefn {
     data: [u8; 1],
 }
 
-struct DataHeaderFlyweight {
+#[allow(dead_code)]
+pub struct DataHeaderFlyweight {
     header_flyweight: HeaderFlyweight,
     m_struct: *mut DataHeaderDefn, // This is actually part of above field memory space
 }

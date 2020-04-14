@@ -1,3 +1,19 @@
+/*
+ * Copyright 2020 UT OVERSEAS INC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -25,14 +41,12 @@ pub fn unix_time_ns() -> Moment {
 }
 
 // Accepts Aeron style ASCII string (without zero termination). Outputs Rust String.
-pub(crate) fn aeron_str_to_rust(raw_str: *const u8, length: i32) -> String {
-    unsafe {
-        let str_slice = std::slice::from_raw_parts(raw_str, length as usize);
-        let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
-        zero_terminated.extend_from_slice(str_slice);
+pub unsafe fn aeron_str_to_rust(raw_str: *const u8, length: i32) -> String {
+    let str_slice = std::slice::from_raw_parts(raw_str, length as usize);
+    let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
+    zero_terminated.extend_from_slice(str_slice);
 
-        String::from_utf8_unchecked(zero_terminated)
-    }
+    String::from_utf8_unchecked(zero_terminated)
 }
 
 pub fn semantic_version_compose(major: i32, minor: i32, patch: i32) -> i32 {

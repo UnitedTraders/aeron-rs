@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::counters::{CountersManager, CountersReader};
-use crate::utils::types::Index;
 use std::sync::{Arc, Mutex};
+
+use crate::concurrent::{
+    atomic_buffer::AtomicBuffer,
+    counters::{CountersManager, CountersReader},
+};
+use crate::utils::types::Index;
 
 pub struct AtomicCounter {
     buffer: AtomicBuffer,

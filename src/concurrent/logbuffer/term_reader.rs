@@ -93,13 +93,15 @@ pub fn read(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concurrent::atomic_buffer::AlignedBuffer;
-    use crate::concurrent::logbuffer::{log_buffer_descriptor, term_reader};
+    use crate::concurrent::{
+        atomic_buffer::AlignedBuffer,
+        logbuffer::{log_buffer_descriptor, term_reader},
+    };
 
     const LOG_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
-    const META_DATA_BUFFER_CAPACITY: Index = log_buffer_descriptor::LOG_META_DATA_LENGTH;
-    const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH + frame_descriptor::FRAME_ALIGNMENT - 1;
-    const HDR_LENGTH: Index = data_frame_header::LENGTH;
+    // const META_DATA_BUFFER_CAPACITY: Index = log_buffer_descriptor::LOG_META_DATA_LENGTH;
+    // const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH + frame_descriptor::FRAME_ALIGNMENT - 1;
+    // const HDR_LENGTH: Index = data_frame_header::LENGTH;
     const INITIAL_TERM_ID: i32 = 7;
     const INT_MAX: i32 = std::i32::MAX;
 

@@ -14,25 +14,31 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-
-use crate::client_conductor::ClientConductor;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-use crate::concurrent::logbuffer::exclusive_term_appender::ExclusiveTermAppender;
-use crate::concurrent::logbuffer::header::HeaderWriter;
-use crate::concurrent::logbuffer::term_appender::default_reserved_value_supplier;
-use crate::concurrent::logbuffer::term_appender::OnReservedValueSupplier;
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
-use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-use crate::concurrent::status::status_indicator_reader;
-use crate::publication::{ADMIN_ACTION, BACK_PRESSURED, MAX_POSITION_EXCEEDED, NOT_CONNECTED, PUBLICATION_CLOSED};
-use crate::utils::bit_utils::number_of_trailing_zeroes;
-use crate::utils::errors::AeronError;
-use crate::utils::log_buffers::LogBuffers;
-use crate::utils::types::Index;
 use std::ffi::CString;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+
+use crate::{
+    client_conductor::ClientConductor,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim,
+            data_frame_header,
+            exclusive_term_appender::ExclusiveTermAppender,
+            frame_descriptor,
+            header::HeaderWriter,
+            log_buffer_descriptor,
+            term_appender::{default_reserved_value_supplier, OnReservedValueSupplier},
+        },
+        position::{ReadablePosition, UnsafeBufferPosition},
+        status::status_indicator_reader,
+    },
+    publication::{ADMIN_ACTION, BACK_PRESSURED, MAX_POSITION_EXCEEDED, NOT_CONNECTED, PUBLICATION_CLOSED},
+    utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
+};
 
 /**
  * Aeron Publisher API for sending messages to subscribers of a given channel and streamId pair. ExclusivePublications
@@ -52,6 +58,7 @@ use std::ffi::CString;
  * @see BufferClaim
  */
 
+#[allow(dead_code)]
 pub struct ExclusivePublication {
     conductor: Arc<Mutex<ClientConductor>>,
     log_meta_data_buffer: AtomicBuffer,
@@ -476,6 +483,7 @@ impl ExclusivePublication {
      * @return The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
+    // TODO: Implement if necessary
     // pub fn offer_bulk(
     //     &mut self,
     //     buffers: Vec<AtomicBuffer>,
@@ -653,6 +661,7 @@ impl ExclusivePublication {
         NOT_CONNECTED
     }
 
+    #[allow(dead_code)]
     fn check_max_message_length(&self, length: Index) -> Result<(), AeronError> {
         if length > self.max_message_length {
             Err(AeronError::IllegalArgumentException(format!(
@@ -694,27 +703,35 @@ mod tests {
 
     use lazy_static::lazy_static;
 
-    use crate::client_conductor::ClientConductor;
-    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
-    use crate::concurrent::broadcast::broadcast_buffer_descriptor;
-    use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
-    use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
-    use crate::concurrent::counters::CountersReader;
-    use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-    use crate::concurrent::logbuffer::data_frame_header::LENGTH;
-    use crate::concurrent::logbuffer::frame_descriptor;
-    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
-    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-    use crate::concurrent::ring_buffer;
-    use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
-    use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
-    use crate::driver_proxy::DriverProxy;
-    use crate::exclusive_publication::ExclusivePublication;
-    use crate::publication::{ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED};
-    use crate::utils::errors::AeronError;
-    use crate::utils::log_buffers::LogBuffers;
-    use crate::utils::misc::unix_time_ms;
-    use crate::utils::types::{Index, Moment, I64_SIZE};
+    use crate::{
+        client_conductor::ClientConductor,
+        concurrent::{
+            atomic_buffer::{AlignedBuffer, AtomicBuffer},
+            broadcast::{
+                broadcast_buffer_descriptor, broadcast_receiver::BroadcastReceiver,
+                copy_broadcast_receiver::CopyBroadcastReceiver,
+            },
+            counters::CountersReader,
+            logbuffer::{
+                buffer_claim::BufferClaim,
+                data_frame_header::LENGTH,
+                frame_descriptor,
+                log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH},
+            },
+            position::{ReadablePosition, UnsafeBufferPosition},
+            ring_buffer::{self, ManyToOneRingBuffer},
+            status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED},
+        },
+        driver_proxy::DriverProxy,
+        exclusive_publication::ExclusivePublication,
+        publication::{ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED},
+        utils::{
+            errors::AeronError,
+            log_buffers::LogBuffers,
+            misc::unix_time_ms,
+            types::{Index, Moment, I64_SIZE},
+        },
+    };
 
     lazy_static! {
         pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
@@ -737,7 +754,7 @@ mod tests {
     const CAPACITY: i32 = 1024;
     const MANY_TO_ONE_RING_BUFFER_LENGTH: i32 = CAPACITY + ring_buffer::TRAILER_LENGTH;
     const BROADCAST_BUFFER_LENGTH: i32 = CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH;
-    const COUNTER_VALUES_BUFFER_LENGTH: i32 = 1024 * 1024;
+    // const COUNTER_VALUES_BUFFER_LENGTH: i32 = 1024 * 1024;
     const COUNTER_METADATA_BUFFER_LENGTH: i32 = 4 * 1024 * 1024;
 
     #[inline]
@@ -766,6 +783,7 @@ mod tests {
 
     fn on_close_client_handler() {}
 
+    #[allow(dead_code)]
     struct ExclusivePublicationTest {
         src: AlignedBuffer,
         log: AlignedBuffer,

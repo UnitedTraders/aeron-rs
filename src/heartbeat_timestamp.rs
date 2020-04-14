@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::concurrent::counters;
-use crate::concurrent::counters::CountersReader;
+
+use crate::concurrent::counters::{self, CountersReader};
 
 /**
  * The heartbeat as a timestamp for an entity to indicate liveness.

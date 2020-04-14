@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use crate::utils::types::Index;
 use std::sync::atomic::{fence, AtomicI64, Ordering};
+
+use crate::utils::types::Index;
 
 // AtomicVec stores elements of type T and provides thread safe operations on Vec.
 // Atomic behavior provided on AtomicVec as a whole.
