@@ -189,7 +189,10 @@ impl Subscription {
      * @see fragment_handler_t
      */
 
-    pub fn poll(&mut self, fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header), fragment_limit: i32) -> i32 {
+    pub fn poll<F>(&mut self, fragment_handler: &mut F, fragment_limit: i32) -> i32
+    where
+        F: FnMut(&AtomicBuffer, Index, Index, &Header),
+    {
         let image_list = self.image_list.load_mut();
 
         let mut fragments_read = 0;
@@ -238,11 +241,10 @@ impl Subscription {
      * @return the number of fragments received
      * @see controlled_poll_fragment_handler_t
      */
-    pub fn controlled_poll(
-        &mut self,
-        fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError> + Copy,
-        fragment_limit: i32,
-    ) -> i32 {
+    pub fn controlled_poll<F>(&mut self, fragment_handler: F, fragment_limit: i32) -> i32
+    where
+        F: FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError> + Copy,
+    {
         let image_list = self.image_list.load_mut();
 
         let mut fragments_read = 0;
