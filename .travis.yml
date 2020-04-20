@@ -13,14 +13,23 @@ matrix:
 cache:
   - cargo
 
+before_install:
+  - cd aeron
+  - >
+    SOURCE_DIR=$(pwd);
+    mkdir build;
+    cd build;
+    cmake -G "CodeBlocks - Unix Makefiles" $SOURCE_DIR;
+    make aeronmd;
+    sudo mv binaries/aeronmd /usr/bin;
+    sudo chmod +w /dev/shm;
+
 before_script:
   - rustup component add rustfmt
   - rustup component add clippy
-  - cargo install --force cargo-audit
-  - cargo generate-lockfile
 
 script:
   - cargo fmt -- --check
-  - cargo clippy --verbose --all-targets --all-features --all -- -Dwarnings
-  - cargo test --all-features --verbose --all
-  - cargo audit
+  - cargo clippy --all-targets --all-features --workspace -- -D warnings #-W clippy::nursery
+  # TODO: change --lib to --all-targets for the integration tests to run
+  - cargo test --all-features --lib -- --test-threads=1
