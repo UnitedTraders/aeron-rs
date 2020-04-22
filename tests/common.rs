@@ -31,6 +31,7 @@ pub fn str_to_c(val: &str) -> CString {
 pub fn start_aeron_md() -> Child {
     let ret = Command::new("aeronmd")
         .env("AERON_DIR_DELETE_ON_SHUTDOWN", "1")
+        .env("AERON_DIR_DELETE_ON_START", "1")
         .spawn()
         .expect("aeronmd failed to start");
 
@@ -43,6 +44,7 @@ pub fn start_aeron_md() -> Child {
 pub fn start_aeron_md_mtu(mtu: &str) -> Child {
     let ret = Command::new("aeronmd")
         .env("AERON_DIR_DELETE_ON_SHUTDOWN", "1")
+        .env("AERON_DIR_DELETE_ON_START", "1")
         .env("AERON_MTU_LENGTH", mtu)
         .spawn()
         .expect("aeronmd failed to start");
