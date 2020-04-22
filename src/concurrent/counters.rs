@@ -168,6 +168,31 @@ impl CountersReader {
         }
     }
 
+    pub fn for_each<F>(&self, on_counters_metadata: F)
+    where
+        F: Fn(i32, i32, &AtomicBuffer, CString),
+    {
+        for (id, i) in (0..self.metadata_buffer.capacity())
+            .step_by(METADATA_LENGTH as usize)
+            .enumerate()
+        {
+            let record_status = self.metadata_buffer.get_volatile::<i32>(i);
+            if record_status == RECORD_UNUSED {
+                break;
+            } else if record_status == RECORD_ALLOCATED {
+                let record = self.metadata_buffer.overlay_struct::<CounterMetaDataDefn>(i);
+
+                let label = self.metadata_buffer.get_string(i + *LABEL_LENGTH_OFFSET);
+                let key_buffer = AtomicBuffer::new(
+                    unsafe { self.metadata_buffer.buffer().offset((i + *KEY_OFFSET) as isize) },
+                    std::mem::size_of::<CounterMetaDataKey>() as i32,
+                );
+
+                on_counters_metadata(id as i32, (unsafe { *record }).type_id, &key_buffer, label);
+            }
+        }
+    }
+
     pub fn max_counter_id(&self) -> i32 {
         self.max_counter_id
     }

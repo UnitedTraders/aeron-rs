@@ -658,7 +658,7 @@ impl Publication {
 
     fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: Index, resulting_offset: Index) -> i64 {
         if resulting_offset > 0 {
-            return ((position - term_offset) + resulting_offset) as i64;
+            return (position - term_offset) as i64 + resulting_offset as i64;
         }
 
         if position as i64 + term_offset as i64 > self.max_possible_position {

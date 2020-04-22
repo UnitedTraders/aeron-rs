@@ -46,7 +46,7 @@ impl LogBuffers {
 
         ttrace!("from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
 
-        let log_len = MemoryMappedFile::file_size(&file_path)?;
+        let log_len = MemoryMappedFile::get_file_size(&file_path)?;
 
         let memory_mapped_file = MemoryMappedFile::map_existing(file_path, false).expect("todo");
 

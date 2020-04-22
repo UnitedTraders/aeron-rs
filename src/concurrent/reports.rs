@@ -62,24 +62,28 @@ use crate::{
  * </pre>
  */
 
-mod loss_report_descriptor {
+pub mod loss_report_descriptor {
     use crate::utils::types::Index;
 
     #[repr(C, packed(4))]
     #[derive(Copy, Clone)]
     pub struct LossReportEntryDefn {
         pub observation_count: i64,
-        total_bytes_lost: i64,
-        first_observation_timestamp: i64,
-        last_observation_timestamp: i64,
-        session_id: i32,
-        stream_id: i32,
+        pub total_bytes_lost: i64,
+        pub first_observation_timestamp: i64,
+        pub last_observation_timestamp: i64,
+        pub session_id: i32,
+        pub stream_id: i32,
     }
 
     pub(super) const CHANNEL_OFFSET: Index = std::mem::size_of::<LossReportEntryDefn>() as Index;
 
-    #[allow(dead_code)]
     const LOSS_REPORT_FILE_NAME: &str = "loss-report.dat";
+
+    #[inline]
+    pub fn file(aeron_directory_name: &str) -> String {
+        format!("{}/{}", aeron_directory_name, LOSS_REPORT_FILE_NAME)
+    }
 }
 
 lazy_static! {
@@ -97,8 +101,7 @@ pub type LossConsumerHandler = fn(i64, LossReportEntryDefn, CString /*channel*/,
  * @return the number of entries read.
  */
 #[inline]
-#[allow(dead_code)]
-fn read(buffer: &AtomicBuffer, consumer: LossConsumerHandler) -> i32 {
+pub fn read(buffer: &AtomicBuffer, consumer: LossConsumerHandler) -> i32 {
     let mut records_read = 0;
     let mut offset = 0;
     let capacity = buffer.capacity();

@@ -14,30 +14,37 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, AtomicI64, Ordering},
+        Arc, Mutex,
+    },
+    thread,
+    time::Duration,
+};
 
+use aeron_rs::{
+    aeron::Aeron,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim,
+            header::Header
+        },
+        strategies::{BusySpinIdleStrategy, Strategy},
+    },
+    context::Context,
+    example_config::{
+        DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES,
+        DEFAULT_STREAM_ID,
+    },
+    fragment_assembler::FragmentAssembler,
+    image::Image,
+    utils::{errors::AeronError, rate_reporter::RateReporter, types::Index}
+};
 use lazy_static::lazy_static;
 use structopt::StructOpt;
-
-use aeron_rs::aeron::Aeron;
-use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
-use aeron_rs::concurrent::logbuffer::buffer_claim::BufferClaim;
-use aeron_rs::concurrent::logbuffer::header::Header;
-use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
-use aeron_rs::context::Context;
-use aeron_rs::example_config::{
-    DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES,
-    DEFAULT_STREAM_ID,
-};
-use aeron_rs::fragment_assembler::FragmentAssembler;
-use aeron_rs::image::Image;
-use aeron_rs::utils::errors::AeronError;
-use aeron_rs::utils::rate_reporter::RateReporter;
-use aeron_rs::utils::types::Index;
-use std::thread;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
