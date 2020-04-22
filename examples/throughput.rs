@@ -28,20 +28,17 @@ use aeron_rs::{
     aeron::Aeron,
     concurrent::{
         atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            buffer_claim::BufferClaim,
-            header::Header
-        },
+        logbuffer::{buffer_claim::BufferClaim, header::Header},
         strategies::{BusySpinIdleStrategy, Strategy},
     },
     context::Context,
     example_config::{
-        DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES,
-        DEFAULT_STREAM_ID,
+        DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH,
+        DEFAULT_NUMBER_OF_MESSAGES, DEFAULT_STREAM_ID,
     },
     fragment_assembler::FragmentAssembler,
     image::Image,
-    utils::{errors::AeronError, rate_reporter::RateReporter, types::Index}
+    utils::{errors::AeronError, rate_reporter::RateReporter, types::Index},
 };
 use lazy_static::lazy_static;
 use structopt::StructOpt;

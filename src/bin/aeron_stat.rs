@@ -14,16 +14,23 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::Duration,
+};
 
-use aeron_rs::utils::misc::{semantic_version_major, semantic_version_to_string};
 use aeron_rs::{
-    cnc_file_descriptor, concurrent::counters::CountersReader, context::Context, utils::memory_mapped_file::MemoryMappedFile,
+    cnc_file_descriptor,
+    concurrent::counters::CountersReader,
+    context::Context,
+    utils::{
+        memory_mapped_file::MemoryMappedFile,
+        misc::{semantic_version_major, semantic_version_to_string},
+    },
 };
 use chrono::Local;
 use lazy_static::lazy_static;
-use std::thread;
-use std::time::Duration;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);

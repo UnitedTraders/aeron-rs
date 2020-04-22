@@ -418,7 +418,7 @@ mod tests {
 
         let mut buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
 
-        buffer.write(&[4, 5, 6, 7]).unwrap();
+        buffer.write_all(&[4, 5, 6, 7]).unwrap();
 
         assert_eq!(buffer.as_slice(), &[4, 5, 6, 7, 4, 5, 6, 7]);
     }
