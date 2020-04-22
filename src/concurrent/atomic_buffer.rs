@@ -1,6 +1,7 @@
 use std::{
     ffi::{CStr, CString},
     fmt::{Debug, Error, Formatter},
+    io::Write,
     slice,
     sync::atomic::{fence, AtomicI32, AtomicI64, Ordering},
 };
@@ -56,6 +57,17 @@ impl Debug for AtomicBuffer {
                 break;
             }
         }
+        Ok(())
+    }
+}
+
+impl Write for AtomicBuffer {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+        self.put_bytes(0, buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<(), std::io::Error> {
         Ok(())
     }
 }
@@ -351,6 +363,7 @@ impl AtomicBuffer {
 mod tests {
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::utils::types::Index;
+    use std::io::Write;
 
     #[test]
     fn atomic_buffer_can_be_created() {
@@ -396,6 +409,18 @@ mod tests {
         buffer.put_bytes(4, &[0, 1, 2, 3]);
 
         assert_eq!(buffer.as_slice(), &[0, 1, 2, 3, 0, 1, 2, 3])
+    }
+
+    #[test]
+    fn atomic_buffer_put_bytes_with_write_trait() {
+        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        assert_eq!(data.len(), 8);
+
+        let mut buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
+
+        buffer.write(&[4, 5, 6, 7]).unwrap();
+
+        assert_eq!(buffer.as_slice(), &[4, 5, 6, 7, 4, 5, 6, 7]);
     }
 
     #[test]
