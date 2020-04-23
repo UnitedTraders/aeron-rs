@@ -307,25 +307,26 @@ fn test_fragmented_msg() {
         panic!("offer with error: {:?}", result.err());
     }
 
-    let mut fragment_assembler = FragmentAssembler::new(
-        |buffer: &AtomicBuffer, offset, length, _header: &Header| {
-            // This closure will be called when FragmentAssembler will assemble the full message for us
-            println!("Checking reassembled message of length {}", length);
-            assert_eq!(length, 256);
-            unsafe {
-                let slice_msg = slice::from_raw_parts_mut(buffer.buffer().offset(offset as isize), length as usize);
-                for i in 0..length {
-                    assert_eq!(i as u8, slice_msg[i as usize]);
-                }
+    let mut handler_f = |buffer: &AtomicBuffer, offset, length, _header: &Header| {
+        // This closure will be called when FragmentAssembler will assemble the full message for us
+        println!("Checking reassembled message of length {}", length);
+        assert_eq!(length, 256);
+        unsafe {
+            let slice_msg = slice::from_raw_parts_mut(buffer.buffer().offset(offset as isize), length as usize);
+            for i in 0..length {
+                assert_eq!(i as u8, slice_msg[i as usize]);
             }
-        },
-        None,
-    );
+        }
+    };
+
+    let mut fragment_assembler = FragmentAssembler::new(&mut handler_f, None);
 
     let idle_strategy = SleepingIdleStrategy::new(1000);
 
+    let handler = &mut fragment_assembler.handler();
+
     for _i in 0..3 {
-        let fragments_read = subscription.lock().expect("Fu").poll(&mut fragment_assembler.handler(), 10);
+        let fragments_read = subscription.lock().expect("Fu").poll(handler, 10);
         idle_strategy.idle_opt(fragments_read);
     }
 

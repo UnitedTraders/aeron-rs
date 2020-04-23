@@ -223,12 +223,12 @@ fn main() {
     let poll_thread = thread::Builder::new()
         .name(String::from("Poll thread"))
         .spawn(move || {
-            let rate_reporter_handler = move |_buffer: &AtomicBuffer, _offset: Index, length: Index, _header: &Header| {
+            let mut rate_reporter_handler = move |_buffer: &AtomicBuffer, _offset: Index, length: Index, _header: &Header| {
                 let mut reporter = rate_reporter_for_poll_thread.lock().unwrap();
                 reporter.on_message(1, length as u64);
             };
 
-            let mut fragment_assembler = FragmentAssembler::new(rate_reporter_handler, None);
+            let mut fragment_assembler = FragmentAssembler::new(&mut rate_reporter_handler, None);
             let mut fragment_handler = fragment_assembler.handler();
 
             while RUNNING.load(Ordering::SeqCst) {
