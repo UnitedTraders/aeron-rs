@@ -19,6 +19,8 @@
 
 pub mod aeron;
 pub mod buffer_builder;
+pub mod channel_uri;
+pub mod channel_uri_string_builder;
 pub mod client_conductor;
 pub mod cnc_file_descriptor;
 pub mod command;

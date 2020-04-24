@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use aeron_rs::concurrent::logbuffer;
-use aeron_rs::utils::errors::AeronError;
-
 use crate::channel_uri;
+use crate::concurrent::logbuffer;
+use crate::utils::errors::AeronError;
 
 #[derive(Debug)]
 struct Value {
@@ -39,7 +38,7 @@ impl Value {
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct ChannelUriStringBuilder {
+pub struct ChannelUriStringBuilder {
     prefix: Option<String>,
     media: Option<String>,
     endpoint: Option<String>,
