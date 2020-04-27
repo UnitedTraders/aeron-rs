@@ -155,7 +155,7 @@ impl ChannelUri {
                 uri
             )));
         } else {
-            position += AERON_PREFIX.len() - 1;
+            position += AERON_PREFIX.len();
         }
 
         let mut builder = String::new();
@@ -174,7 +174,7 @@ impl ChannelUri {
                         state = State::ParamsKey;
                     }
                     '=' | '|' | ':' => {
-                        return Err(AeronError::IllegalArgumentException(format!(
+                        return Err(AeronError::IllegalStateException(format!(
                             "encountered '{}' within media definition at index {} in {}",
                             c, i, uri
                         )));
@@ -217,6 +217,9 @@ impl ChannelUri {
         match state {
             State::Media => {
                 media = builder;
+                if media != IPC_MEDIA && media != UDP_MEDIA {
+                    return Err(AeronError::IllegalArgumentException(format!("unknown media: {}", media)));
+                }
             }
             State::ParamsValue => {
                 params.insert(key, builder);
@@ -277,7 +280,6 @@ mod tests {
     use crate::utils::errors::AeronError;
 
     #[test]
-    // #[ignore]
     fn should_parse_simple_default_uris() {
         let channel_uri = ChannelUri::parse("aeron:udp").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -288,11 +290,6 @@ mod tests {
         let channel_guard = channel_uri.lock().unwrap();
         assert_eq!(channel_guard.prefix(), "");
         assert_eq!(channel_guard.media(), "ipc");
-
-        let channel_uri = ChannelUri::parse("aeron:").expect("Can't parse uri");
-        let channel_guard = channel_uri.lock().unwrap();
-        assert_eq!(channel_guard.prefix(), "");
-        assert_eq!(channel_guard.media(), "");
 
         let channel_uri = ChannelUri::parse("aeron-spy:aeron:udp").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -308,7 +305,7 @@ mod tests {
         let result = ChannelUri::parse("aeron");
         assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
 
-        let result = ChannelUri::parse("aron");
+        let result = ChannelUri::parse("aron:");
         assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
 
         let result = ChannelUri::parse("eeron:");
@@ -318,11 +315,28 @@ mod tests {
     #[test]
     fn should_reject_with_out_of_place_colon() {
         let result = ChannelUri::parse("aeron:udp:");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
+    fn should_reject_invalid_media() {
+        let result = ChannelUri::parse("aeron:ipcsdfgfdhfgf");
         assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
     }
 
     #[test]
-    // #[ignore]
+    fn should_reject_with_missing_query_separator_when_followed_with_params() {
+        let result = ChannelUri::parse("aeron:ipc|sparse=true");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
+    fn should_reject_with_invalid_params() {
+        let result = ChannelUri::parse("aeron:udp?endpoint=localhost:4652|-~@{]|=??#s!£$%====");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
     fn should_parse_with_single_parameter() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -338,7 +352,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
     fn should_parse_with_multiple_arguments() {
         let channel_uri =
             ChannelUri::parse("aeron:udp?endpoint=224.10.9.8|port=4567|interface=192.168.0.3|ttl=16").expect("Can't parse uri");
@@ -350,7 +363,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
     fn should_allow_return_default_if_param_not_specified() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -360,7 +372,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
     fn should_round_trip_to_string() {
         let uri_string = String::from("aeron:udp?endpoint=224.10.9.8:777");
         let channel_uri = ChannelUri::parse(&uri_string).expect("Can't parse uri");
@@ -370,7 +381,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
     fn should_round_trip_to_string_builder() {
         let mut builder = ChannelUriStringBuilder::default();
 
@@ -383,7 +393,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
     fn should_round_trip_to_string_builder_with_prefix() {
         let mut builder = ChannelUriStringBuilder::default();
 
