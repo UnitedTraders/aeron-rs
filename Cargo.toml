@@ -1,6 +1,6 @@
 [package]
 name = "aeron-rs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Denis Komissarov <denisxor@gmail.com>", "Kirill Karbushev <kiriosk@yandex.ru>", "Alexander Ostrovskiy <alexander.ostrovskiy@gmail.com>",]
 license = "Apache-2.0"
 description = "Aeron client library - fast messaging over UDP on Rust"
