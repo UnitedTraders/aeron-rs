@@ -18,8 +18,7 @@ use std::ffi::CString;
 
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::types::I32_SIZE;
-use crate::utils::{bit_utils, types::Index};
+use crate::utils::{bit_utils, types::Index, types::I32_SIZE};
 
 /**
 * Message to denote that new buffers have been added for a subscription.
@@ -57,7 +56,7 @@ use crate::utils::{bit_utils, types::Index};
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct ImageBuffersReadyDefn {
+pub struct ImageBuffersReadyDefn {
     correlation_id: i64,
     session_id: i32,
     stream_id: i32,
@@ -65,7 +64,7 @@ struct ImageBuffersReadyDefn {
     subscriber_position_id: i32,
 }
 
-const IMAGE_BUFFERS_READY_LENGTH: Index = std::mem::size_of::<ImageBuffersReadyDefn>() as Index;
+pub const IMAGE_BUFFERS_READY_LENGTH: Index = std::mem::size_of::<ImageBuffersReadyDefn>() as Index;
 
 pub struct ImageBuffersReadyFlyweight {
     flyweight: Flyweight<ImageBuffersReadyDefn>,

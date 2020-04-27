@@ -25,7 +25,7 @@ pub const HEADER_DEFN_SIZE: Index = std::mem::size_of::<HeaderDefn>() as Index;
  */
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub(crate) struct HeaderDefn {
+pub struct HeaderDefn {
     frame_length: i32,
     version: i8,
     flags: i8,
@@ -33,7 +33,7 @@ pub(crate) struct HeaderDefn {
 }
 
 pub struct HeaderFlyweight {
-    pub(crate) flyweight: Flyweight<HeaderDefn>,
+    pub flyweight: Flyweight<HeaderDefn>,
 }
 
 impl HeaderFlyweight {

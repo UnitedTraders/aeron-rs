@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+    sync::{Arc, Mutex},
+};
+
+use crate::utils::errors::AeronError;
+
 pub const SPY_QUALIFIER: &str = "aeron-spy";
 pub const AERON_SCHEME: &str = "aeron";
-pub const AERON_PREFIX: &str = "aeron:";
 
+pub const AERON_PREFIX: &str = "aeron:";
 pub const IPC_MEDIA: &str = "ipc";
 pub const UDP_MEDIA: &str = "udp";
 pub const IPC_CHANNEL: &str = "aeron:ipc";
@@ -45,14 +53,8 @@ pub const EOS_PARAM_NAME: &str = "eos";
 pub const TETHER_PARAM_NAME: &str = "tether";
 pub const GROUP_PARAM_NAME: &str = "group";
 pub const REJOIN_PARAM_NAME: &str = "rejoin";
+
 pub const CONGESTION_CONTROL_PARAM_NAME: &str = "cc";
-
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::sync::{Arc, Mutex};
-
-use crate::utils::errors::AeronError;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -68,20 +70,6 @@ pub struct ChannelUri {
     media: String,
     params: HashMap<String, String>,
 }
-
-// impl Deref for ChannelUri {
-//     type Target = Self;
-//
-//     fn deref(&self) -> &Self::Target {
-//         &self
-//     }
-// }
-//
-// impl DerefMut for ChannelUri {
-//     fn deref_mut(&mut self) -> &mut Self {
-//         &mut self
-//     }
-// }
 
 impl ChannelUri {
     pub fn new(prefix: String, media: String, params: HashMap<String, String>) -> Self {

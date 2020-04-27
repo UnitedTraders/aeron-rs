@@ -33,7 +33,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct SubscriptionReadyDefn {
+pub struct SubscriptionReadyDefn {
     correlation_id: i64,
     channel_status_indicator_id: i32,
 }

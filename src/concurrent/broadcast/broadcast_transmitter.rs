@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-use crate::command::control_protocol_events::AeronCommand;
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    atomics,
-    broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
+use crate::{
+    command::control_protocol_events::AeronCommand,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        atomics,
+        broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
+    },
+    utils::{bit_utils::align, types::Index},
 };
-use crate::utils::{bit_utils::align, types::Index};
 
 #[derive(Debug)]
 pub struct BroadcastTransmitter {
@@ -133,13 +135,8 @@ mod tests {
     use super::*;
     use crate::concurrent::atomic_buffer::AlignedBuffer;
 
-    const CAPACITY: Index = (1024);
-    // const TOTAL_BUFFER_LENGTH: Index = (CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH);
-    // const SRC_BUFFER_SIZE: i32 = (1024);
-    const MSG_TYPE_ID: i32 = (7);
-    // const TAIL_INTENT_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET);
-    // const TAIL_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
-    // const LATEST_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::LATEST_COUNTER_OFFSET);
+    const CAPACITY: Index = 1024;
+    const MSG_TYPE_ID: i32 = 7;
 
     struct BroadcastTransmitterTest {
         buffer: AtomicBuffer,
@@ -298,25 +295,17 @@ mod tests {
     fn should_transmit_into_end_of_buffer() {
         let mut test = BroadcastTransmitterTest::new(CAPACITY);
 
-        //    AtomicBuffer srcBuffer(&buffer[0], buffer.size());
         let src_buffer = test.create_message_buffer(CAPACITY);
 
-        //    const std::int32_t length = 8;
         const LENGTH: Index = 1000;
-
-        //    const std::int32_t recordLength = length + RecordDescriptor::HEADER_LENGTH;
         const RECORD_LENGTH: Index = LENGTH + record_descriptor::HEADER_LENGTH;
 
-        //    const std::int32_t alignedRecordLength = util::BitUtil::align(recordLength, RecordDescriptor::RECORD_ALIGNMENT);
         let aligned_record_length: Index = align(RECORD_LENGTH, record_descriptor::RECORD_ALIGNMENT);
 
-        //    const std::int64_t tail = CAPACITY - alignedRecordLength;
         let tail = (CAPACITY - aligned_record_length) as i64;
 
-        //    const std::int32_t recordOffset = (std::int32_t)tail;
         let _record_offset = tail as Index;
 
-        //    m_broadcastTransmitter.transmit(MSG_TYPE_ID, srcBuffer, srcIndex, length);
         let mut transmitter = test.create_transmitter();
 
         src_buffer.put_bytes(0, &vec![42; LENGTH as usize]);

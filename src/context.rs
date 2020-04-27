@@ -31,8 +31,8 @@ use crate::{
     },
 };
 
-// This name is used for conductor thread and useful when debugging or examining logs from
-// application with several Aeron instances which run simultaneously.
+/// This name is used for conductor thread and useful when debugging or examining logs from
+/// application with several Aeron instances which run simultaneously.
 const AGENT_NAME: &str = "client-conductor";
 
 /**

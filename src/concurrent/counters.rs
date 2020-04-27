@@ -20,12 +20,14 @@ use std::fmt;
 
 use lazy_static::lazy_static;
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
-use crate::utils::{
-    errors::*,
-    misc::CACHE_LINE_LENGTH,
-    types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
+use crate::{
+    concurrent::atomic_buffer::AtomicBuffer,
+    offset_of,
+    utils::{
+        errors::*,
+        misc::CACHE_LINE_LENGTH,
+        types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
+    },
 };
 
 /**
@@ -79,10 +81,10 @@ pub const RECORD_ALLOCATED: i32 = 1;
 pub const RECORD_RECLAIMED: i32 = -1;
 pub const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
 
-const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
-const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
-pub(crate) const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
-pub(crate) const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
+pub const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
+pub const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
+pub const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
+pub const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
 
 // Original C++ alignment specification was #pragma pack(4)
 #[repr(C, packed(4))]
@@ -258,7 +260,7 @@ impl CountersReader {
     }
 }
 
-// This struct is needed to implement iterator for CountersReader
+/// This struct is needed to implement iterator for CountersReader
 pub struct CountersReaderIter<'a> {
     inner: &'a CountersReader,
     pos: usize,
@@ -345,11 +347,11 @@ impl CountersManager {
         self.reader.iter()
     }
 
-    // This fn allocates counter with given type, key and label.
-    // The keys can be provided by two ways:
-    // 1. through key_opt param
-    // 2. could be generated and written in-place by key_func param
-    // If both key_opt and key_func are specified then AeronError is returned.
+    /// This fn allocates counter with given type, key and label.
+    /// The keys can be provided by two ways:
+    /// 1. through key_opt param
+    /// 2. could be generated and written in-place by key_func param
+    /// If both key_opt and key_func are specified then AeronError is returned.
     pub fn allocate_opt(
         &mut self,
         type_id: i32,

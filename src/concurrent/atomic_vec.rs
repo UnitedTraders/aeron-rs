@@ -18,8 +18,8 @@ use std::sync::atomic::{fence, AtomicI64, Ordering};
 
 use crate::utils::types::Index;
 
-// AtomicVec stores elements of type T and provides thread safe operations on Vec.
-// Atomic behavior provided on AtomicVec as a whole.
+/// AtomicVec stores elements of type T and provides thread safe operations on Vec.
+/// Atomic behavior provided on AtomicVec as a whole.
 #[derive(Default)]
 pub struct AtomicVec<T: Clone> {
     buf: Vec<T>,
@@ -39,8 +39,6 @@ impl<T: Clone> AtomicVec<T> {
     pub fn load(&self) -> &Vec<T> {
         loop {
             let change_number = self.end_change.load(Ordering::Acquire);
-
-            //let ret_ref = &mut self.buf;
 
             fence(Ordering::Acquire);
 
@@ -103,8 +101,8 @@ impl<T: Clone> AtomicVec<T> {
         old_vec
     }
 
-    // Removes first element for which matching_fn returns true.
-    // Returns tuple (OldVector, position_of_deleted_item)
+    /// Removes first element for which matching_fn returns true.
+    /// Returns tuple (OldVector, position_of_deleted_item)
     pub fn remove(&mut self, matching_fn: impl Fn(&mut T) -> bool) -> Option<(Vec<T>, Index)> {
         let mut old_vec = self.load().clone();
         let mut new_vec = old_vec.clone();

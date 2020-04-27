@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
@@ -101,7 +102,6 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
     }
 
     pub fn receive_messages(&self, this_driver_listener: &mut ClientConductor) -> Result<usize, AeronError> {
-        //let mut this_driver_listener = self.driver_listener.lock().expect("Mutex poisoned");
         let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| {
             ttrace!("Message arrived of type {:x}", msg as i32);
 

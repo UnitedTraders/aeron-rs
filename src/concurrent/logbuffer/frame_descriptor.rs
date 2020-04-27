@@ -16,6 +16,7 @@
 
 use crate::concurrent::{atomic_buffer::AtomicBuffer, logbuffer::data_frame_header};
 use crate::utils::{errors::AeronError, types::Index};
+
 /**
 * Description of the structure for message framing in a log buffer.
 *

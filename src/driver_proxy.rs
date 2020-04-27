@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::ffi::CString;
 use std::sync::Arc;
 
@@ -328,9 +329,9 @@ impl DriverProxy {
     }
 }
 
-// 16 byte alignment was used in C++ code. To make pointers work it is enough to
-// align this buffer at 8 bytes (on 64 bit architecture). And to make access to
-// the buffer (may be) faster it could be aligned to CACHE_LINE_LENGTH (64 bytes for modern x86 CPUs)
+/// 16 byte alignment was used in C++ code. To make pointers work it is enough to
+/// align this buffer at 8 bytes (on 64 bit architecture). And to make access to
+/// the buffer (may be) faster it could be aligned to CACHE_LINE_LENGTH (64 bytes for modern x86 CPUs)
 #[repr(C, align(16))]
 struct DriverProxyCommandBuffer {
     data: [u8; 512],

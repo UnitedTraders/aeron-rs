@@ -15,16 +15,15 @@
  */
 use std::fmt;
 
-use crate::command::control_protocol_events::AeronCommand;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::{
-    bit_utils::{align, is_power_of_two},
-    misc::CACHE_LINE_LENGTH,
-    types::Index,
+use crate::{
+    command::control_protocol_events::AeronCommand,
+    concurrent::atomic_buffer::AtomicBuffer,
+    utils::{
+        bit_utils::{align, is_power_of_two},
+        misc::CACHE_LINE_LENGTH,
+        types::Index,
+    },
 };
-
-// The read handler function signature
-//trait HandlerFn: Fn(i32, &AtomicBuffer, Index, Index) {}
 
 //todo: rewrite all these index-based accessors using blitted structs + custom volatile cells?
 pub const TAIL_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 2;
@@ -33,7 +32,7 @@ pub const HEAD_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 6;
 pub const CORRELATION_COUNTER_OFFSET: Index = CACHE_LINE_LENGTH * 8;
 pub const CONSUMER_HEARTBEAT_OFFSET: Index = CACHE_LINE_LENGTH * 10;
 
-// Total length of the trailer in bytes
+/// Total length of the trailer in bytes
 pub const TRAILER_LENGTH: Index = CACHE_LINE_LENGTH * 12;
 
 fn check_capacity(capacity: Index) -> Result<(), RingBufferError> {

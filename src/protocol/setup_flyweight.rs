@@ -28,7 +28,7 @@ pub const SETUP_DEFN_SIZE: Index = std::mem::size_of::<SetupDefn>() as Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct SetupDefn {
+pub struct SetupDefn {
     header: HeaderDefn,
     term_offset: i32,
     session_id: i32,

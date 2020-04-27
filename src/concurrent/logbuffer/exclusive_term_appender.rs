@@ -16,22 +16,24 @@
 
 use std::sync::atomic::{fence, Ordering};
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{
-        buffer_claim::BufferClaim,
-        data_frame_header, frame_descriptor,
-        header::HeaderWriter,
-        log_buffer_descriptor,
-        term_appender::{OnReservedValueSupplier, TERM_APPENDER_FAILED},
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim,
+            data_frame_header, frame_descriptor,
+            header::HeaderWriter,
+            log_buffer_descriptor,
+            term_appender::{OnReservedValueSupplier, TERM_APPENDER_FAILED},
+        },
+    },
+    utils::{
+        bit_utils,
+        types::{Index, I64_SIZE},
     },
 };
-use crate::utils::{
-    bit_utils,
-    types::{Index, I64_SIZE},
-};
 
-pub(crate) struct ExclusiveTermAppender {
+pub struct ExclusiveTermAppender {
     term_buffer: AtomicBuffer,
     tail_addr: *const i64,
 }

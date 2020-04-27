@@ -11,7 +11,7 @@ use crate::utils::{
     types::{Index, I32_SIZE, I64_SIZE},
 };
 
-// Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
+/// Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
     pub ptr: *mut u8,
     pub len: Index,
@@ -32,7 +32,7 @@ impl Drop for AlignedBuffer {
     }
 }
 
-// Wraps but does not own a region of shared memory
+/// Wraps but does not own a region of shared memory
 #[derive(Copy, Clone)]
 pub struct AtomicBuffer {
     pub(crate) ptr: *mut u8,
@@ -106,8 +106,8 @@ impl AtomicBuffer {
         self.ptr.offset(offset as isize)
     }
 
-    // Create a view on the contents of the buffer starting from offset and spanning len bytes.
-    // Sets length of the "view" buffer to "len"
+    /// Create a view on the contents of the buffer starting from offset and spanning len bytes.
+    /// Sets length of the "view" buffer to "len"
     #[inline]
     pub fn view(&self, offset: Index, len: Index) -> Self {
         self.bounds_check(offset, len);
@@ -229,7 +229,7 @@ impl AtomicBuffer {
         self.put_ordered::<i64>(offset, value + delta);
     }
 
-    // Put bytes in to this buffer at specified offset
+    /// Put bytes in to this buffer at specified offset
     #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
         self.bounds_check(offset, src.len() as Index);
@@ -239,15 +239,6 @@ impl AtomicBuffer {
             ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
         }
     }
-
-    // #[inline]
-    // pub unsafe fn put_bytes_to_buffer(&self, index: Index, src_buffer: &AtomicBuffer, src_index: Index, length: Index) {
-    //     self.bounds_check(index, length);
-    //     src_buffer.bounds_check(src_index, length);
-    //
-    //     let ptr = self.ptr.offset(index);
-    //     ::std::ptr::copy(ptr, src_buffer.ptr.offset(src_index), length as usize);
-    // }
 
     #[inline]
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -260,11 +251,11 @@ impl AtomicBuffer {
         }
     }
 
-    // Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
-    // offset - offset in current (self) buffer to start coping from
-    // src_buffer - atomic buffer to copy data from
-    // src_offset - offset in src_buffer to start coping from
-    // length - number of bytes to copy
+    /// Copy "length" bytes from "src_buffer" starting from "src_offset" in to this buffer at given "offset"
+    /// offset - offset in current (self) buffer to start coping from
+    /// src_buffer - atomic buffer to copy data from
+    /// src_offset - offset in src_buffer to start coping from
+    /// length - number of bytes to copy
     #[inline]
     pub fn copy_from(&self, offset: Index, src_buffer: &AtomicBuffer, src_offset: Index, length: Index) {
         self.bounds_check(offset, length);
@@ -287,7 +278,6 @@ impl AtomicBuffer {
 
     pub fn as_sub_slice(&self, index: Index, len: Index) -> &[u8] {
         self.bounds_check(index, len);
-        // self.view(index, len).as_slice()
         unsafe { slice::from_raw_parts(self.at(index), len as usize) }
     }
 
@@ -322,7 +312,7 @@ impl AtomicBuffer {
         self.get::<i32>(offset) as Index
     }
 
-    // This function expects ASCII string WITHOUT trailing zero as its input.
+    /// This function expects ASCII string WITHOUT trailing zero as its input.
     #[inline]
     pub fn put_string(&self, offset: Index, string: &[u8]) {
         self.bounds_check(offset, string.len() as Index + I32_SIZE);

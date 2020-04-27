@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::{
     collections::HashMap,
     ffi::{CStr, CString},
@@ -59,7 +60,7 @@ type EpochClock = fn() -> Moment;
 const KEEPALIVE_TIMEOUT_MS: Moment = 500;
 const RESOURCE_TIMEOUT_MS: Moment = 1000;
 
-// MediaDriver
+/// MediaDriver
 #[derive(PartialEq, Debug)]
 enum RegistrationStatus {
     Awaiting,
@@ -524,7 +525,7 @@ impl ClientConductor {
         }
     }
 
-    // Returns thread safe shared mutable instance of LogBuffers
+    /// Returns thread safe shared mutable instance of LogBuffers
     pub fn get_log_buffers(
         &mut self,
         registration_id: i64,
@@ -701,12 +702,6 @@ impl ClientConductor {
     }
 
     pub fn release_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in release_publication");
-            */
         ttrace!("release_publication: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
@@ -730,12 +725,6 @@ impl ClientConductor {
     }
 
     pub fn add_exclusive_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_exclusive_publication");
-            */
         ttrace!(
             "add_exclusive_publication: on channel:{} stream:{}",
             channel.clone().to_str().unwrap(),
@@ -765,12 +754,6 @@ impl ClientConductor {
         &mut self,
         registration_id: i64,
     ) -> Result<Arc<Mutex<ExclusivePublication>>, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in find_exclusive_publication");
-            */
         ttrace!("find_exclusive_publication: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
@@ -863,12 +846,6 @@ impl ClientConductor {
     }
 
     pub fn release_exclusive_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in release_exclusive_publication");
-            */
         ttrace!("release_exclusive_publication: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
@@ -897,12 +874,6 @@ impl ClientConductor {
         on_available_image_handler: OnAvailableImage,
         on_unavailable_image_handler: OnUnavailableImage,
     ) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_subscription");
-            */
         ttrace!(
             "add_subscription: on channel:{} stream:{}",
             channel.clone().to_str().unwrap(),
@@ -936,12 +907,6 @@ impl ClientConductor {
     }
 
     pub fn find_subscription(&mut self, registration_id: i64) -> Result<Arc<Mutex<Subscription>>, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in find_subscription");
-            */
         ttrace!("find_subscription: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
@@ -1006,7 +971,6 @@ impl ClientConductor {
     }
 
     pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) -> Result<(), AeronError> {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in release_subscription");
         ttrace!("release_subscription: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
@@ -1040,7 +1004,6 @@ impl ClientConductor {
     }
 
     pub fn add_counter(&mut self, type_id: i32, key_buffer: &[u8], label: &str) -> Result<i64, AeronError> {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in add_counter");
         ttrace!("add_counter: with type_id:{} label:{}", type_id, label);
 
         self.verify_driver_is_active()?;
@@ -1079,7 +1042,6 @@ impl ClientConductor {
     }
 
     pub fn find_counter(&mut self, registration_id: i64) -> Result<Arc<Counter>, AeronError> {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in find_counter");
         ttrace!("find_counter: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
@@ -1143,12 +1105,6 @@ impl ClientConductor {
     }
 
     pub fn release_counter(&mut self, registration_id: i64) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in release_counter");
-            */
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_counter) = self.counter_by_registration_id.get(&registration_id) {
@@ -1164,12 +1120,6 @@ impl ClientConductor {
     }
 
     pub fn add_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_destination");
-            */
         ttrace!(
             "add_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
@@ -1195,12 +1145,6 @@ impl ClientConductor {
     }
 
     pub fn remove_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in remove_destination");
-            */
         ttrace!(
             "remove_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
@@ -1232,12 +1176,6 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_rcv_destination");
-            */
         ttrace!(
             "add_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
@@ -1270,12 +1208,6 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in remove_rcv_destination");
-            */
         ttrace!(
             "remove_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
@@ -1304,12 +1236,6 @@ impl ClientConductor {
     }
 
     pub fn find_destination_response(&mut self, correlation_id: i64) -> Result<bool, AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in find_destination_response");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1346,12 +1272,6 @@ impl ClientConductor {
     }
 
     pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_available_counter_handler");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1360,12 +1280,6 @@ impl ClientConductor {
     }
 
     pub fn remove_available_counter_handler(&mut self, _handler: OnAvailableCounter) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in remove_available_counter_handler");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1374,12 +1288,6 @@ impl ClientConductor {
     }
 
     pub fn add_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in add_unavailable_counter_handler");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1388,12 +1296,6 @@ impl ClientConductor {
     }
 
     pub fn remove_unavailable_counter_handler(&mut self, _handler: OnUnavailableCounter) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in remove_unavailable_counter_handler");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
         //self.on_unavailable_counter_handlers.retain(|item| item != handler); FIXME
@@ -1401,12 +1303,6 @@ impl ClientConductor {
     }
 
     pub fn add_close_client_handler(&mut self, handler: OnCloseClient) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in find_publication");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1415,12 +1311,6 @@ impl ClientConductor {
     }
 
     pub fn remove_close_client_handler(&mut self, _handler: OnCloseClient) -> Result<(), AeronError> {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in find_publication");
-            */
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1565,7 +1455,6 @@ impl Agent for ClientConductor {
     fn on_close(&mut self) -> Result<(), AeronError> {
         ttrace!("on_close: stopping as agent");
         if !self.is_closed.load(Ordering::SeqCst) {
-            //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_close"); // don't allow other threads do close_all_resources() in parallel
             self.close_all_resources((self.epoch_clock)());
         }
 
@@ -1584,8 +1473,6 @@ impl DriverListener for ClientConductor {
         channel_status_indicator_id: i32,
         log_file_name: CString,
     ) {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_new_publication");
-
         let mut log_buffers: Option<Arc<LogBuffers>> = None;
         let mut maybe_channel: Option<CString> = None;
 
@@ -1641,8 +1528,6 @@ impl DriverListener for ClientConductor {
     ) {
         assert_eq!(registration_id, original_registration_id);
 
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_new_exclusive_publication");
-
         let mut log_buffers: Option<Arc<LogBuffers>> = None;
         let mut maybe_channel: Option<CString> = None;
 
@@ -1686,12 +1571,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_subscription_ready(&mut self, registration_id: i64, channel_status_id: i32) {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in on_subscription_ready");
-            */
         if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
             ttrace!(
                 "on_subscription_ready: registration_id {}, channel_status_id {}",
@@ -1717,12 +1596,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_operation_success(&mut self, correlation_id: i64) {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in on_operation_success");
-            */
         if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
             ttrace!("on_operation_success: correlation_id {}", correlation_id);
 
@@ -1733,8 +1606,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_channel_endpoint_error_response(&mut self, offending_command_correlation_id: i64, error_message: CString) {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_channel_endpoint_error_response");
-
         let mut subscription_to_remove: Vec<i64> = Vec::new();
         let mut linger_images: Vec<Vec<Image>> = Vec::new();
 
@@ -1822,12 +1693,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_error_response(&mut self, offending_command_correlation_id: i64, error_code: i32, error_message: CString) {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in on_error_response");
-            */
         if let Some(subscription) = self
             .subscription_by_registration_id
             .get_mut(&offending_command_correlation_id)
@@ -1907,7 +1772,6 @@ impl DriverListener for ClientConductor {
         log_filename: CString,
         source_identity: CString,
     ) {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_available_image");
         let mut log_buffers: Option<Arc<LogBuffers>> = None;
         let mut maybe_channel: Option<CString> = None;
 
@@ -1973,7 +1837,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_unavailable_image(&mut self, correlation_id: i64, subscription_registration_id: i64) {
-        //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_unavailable_image");
         let now_ms = (self.epoch_clock)();
 
         let mut linger_images: Option<Vec<Image>> = None;
@@ -2007,13 +1870,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_available_counter(&mut self, registration_id: i64, counter_id: i32) {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in on_available_counter");
-            */
-
         if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
             ttrace!(
                 "on_available_counter registration_id {}, counter_id {}",
@@ -2043,13 +1899,6 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_unavailable_counter(&mut self, registration_id: i64, counter_id: i32) {
-        /*
-        let _guard = self
-            .admin_lock
-            .lock()
-            .expect("Failed to obtain admin_lock in on_unavailable_counter");
-            */
-
         ttrace!(
             "on_unavailable_counter registration_id {}, counter_id {}",
             registration_id,
@@ -2066,7 +1915,6 @@ impl DriverListener for ClientConductor {
         if self.driver_proxy.client_id() == client_id && !self.is_closed() {
             ttrace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
 
-            //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in on_client_timeout");
             self.close_all_resources((self.epoch_clock)());
             (self.error_handler)(ClientTimeoutException(String::from("client timeout from driver")));
         }
@@ -2120,7 +1968,7 @@ mod tests {
     const TERM_LENGTH: i32 = log_buffer_descriptor::TERM_MIN_LENGTH;
     const PAGE_SIZE: i32 = log_buffer_descriptor::AERON_PAGE_MIN_SIZE;
     const COUNTER_TYPE_ID: i32 = 102;
-    const LOG_FILE_LENGTH: i32 = ((TERM_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+    const LOG_FILE_LENGTH: i32 = (TERM_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH;
     const SOURCE_IDENTITY: &str = "127.0.0.1:43567";
     const COUNTER_LABEL: &str = "counter label";
 
@@ -2133,13 +1981,7 @@ mod tests {
     const DRIVER_TIMEOUT_MS: Moment = 10 * 1000;
     const RESOURCE_LINGER_TIMEOUT_MS: Moment = 5 * 1000;
     const INTER_SERVICE_TIMEOUT_NS: Moment = 5 * 1000 * 1000 * 1000;
-    // const INTER_SERVICE_TIMEOUT_MS: Moment = INTER_SERVICE_TIMEOUT_NS / 1_000_000;
     const PRE_TOUCH_MAPPED_MEMORY: bool = false;
-
-    // type TestManyToOneRingBuffer = [u8; MANY_TO_ONE_RING_BUFFER_LENGTH as usize];
-    // type TestBroadcastBuffer = [u8; BROADCAST_BUFFER_LENGTH as usize];
-    // type TestCounterValuesBuffer = [u8; COUNTER_VALUES_BUFFER_LENGTH as usize];
-    // type TestCounterMetadataBuffer = [u8; COUNTER_METADATA_BUFFER_LENGTH as usize];
 
     fn make_temp_file_name() -> String {
         match unistd::mkstemp("/tmp/aeron-c.XXXXXXX") {
@@ -2170,10 +2012,6 @@ mod tests {
         log_file_name: String,
         log_file_name2: String,
 
-        //to_driver: TestManyToOneRingBuffer,
-        //to_clients: TestBroadcastBuffer,
-        //counter_values: TestCounterValuesBuffer,
-        //counter_metadata: TestCounterMetadataBuffer,
         to_driver: AlignedBuffer,
         to_clients: AlignedBuffer,
         counter_metadata: AlignedBuffer,
@@ -2181,21 +2019,10 @@ mod tests {
 
         to_driver_buffer: AtomicBuffer,
         to_clients_buffer: AtomicBuffer,
-        //counter_metadata_buffer: AtomicBuffer,
-        //counter_values_buffer: AtomicBuffer,
         many_to_one_ring_buffer: Arc<ManyToOneRingBuffer>,
-        //broadcast_receiver: BroadcastReceiver,
 
-        //driver_proxy: DriverProxy,
-        //copy_broadcast_receiver: CopyBroadcastReceiver,
         current_time: Arc<Mutex<Moment>>,
         conductor: Arc<Mutex<ClientConductor>>,
-        //error_handler: ErrorHandler,
-
-        //on_available_counter_handlers: OnAvailableCounter,
-        //on_unavailable_counter_handlers: OnUnavailableCounter,
-        //on_available_image_handlers: on_available_image,
-        //on_unavailable_image_handlers: OnUnavailableImage,
     }
 
     impl ClientConductorTest {

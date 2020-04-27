@@ -28,7 +28,7 @@ pub const NAK_DEFN_SIZE: Index = std::mem::size_of::<NakDefn>() as Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct NakDefn {
+pub struct NakDefn {
     header: HeaderDefn,
     session_id: i32,
     stream_id: i32,

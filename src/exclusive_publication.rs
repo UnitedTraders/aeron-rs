@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use crate::{

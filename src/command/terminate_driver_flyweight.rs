@@ -39,12 +39,12 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct TerminateDriverDefn {
+pub struct TerminateDriverDefn {
     correlated_message: CorrelatedMessageDefn,
     token_length: i32,
 }
 
-const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
+pub const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
 
 pub struct TerminateDriverFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,

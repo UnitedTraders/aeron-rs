@@ -16,10 +16,12 @@
 
 use std::ffi::CString;
 
-use crate::command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight};
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
-use crate::utils::types::Index;
+use crate::{
+    command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
+    concurrent::atomic_buffer::AtomicBuffer,
+    offset_of,
+    utils::types::Index,
+};
 
 /**
 * Control message for adding a subscription.
@@ -48,7 +50,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct SubscriptionMessageDefn {
+pub struct SubscriptionMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     registration_correlation_id: i64,
     stream_id: i32,
