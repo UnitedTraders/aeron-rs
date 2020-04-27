@@ -1,5 +1,9 @@
 # Aeron client written in Rust
 
+[![Crates.io](https://img.shields.io/crates/v/aeron-rs)](https://crates.io/crates/aeron-rs)
+[![minimum rustc version](https://img.shields.io/badge/rustc-1.39+-green.svg)](https://blog.rust-lang.org/2019/11/07/Rust-1.39.0.html)
+[![Build Status](https://travis-ci.org/UnitedTraders/aeron-rs.svg?branch=master)](https://travis-ci.org/UnitedTraders/aeron-rs)
+
 ## About *aeron-rs*
 Aeron is efficient reliable UDP and IPC message transport. Originally it was developed by RealLogic 
 and hosted on GitHub [real-logic/aeron](https://github.com/real-logic/aeron)
