@@ -19,8 +19,8 @@ use std::{fmt, io};
 
 use crate::concurrent::{self, broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
 
-mod distinct_error_log;
-pub(crate) mod error_log_descriptor;
+pub mod distinct_error_log;
+pub mod error_log_descriptor;
 pub mod error_log_reader;
 
 #[derive(Debug)]

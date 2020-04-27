@@ -45,7 +45,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct ImageMessageDefn {
+pub struct ImageMessageDefn {
     correlation_id: i64,
     subscription_registration_id: i64,
     stream_id: i32,

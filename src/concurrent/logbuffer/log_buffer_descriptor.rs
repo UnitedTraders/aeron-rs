@@ -16,19 +16,21 @@
 
 use lazy_static::lazy_static;
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
-use crate::utils::{
-    bit_utils::is_power_of_two,
-    errors::AeronError,
-    misc::CACHE_LINE_LENGTH,
-    types::{Index, I32_SIZE, I64_SIZE},
+use crate::{
+    concurrent::atomic_buffer::AtomicBuffer,
+    offset_of,
+    utils::{
+        bit_utils::is_power_of_two,
+        errors::AeronError,
+        misc::CACHE_LINE_LENGTH,
+        types::{Index, I32_SIZE, I64_SIZE},
+    },
 };
 
-pub(crate) const TERM_MIN_LENGTH: Index = 64 * 1024;
-pub(crate) const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
-pub(crate) const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
-const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
+pub const TERM_MIN_LENGTH: Index = 64 * 1024;
+pub const TERM_MAX_LENGTH: Index = 1024 * 1024 * 1024;
+pub const AERON_PAGE_MIN_SIZE: Index = 4 * 1024;
+pub const AERON_PAGE_MAX_SIZE: Index = 1024 * 1024 * 1024;
 
 pub const PARTITION_COUNT: Index = 3;
 
@@ -105,7 +107,7 @@ pub const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
 pub const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 
 #[repr(C, packed(4))]
-struct LogMetaDataDefn {
+pub struct LogMetaDataDefn {
     term_tail_counters: [i64; PARTITION_COUNT as usize],
     active_term_count: i32,
     pad1: [u8; ((2 * CACHE_LINE_LENGTH) - ((PARTITION_COUNT * I64_SIZE) + I32_SIZE)) as usize],
@@ -135,8 +137,8 @@ lazy_static! {
     pub static ref LOG_PAGE_SIZE_OFFSET: Index = offset_of!(LogMetaDataDefn, page_size);
 }
 
-const LOG_DEFAULT_FRAME_HEADER_OFFSET: Index = std::mem::size_of::<LogMetaDataDefn>() as Index;
-pub(crate) const LOG_META_DATA_LENGTH: Index = 4 * 1024;
+pub const LOG_DEFAULT_FRAME_HEADER_OFFSET: Index = std::mem::size_of::<LogMetaDataDefn>() as Index;
+pub const LOG_META_DATA_LENGTH: Index = 4 * 1024;
 
 pub fn check_term_length(term_length: Index) -> Result<(), AeronError> {
     if term_length < TERM_MIN_LENGTH {

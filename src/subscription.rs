@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use crate::{
@@ -346,11 +348,11 @@ impl Subscription {
         list.get_mut(index)
     }
 
-    // /**
-    //  * Get a std::vector of active {@link Image}s that match this subscription.
-    //  *
-    //  * @return a std::vector of active {@link Image}s that match this subscription.
-    //  */
+    /**
+     * Get a std::vector of active {@link Image}s that match this subscription.
+     *
+     * @return a std::vector of active {@link Image}s that match this subscription.
+     */
     pub fn images(&self) -> &Vec<Image> {
         self.image_list.load()
     }
@@ -369,15 +371,15 @@ impl Subscription {
         list.iter().any(|img| img.correlation_id() == correlation_id)
     }
 
-    // Adds image to the subscription and returns Images
-    // as they were just before adding this Image
+    /// Adds image to the subscription and returns Images
+    /// as they were just before adding this Image
     pub fn add_image(&mut self, image: Image) -> Vec<Image> {
         self.image_list.add(image)
     }
 
-    // Removes image with given correlation_id and returns old Images (as of before removal)
-    // and index of removed element.
-    // Returns None if Image was not removed (e.g. was not found).
+    /// Removes image with given correlation_id and returns old Images (as of before removal)
+    /// and index of removed element.
+    /// Returns None if Image was not removed (e.g. was not found).
     pub fn remove_image(&mut self, correlation_id: i64) -> Option<(Vec<Image>, Index)> {
         self.image_list.remove(|image| {
             if image.correlation_id() == correlation_id {
@@ -389,8 +391,8 @@ impl Subscription {
         })
     }
 
-    // Removes all images and returns old Images if subscription is not closed.
-    // Returns None if subscription is closed.
+    /// Removes all images and returns old Images if subscription is not closed.
+    /// Returns None if subscription is closed.
     pub fn close_and_remove_images(&mut self) -> Option<Vec<Image>> {
         if !self.is_closed.swap(true, Ordering::SeqCst) {
             let image_list = self.image_list.load_val();

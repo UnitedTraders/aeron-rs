@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{
-        data_frame_header::{self, DataFrameHeaderDefn},
-        frame_descriptor, log_buffer_descriptor,
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            data_frame_header::{self, DataFrameHeaderDefn},
+            frame_descriptor, log_buffer_descriptor,
+        },
     },
-};
-use crate::utils::{
-    bit_utils::{align, number_of_trailing_zeroes},
-    types::Index,
+    utils::{
+        bit_utils::{align, number_of_trailing_zeroes},
+        types::Index,
+    },
 };
 
 /**

@@ -33,8 +33,8 @@ use crate::utils::types::Index;
 const LENGTH_OFFSET: Index = 0;
 const TYPE_OFFSET: Index = 4;
 
-pub(crate) const HEADER_LENGTH: Index = 8;
-pub(crate) const RECORD_ALIGNMENT: Index = HEADER_LENGTH;
+pub const HEADER_LENGTH: Index = 8;
+pub const RECORD_ALIGNMENT: Index = HEADER_LENGTH;
 
 pub fn calculate_max_message_length(capacity: Index) -> Index {
     capacity / 8

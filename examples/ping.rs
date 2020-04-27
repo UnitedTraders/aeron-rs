@@ -14,26 +14,30 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, AtomicI64, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
+};
 
-use aeron_rs::aeron::Aeron;
-use aeron_rs::concurrent::{
-    atomic_buffer::{AlignedBuffer, AtomicBuffer},
-    logbuffer::header::Header,
-    strategies::{BusySpinIdleStrategy, Strategy},
+use aeron_rs::{
+    aeron::Aeron,
+    concurrent::{
+        atomic_buffer::{AlignedBuffer, AtomicBuffer},
+        logbuffer::header::Header,
+        strategies::{BusySpinIdleStrategy, Strategy},
+    },
+    context::Context,
+    example_config::{DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID},
+    fragment_assembler::FragmentAssembler,
+    image::Image,
+    publication::Publication,
+    subscription::Subscription,
+    utils::{errors::AeronError, types::Index},
 };
-use aeron_rs::context::Context;
-use aeron_rs::example_config::{
-    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID,
-};
-use aeron_rs::fragment_assembler::FragmentAssembler;
-use aeron_rs::image::Image;
-use aeron_rs::publication::Publication;
-use aeron_rs::subscription::Subscription;
-use aeron_rs::utils::{errors::AeronError, types::Index};
 use hdrhistogram::Histogram;
 use lazy_static::lazy_static;
 use structopt::StructOpt;
@@ -80,7 +84,7 @@ fn parse_cmd_line() -> CmdOpts {
 }
 
 fn send_ping_and_receive_pong(
-    fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header),
+    mut fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header),
     publication: Arc<Mutex<Publication>>,
     subscription: Arc<Mutex<Subscription>>,
     settings: &CmdOpts,
@@ -119,7 +123,7 @@ fn send_ping_and_receive_pong(
         idle_strategy.reset();
 
         loop {
-            while image.poll(fragment_handler, settings.fragment_count_limit) <= 0 {
+            while image.poll(&mut fragment_handler, settings.fragment_count_limit) <= 0 {
                 idle_strategy.idle();
             }
 
@@ -262,13 +266,12 @@ fn main() {
             warmup_settings.number_of_warmup_messages, warmup_settings.message_length
         );
 
-        let mut fragment_assembler = FragmentAssembler::new(
-            |_buffer: &AtomicBuffer, _offset, _length, _header: &Header| println!("fragment_assembler called"),
-            None,
-        );
+        let mut handler_f = |_buffer: &AtomicBuffer, _offset, _length, _header: &Header| println!("fragment_assembler called");
+
+        let mut fragment_assembler = FragmentAssembler::new(&mut handler_f, None);
 
         send_ping_and_receive_pong(
-            &mut fragment_assembler.handler(),
+            fragment_assembler.handler(),
             ping_publication.clone(),
             pong_subscription.clone(),
             &warmup_settings,
@@ -282,22 +285,21 @@ fn main() {
     loop {
         HISTOGRAMM.lock().unwrap().reset();
 
-        let mut fragment_assembler = FragmentAssembler::new(
-            |buffer: &AtomicBuffer, offset: Index, _length: Index, _header: &Header| {
-                let end = Instant::now();
-                let mut start = Instant::now(); // Just to init it
+        let mut handler_f = |buffer: &AtomicBuffer, offset: Index, _length: Index, _header: &Header| {
+            let end = Instant::now();
+            let mut start = Instant::now(); // Just to init it
 
-                buffer.get_bytes(
-                    offset,
-                    &mut start as *mut Instant as *mut u8,
-                    std::mem::size_of_val(&start) as i32,
-                );
-                let nano_rtt = end - start;
+            buffer.get_bytes(
+                offset,
+                &mut start as *mut Instant as *mut u8,
+                std::mem::size_of_val(&start) as i32,
+            );
+            let nano_rtt = end - start;
 
-                let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);
-            },
-            None,
-        );
+            let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);
+        };
+
+        let mut fragment_assembler = FragmentAssembler::new(&mut handler_f, None);
 
         println!(
             "Pinging {} messages of length {} bytes each",

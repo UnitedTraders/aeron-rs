@@ -16,10 +16,12 @@
 
 use std::ffi::CString;
 
-use crate::command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight};
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
-use crate::utils::types::Index;
+use crate::{
+    command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
+    concurrent::atomic_buffer::AtomicBuffer,
+    offset_of,
+    utils::types::Index,
+};
 
 /**
 * Control message for adding a publication

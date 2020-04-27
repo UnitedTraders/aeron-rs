@@ -15,10 +15,11 @@
  */
 
 use core::slice;
-use std::ffi::OsString;
-use std::fs;
-use std::fs::OpenOptions;
-use std::path::Path;
+use std::{
+    ffi::OsString,
+    fs::{self, OpenOptions},
+    path::Path,
+};
 
 use memmap::MmapMut;
 
@@ -26,7 +27,7 @@ use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::{errors::AeronError, types::Index};
 
 #[derive(Debug)]
-struct FileHandle {
+pub struct FileHandle {
     mmap: MmapMut,
     file_path: OsString,
 }
@@ -76,7 +77,7 @@ impl MemoryMappedFile {
         0
     }
 
-    pub(crate) fn file_size<P: AsRef<Path>>(file: P) -> Result<u64, AeronError> {
+    pub fn get_file_size<P: AsRef<Path>>(file: P) -> Result<u64, AeronError> {
         let metadata = fs::metadata(file).map_err(AeronError::MemMappedFileError)?;
         Ok(metadata.len())
     }
@@ -89,7 +90,7 @@ impl MemoryMappedFile {
 
     fn from_file_handle(mut fd: FileHandle, offset: Index, mut length: Index, _read_only: bool) -> Result<Self, AeronError> {
         if 0 == length && 0 == offset {
-            length = Self::file_size(&fd.file_path)? as Index;
+            length = Self::get_file_size(&fd.file_path)? as Index;
         }
 
         let mmf = Self {

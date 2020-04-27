@@ -18,6 +18,16 @@ some Aeron enabled application using *aeron-rs*.
 Examples of such applications could be found inside the [bin](https://github.com/UnitedTraders/aeron-rs/tree/master/src/bin) and
 in the library integration [tests](https://github.com/UnitedTraders/aeron-rs/tree/master/tests).
 
+## Why Aeron?
+Aeron could be a good choice if you need to organize fast and ordered message streams. There are number
+of widely used messaging frameworks and to choose the right one for your particular case it is better to test 
+them if close to real-life situations and compare the performance. 
+Just some hints why Aeron could be a good choice:
+* Supports various transmission media without the need to change application code when switching between the media. 
+Application can use IPC (shared memory) today and could switch to UDP in a matter of config change and restart.
+* Can work over UDP which is generally faster than over TCP (as some other messaging systems do)
+* Provides reliable and ordered message flow (even over UPD). Not all fast messaging frameworks guaranty messages order but Aeron do
+
 ## Running library tests
 Integration tests for *aeron-rs* assume that Media driver executable (aeronmd) is present in the PATH. So prior
 to run these tests install *aeronmd* accordingly.

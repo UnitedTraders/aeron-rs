@@ -28,7 +28,7 @@ pub const DATA_HEADER_DEFN_SIZE: Index = std::mem::size_of::<DataHeaderDefn>() a
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct DataHeaderDefn {
+pub struct DataHeaderDefn {
     header: HeaderDefn,
     term_offset: i32,
     session_id: i32,

@@ -53,21 +53,21 @@ use crate::utils::types::{Index, I64_SIZE};
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub(crate) struct ErrorLogEntryDefn {
-    pub(crate) length: i32,
-    pub(crate) observation_count: i32,
-    pub(crate) last_observation_timestamp: i64,
-    pub(crate) first_observation_timestamp: i64,
+pub struct ErrorLogEntryDefn {
+    pub length: i32,
+    pub observation_count: i32,
+    pub last_observation_timestamp: i64,
+    pub first_observation_timestamp: i64,
 }
 
 lazy_static! {
-    pub(crate) static ref LENGTH_OFFSET: Index = offset_of!(ErrorLogEntryDefn, length);
-    static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(ErrorLogEntryDefn, observation_count);
-    pub(crate) static ref LAST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, last_observation_timestamp);
-    static ref FIRST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, first_observation_timestamp);
+    pub static ref LENGTH_OFFSET: Index = offset_of!(ErrorLogEntryDefn, length);
+    pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(ErrorLogEntryDefn, observation_count);
+    pub static ref LAST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, last_observation_timestamp);
+    pub static ref FIRST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, first_observation_timestamp);
 }
 
-pub(crate) const ENCODED_ERROR_OFFSET: Index = std::mem::size_of::<ErrorLogEntryDefn>() as Index;
-pub(crate) const HEADER_LENGTH: Index = std::mem::size_of::<ErrorLogEntryDefn>() as Index;
+pub const ENCODED_ERROR_OFFSET: Index = std::mem::size_of::<ErrorLogEntryDefn>() as Index;
+pub const HEADER_LENGTH: Index = std::mem::size_of::<ErrorLogEntryDefn>() as Index;
 
-pub(crate) const RECORD_ALIGNMENT: Index = I64_SIZE;
+pub const RECORD_ALIGNMENT: Index = I64_SIZE;

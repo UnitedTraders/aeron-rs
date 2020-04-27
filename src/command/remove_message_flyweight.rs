@@ -38,12 +38,12 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct RemoveMessageDefn {
+pub struct RemoveMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     registration_id: i64,
 }
 
-const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as Index;
+pub const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as Index;
 
 pub struct RemoveMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,

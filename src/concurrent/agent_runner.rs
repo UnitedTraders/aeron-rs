@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-use std::sync::{
-    mpsc::{channel, Receiver, Sender},
-    Arc, Mutex,
+use std::{
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread,
 };
-use std::thread;
 
 use crate::concurrent::{logbuffer::term_reader::ErrorHandler, strategies::Strategy};
 use crate::utils::errors::AeronError;
 
-// The trait to be implemented by agents run within AgentRunner
+/// The trait to be implemented by agents run within AgentRunner
 pub trait Agent {
     fn on_start(&mut self) -> Result<(), AeronError>;
     fn do_work(&mut self) -> Result<i32, AeronError>;

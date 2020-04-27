@@ -33,7 +33,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct CounterUpdateDefn {
+pub struct CounterUpdateDefn {
     correlation_id: i64,
     counter_id: i32,
 }

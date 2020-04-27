@@ -31,7 +31,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct OperationSucceededDefn {
+pub struct OperationSucceededDefn {
     correlation_id: i64,
 }
 

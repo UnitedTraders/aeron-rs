@@ -24,7 +24,7 @@ use crate::utils::types::{Index, Moment};
 pub const CACHE_LINE_LENGTH: Index = CACHE_LINE_SIZE as Index;
 
 #[inline]
-// Get system time since start of UNIX epoch in milliseconds (ms) (10^-3 sec)
+/// Get system time since start of UNIX epoch in milliseconds (ms) (10^-3 sec)
 pub fn unix_time_ms() -> Moment {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Can't get UNIX epoch.");
@@ -32,7 +32,7 @@ pub fn unix_time_ms() -> Moment {
     since_the_epoch.as_secs() * 1000 + since_the_epoch.subsec_nanos() as u64 / 1_000_000
 }
 
-// Get system time since start of UNIX epoch in nanoseconds (ns) (10^-9 sec)
+/// Get system time since start of UNIX epoch in nanoseconds (ns) (10^-9 sec)
 pub fn unix_time_ns() -> Moment {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Can't get UNIX epoch.");
@@ -40,7 +40,7 @@ pub fn unix_time_ns() -> Moment {
     since_the_epoch.as_secs() * 1_000_000_000 + since_the_epoch.subsec_nanos() as u64
 }
 
-// Accepts Aeron style ASCII string (without zero termination). Outputs Rust String.
+/// Accepts Aeron style ASCII string (without zero termination). Outputs Rust String.
 pub unsafe fn aeron_str_to_rust(raw_str: *const u8, length: i32) -> String {
     let str_slice = std::slice::from_raw_parts(raw_str, length as usize);
     let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
@@ -99,8 +99,8 @@ pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
     }
 }
 
-// This struct is used to set bool flag to true till the end of scope and
-// set the flag to false when dropped.
+/// This struct is used to set bool flag to true till the end of scope and
+/// set the flag to false when dropped.
 pub struct CallbackGuard<'a> {
     is_in_callback: &'a mut bool,
 }

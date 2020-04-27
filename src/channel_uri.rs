@@ -14,47 +14,50 @@
  * limitations under the License.
  */
 
-pub(crate) const SPY_QUALIFIER: &str = "aeron-spy";
-pub(crate) const AERON_SCHEME: &str = "aeron";
-pub(crate) const AERON_PREFIX: &str = "aeron:";
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+    sync::{Arc, Mutex},
+};
 
-pub(crate) const IPC_MEDIA: &str = "ipc";
-pub(crate) const UDP_MEDIA: &str = "udp";
-pub(crate) const IPC_CHANNEL: &str = "aeron:ipc";
-pub(crate) const SPY_PREFIX: &str = "aeron-spy:";
-pub(crate) const ENDPOINT_PARAM_NAME: &str = "endpoint";
-pub(crate) const INTERFACE_PARAM_NAME: &str = "interface";
-pub(crate) const INITIAL_TERM_ID_PARAM_NAME: &str = "init-term-id";
-pub(crate) const TERM_ID_PARAM_NAME: &str = "term-id";
-pub(crate) const TERM_OFFSET_PARAM_NAME: &str = "term-offset";
-pub(crate) const TERM_LENGTH_PARAM_NAME: &str = "term-length";
-pub(crate) const MTU_LENGTH_PARAM_NAME: &str = "mtu";
-pub(crate) const TTL_PARAM_NAME: &str = "ttl";
-pub(crate) const MDC_CONTROL_PARAM_NAME: &str = "control";
-pub(crate) const MDC_CONTROL_MODE_PARAM_NAME: &str = "control-mode";
-pub(crate) const MDC_CONTROL_MODE_MANUAL: &str = "manual";
-pub(crate) const MDC_CONTROL_MODE_DYNAMIC: &str = "dynamic";
-pub(crate) const SESSION_ID_PARAM_NAME: &str = "session-id";
-pub(crate) const LINGER_PARAM_NAME: &str = "linger";
-pub(crate) const RELIABLE_STREAM_PARAM_NAME: &str = "reliable";
-pub(crate) const TAGS_PARAM_NAME: &str = "tags";
-pub(crate) const TAG_PREFIX: &str = "tag:";
-pub(crate) const SPARSE_PARAM_NAME: &str = "sparse";
-pub(crate) const ALIAS_PARAM_NAME: &str = "alias";
-pub(crate) const EOS_PARAM_NAME: &str = "eos";
-pub(crate) const TETHER_PARAM_NAME: &str = "tether";
-pub(crate) const GROUP_PARAM_NAME: &str = "group";
-pub(crate) const REJOIN_PARAM_NAME: &str = "rejoin";
-pub(crate) const CONGESTION_CONTROL_PARAM_NAME: &str = "cc";
+use crate::utils::errors::AeronError;
 
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Display, Formatter};
+pub const SPY_QUALIFIER: &str = "aeron-spy";
+pub const AERON_SCHEME: &str = "aeron";
 
-use aeron_rs::utils::errors::AeronError;
-use std::sync::{Arc, Mutex};
+pub const AERON_PREFIX: &str = "aeron:";
+pub const IPC_MEDIA: &str = "ipc";
+pub const UDP_MEDIA: &str = "udp";
+pub const IPC_CHANNEL: &str = "aeron:ipc";
+pub const SPY_PREFIX: &str = "aeron-spy:";
+pub const ENDPOINT_PARAM_NAME: &str = "endpoint";
+pub const INTERFACE_PARAM_NAME: &str = "interface";
+pub const INITIAL_TERM_ID_PARAM_NAME: &str = "init-term-id";
+pub const TERM_ID_PARAM_NAME: &str = "term-id";
+pub const TERM_OFFSET_PARAM_NAME: &str = "term-offset";
+pub const TERM_LENGTH_PARAM_NAME: &str = "term-length";
+pub const MTU_LENGTH_PARAM_NAME: &str = "mtu";
+pub const TTL_PARAM_NAME: &str = "ttl";
+pub const MDC_CONTROL_PARAM_NAME: &str = "control";
+pub const MDC_CONTROL_MODE_PARAM_NAME: &str = "control-mode";
+pub const MDC_CONTROL_MODE_MANUAL: &str = "manual";
+pub const MDC_CONTROL_MODE_DYNAMIC: &str = "dynamic";
+pub const SESSION_ID_PARAM_NAME: &str = "session-id";
+pub const LINGER_PARAM_NAME: &str = "linger";
+pub const RELIABLE_STREAM_PARAM_NAME: &str = "reliable";
+pub const TAGS_PARAM_NAME: &str = "tags";
+pub const TAG_PREFIX: &str = "tag:";
+pub const SPARSE_PARAM_NAME: &str = "sparse";
+pub const ALIAS_PARAM_NAME: &str = "alias";
+pub const EOS_PARAM_NAME: &str = "eos";
+pub const TETHER_PARAM_NAME: &str = "tether";
+pub const GROUP_PARAM_NAME: &str = "group";
+pub const REJOIN_PARAM_NAME: &str = "rejoin";
+
+pub const CONGESTION_CONTROL_PARAM_NAME: &str = "cc";
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum State {
     Media,
     ParamsKey,
@@ -62,25 +65,11 @@ enum State {
 }
 
 #[derive(Debug)]
-struct ChannelUri {
+pub struct ChannelUri {
     prefix: String,
     media: String,
     params: HashMap<String, String>,
 }
-
-// impl Deref for ChannelUri {
-//     type Target = Self;
-//
-//     fn deref(&self) -> &Self::Target {
-//         &self
-//     }
-// }
-//
-// impl DerefMut for ChannelUri {
-//     fn deref_mut(&mut self) -> &mut Self {
-//         &mut self
-//     }
-// }
 
 impl ChannelUri {
     pub fn new(prefix: String, media: String, params: HashMap<String, String>) -> Self {
@@ -155,18 +144,18 @@ impl ChannelUri {
 
         if uri.starts_with(SPY_PREFIX) {
             prefix = SPY_QUALIFIER;
-            position = std::mem::size_of::<&str>() - 1;
+            position = SPY_PREFIX.len();
         } else {
             prefix = "";
         }
 
-        if !uri.starts_with(AERON_PREFIX) {
+        if !&uri[position..].starts_with(AERON_PREFIX) {
             return Err(AeronError::IllegalArgumentException(format!(
                 "Aeron URIs must start with 'aeron:', found: '{}'",
                 uri
             )));
         } else {
-            position += std::mem::size_of::<&str>() - 1;
+            position += AERON_PREFIX.len();
         }
 
         let mut builder = String::new();
@@ -184,19 +173,32 @@ impl ChannelUri {
                         builder.clear();
                         state = State::ParamsKey;
                     }
-                    ':' => {
-                        return Err(AeronError::IllegalArgumentException(
-                            "encountered ':' within media definition".to_string(),
-                        ));
+                    '=' | '|' | ':' => {
+                        return Err(AeronError::IllegalStateException(format!(
+                            "encountered '{}' within media definition at index {} in {}",
+                            c, i, uri
+                        )));
                     }
                     _ => builder.push(c),
                 },
                 State::ParamsKey => {
                     if c == '=' {
+                        if builder.is_empty() {
+                            return Err(AeronError::IllegalStateException(format!(
+                                "empty key not allowed at index {} in {}",
+                                i, uri,
+                            )));
+                        }
                         key = builder.clone();
                         builder.clear();
                         state = State::ParamsValue;
                     } else {
+                        if c == '|' {
+                            return Err(AeronError::IllegalStateException(format!(
+                                "invalid en of key at index  {} in {}",
+                                i, uri,
+                            )));
+                        }
                         builder.push(c);
                     }
                 }
@@ -215,11 +217,14 @@ impl ChannelUri {
         match state {
             State::Media => {
                 media = builder;
-            }
-            State::ParamsKey => {
-                params.insert(key, builder);
+                if media != IPC_MEDIA && media != UDP_MEDIA {
+                    return Err(AeronError::IllegalArgumentException(format!("unknown media: {}", media)));
+                }
             }
             State::ParamsValue => {
+                params.insert(key, builder);
+            }
+            _ => {
                 return Err(AeronError::IllegalArgumentException(format!(
                     "no more input found, state={:?}",
                     state
@@ -272,10 +277,9 @@ impl Display for ChannelUri {
 mod tests {
     use crate::channel_uri::{ChannelUri, SPY_QUALIFIER, UDP_MEDIA};
     use crate::channel_uri_string_builder::ChannelUriStringBuilder;
-    // use aeron_rs::utils::errors::AeronError;
+    use crate::utils::errors::AeronError;
 
     #[test]
-    #[ignore]
     fn should_parse_simple_default_uris() {
         let channel_uri = ChannelUri::parse("aeron:udp").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -287,56 +291,67 @@ mod tests {
         assert_eq!(channel_guard.prefix(), "");
         assert_eq!(channel_guard.media(), "ipc");
 
-        let channel_uri = ChannelUri::parse("aeron:").expect("Can't parse uri");
-        let channel_guard = channel_uri.lock().unwrap();
-        assert_eq!(channel_guard.prefix(), "");
-        assert_eq!(channel_guard.media(), "");
-
         let channel_uri = ChannelUri::parse("aeron-spy:aeron:udp").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
         assert_eq!(channel_guard.prefix(), "aeron-spy");
         assert_eq!(channel_guard.media(), "udp");
     }
 
-    // #[test]
-    // fn should_reject_uri_without_aeron_prefix() {
-    //     let result = ChannelUri::parse(":udp");
-    //     assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
-    //
-    //     let result = ChannelUri::parse("aeron");
-    //     assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
-    //
-    //     let result = ChannelUri::parse("aron");
-    //     assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
-    //
-    //     let result = ChannelUri::parse("eeron:");
-    //     assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
-    // }
-    //
-    // #[test]
-    // fn should_reject_with_out_of_place_colon() {
-    //     let result = ChannelUri::parse("aeron:udp:");
-    //     assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
-    // }
+    #[test]
+    fn should_reject_uri_without_aeron_prefix() {
+        let result = ChannelUri::parse(":udp");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+
+        let result = ChannelUri::parse("aeron");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+
+        let result = ChannelUri::parse("aron:");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+
+        let result = ChannelUri::parse("eeron:");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+    }
 
     #[test]
-    #[ignore]
+    fn should_reject_with_out_of_place_colon() {
+        let result = ChannelUri::parse("aeron:udp:");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
+    fn should_reject_invalid_media() {
+        let result = ChannelUri::parse("aeron:ipcsdfgfdhfgf");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+    }
+
+    #[test]
+    fn should_reject_with_missing_query_separator_when_followed_with_params() {
+        let result = ChannelUri::parse("aeron:ipc|sparse=true");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
+    fn should_reject_with_invalid_params() {
+        let result = ChannelUri::parse("aeron:udp?endpoint=localhost:4652|-~@{]|=??#s!£$%====");
+        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+    }
+
+    #[test]
     fn should_parse_with_single_parameter() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
         assert_eq!(channel_guard.get("endpoint"), "224.10.9.8");
 
-        let channel_uri = ChannelUri::parse("aeron:udp?add|ress=224.10.9.8").expect("Can't parse uri");
+        let channel_uri = ChannelUri::parse("aeron:udp?address=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
-        assert_eq!(channel_guard.get("add|ress"), "224.10.9.8");
+        assert_eq!(channel_guard.get("address"), "224.10.9.8");
 
-        let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.1=0.9.8").expect("Can't parse uri");
+        let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
         assert_eq!(channel_guard.get("endpoint"), "224.10.9.8");
     }
 
     #[test]
-    #[ignore]
     fn should_parse_with_multiple_arguments() {
         let channel_uri =
             ChannelUri::parse("aeron:udp?endpoint=224.10.9.8|port=4567|interface=192.168.0.3|ttl=16").expect("Can't parse uri");
@@ -348,7 +363,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn should_allow_return_default_if_param_not_specified() {
         let channel_uri = ChannelUri::parse("aeron:udp?endpoint=224.10.9.8").expect("Can't parse uri");
         let channel_guard = channel_uri.lock().unwrap();
@@ -358,7 +372,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn should_round_trip_to_string() {
         let uri_string = String::from("aeron:udp?endpoint=224.10.9.8:777");
         let channel_uri = ChannelUri::parse(&uri_string).expect("Can't parse uri");
@@ -368,7 +381,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn should_round_trip_to_string_builder() {
         let mut builder = ChannelUriStringBuilder::default();
 
@@ -381,7 +393,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn should_round_trip_to_string_builder_with_prefix() {
         let mut builder = ChannelUriStringBuilder::default();
 

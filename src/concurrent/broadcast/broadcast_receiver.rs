@@ -16,13 +16,15 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::command::control_protocol_events::AeronCommand;
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    atomics,
-    broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
+use crate::{
+    command::control_protocol_events::AeronCommand,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        atomics,
+        broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
+    },
+    utils::{bit_utils::align, types::Index},
 };
-use crate::utils::{bit_utils::align, types::Index};
 
 pub struct BroadcastReceiver {
     buffer: AtomicBuffer,
@@ -156,9 +158,5 @@ mod tests {
         let tx_buf = AtomicBuffer::from_aligned(&tx_data);
 
         tx.transmit(2, &tx_buf, 0, 4).expect("cant' trasmit");
-        //        let received = rx.receive_next();
-
-        //        assert!(received)
-        //
     }
 }

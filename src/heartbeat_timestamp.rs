@@ -30,8 +30,8 @@ use crate::concurrent::counters::{self, CountersReader};
  * </pre>
  */
 
-// Counter type id of a client heartbeat timestamp
-pub(crate) const CLIENT_HEARTBEAT_TYPE_ID: i32 = 11;
+/// Counter type id of a client heartbeat timestamp
+pub const CLIENT_HEARTBEAT_TYPE_ID: i32 = 11;
 
 #[derive(Copy, Clone)]
 #[repr(C, packed(4))]

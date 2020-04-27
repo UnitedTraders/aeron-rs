@@ -31,8 +31,8 @@ use crate::{
     },
 };
 
-// This name is used for conductor thread and useful when debugging or examining logs from
-// application with several Aeron instances which run simultaneously.
+/// This name is used for conductor thread and useful when debugging or examining logs from
+/// application with several Aeron instances which run simultaneously.
 const AGENT_NAME: &str = "client-conductor";
 
 /**
@@ -457,7 +457,7 @@ impl Context {
     pub fn request_driver_termination(directory: &str, token_buffer: *mut u8, token_length: Index) -> Result<(), AeronError> {
         let cnc_filename = String::from(directory) + "/" + cnc_file_descriptor::CNC_FILE;
 
-        if MemoryMappedFile::file_size(cnc_filename.clone()).expect("Error getting CnC file size") > 0 {
+        if MemoryMappedFile::get_file_size(cnc_filename.clone()).expect("Error getting CnC file size") > 0 {
             let cnc_file = MemoryMappedFile::map_existing(cnc_filename, false).expect("Unable to map file");
 
             let cnc_version = cnc_file_descriptor::cnc_version_volatile(&cnc_file);

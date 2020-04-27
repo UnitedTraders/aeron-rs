@@ -14,26 +14,30 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
-use crate::client_conductor::ClientConductor;
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{
-        buffer_claim::BufferClaim,
-        data_frame_header, frame_descriptor,
-        header::HeaderWriter,
-        log_buffer_descriptor,
-        term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender},
+use crate::{
+    client_conductor::ClientConductor,
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim,
+            data_frame_header, frame_descriptor,
+            header::HeaderWriter,
+            log_buffer_descriptor,
+            term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender},
+        },
+        position::{ReadablePosition, UnsafeBufferPosition},
+        status::status_indicator_reader,
     },
-    position::{ReadablePosition, UnsafeBufferPosition},
-    status::status_indicator_reader,
+    utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
 };
-use crate::utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index};
 
 pub const NOT_CONNECTED: i64 = -1;
 pub const BACK_PRESSURED: i64 = -2;
@@ -658,7 +662,7 @@ impl Publication {
 
     fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: Index, resulting_offset: Index) -> i64 {
         if resulting_offset > 0 {
-            return ((position - term_offset) + resulting_offset) as i64;
+            return (position - term_offset) as i64 + resulting_offset as i64;
         }
 
         if position as i64 + term_offset as i64 > self.max_possible_position {

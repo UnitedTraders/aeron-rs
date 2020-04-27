@@ -48,7 +48,7 @@ pub const STATUS_MESSAGE_DEFN_SIZE: Index = std::mem::size_of::<StatusMessageDef
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct StatusMessageDefn {
+pub struct StatusMessageDefn {
     header: HeaderDefn,
     session_id: i32,
     stream_id: i32,

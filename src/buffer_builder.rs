@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::{
     concurrent::{
         atomic_buffer::AtomicBuffer,
@@ -28,8 +29,8 @@ use crate::{
 
 const BUFFER_BUILDER_MAX_CAPACITY: Index = std::u32::MAX as Index - 8;
 
-// This type must not impl Copy! Only move semantics is allowed.
-// BufferBuilder owns memory (allocates / deallocates it)
+/// This type must not impl Copy! Only move semantics is allowed.
+/// BufferBuilder owns memory (allocates / deallocates it)
 pub struct BufferBuilder {
     capacity: Index,
     limit: Index,
@@ -128,7 +129,7 @@ impl BufferBuilder {
         Ok(capacity)
     }
 
-    // This fn resizes (if needed) the buffer keeping all the data in it.
+    /// This fn resizes (if needed) the buffer keeping all the data in it.
     fn ensure_capacity(&mut self, additional_capacity: Index) -> Result<(), AeronError> {
         let required_capacity = self.limit + additional_capacity;
 

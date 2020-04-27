@@ -42,7 +42,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-struct ErrorResponseDefn {
+pub struct ErrorResponseDefn {
     offending_command_correlation_id: i64,
     error_code: i32,
     error_message_length: i32,

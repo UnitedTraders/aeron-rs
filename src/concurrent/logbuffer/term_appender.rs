@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{buffer_claim::BufferClaim, data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor},
-};
-use crate::utils::{
-    bit_utils,
-    errors::AeronError,
-    types::{Index, I64_SIZE},
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim, data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor,
+        },
+    },
+    utils::{
+        bit_utils,
+        errors::AeronError,
+        types::{Index, I64_SIZE},
+    },
 };
 
 /**
@@ -50,11 +54,11 @@ pub struct TermAppender {
 }
 
 impl TermAppender {
-    // Term buffer - for messages
-    // Meta data buffer - for metadata used by Aeron for maintaining messages flow
-    // Partition index - is number 0, 1 ... X which are indexes of this particular term appender
-    // in the array of other appenders. All appenders share one metadata buffer therefore
-    // each appender uses its own space inside metadata buffer known as tail_buffer.
+    /// Term buffer - for messages
+    /// Meta data buffer - for metadata used by Aeron for maintaining messages flow
+    /// Partition index - is number 0, 1 ... X which are indexes of this particular term appender
+    /// in the array of other appenders. All appenders share one metadata buffer therefore
+    /// each appender uses its own space inside metadata buffer known as tail_buffer.
     pub fn new(term_buffer: AtomicBuffer, meta_data_buffer: AtomicBuffer, partition_index: Index) -> Self {
         Self {
             term_buffer,
@@ -71,13 +75,13 @@ impl TermAppender {
         self.tail_buffer.get_volatile::<i64>(self.tail_offset)
     }
 
-    // This fn publish message (with the size less than MTU) which was previously
-    // stored in internal term_buffer via append_..._message().
-    // MTU is a maximum transmission unit and its set on a channel level.
-    // header - header writer which already points to header part of metadata buffer. Specific header info will be written inside claim()
-    // length - length of the message body (payload)
-    // buffer_claim - buffer in to which msg will be "written" (actually wrapped) from term_buffer
-    // active_term_id - the term to write message to
+    /// This fn publish message (with the size less than MTU) which was previously
+    /// stored in internal term_buffer via append_..._message().
+    /// MTU is a maximum transmission unit and its set on a channel level.
+    /// header - header writer which already points to header part of metadata buffer. Specific header info will be written inside claim()
+    /// length - length of the message body (payload)
+    /// buffer_claim - buffer in to which msg will be "written" (actually wrapped) from term_buffer
+    /// active_term_id - the term to write message to
     pub fn claim(
         &self,
         header: &HeaderWriter,
@@ -108,7 +112,7 @@ impl TermAppender {
         Ok(resulting_offset as Index)
     }
 
-    // This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
+    /// This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
     pub fn append_unfragmented_message(
         &self,
         header: &HeaderWriter,
@@ -153,7 +157,7 @@ impl TermAppender {
         Ok(resulting_offset as Index)
     }
 
-    // Appends unfrag message which is inside several AtomicBuffers passed as Vec
+    /// Appends unfrag message which is inside several AtomicBuffers passed as Vec
     pub fn append_unfragmented_message_bulk(
         &self,
         header: &HeaderWriter,
@@ -203,7 +207,7 @@ impl TermAppender {
         Ok(resulting_offset as Index)
     }
 
-    // This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
+    /// This fn copy supplied (in msg_body_buffer) message in to internal term_buffer
     #[allow(clippy::too_many_arguments)]
     pub fn append_fragmented_message(
         &self,

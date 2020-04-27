@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{data_frame_header, frame_descriptor},
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{data_frame_header, frame_descriptor},
+    },
+    utils::{bit_utils, types::Index},
 };
-use crate::utils::{bit_utils, types::Index};
 
 /**
  * Callback for handling a block of messages being read from a log.
@@ -60,12 +62,12 @@ pub fn scan(term_buffer: &AtomicBuffer, term_offset: Index, limit_offset: Index)
     offset
 }
 
-// GapHandler is called for each found gap
-// Params:
-// 1. i32 - term ID
-// 2. &AtomicBuffer - term (log) buffer we are scanning
-// 3. Index - offset in the buffer where gap begins
-// 4. Index - gap length
+/// GapHandler is called for each found gap
+/// Params:
+/// 1. i32 - term ID
+/// 2. &AtomicBuffer - term (log) buffer we are scanning
+/// 3. Index - offset in the buffer where gap begins
+/// 4. Index - gap length
 pub type GapHandler = fn(i32, &AtomicBuffer, Index, Index);
 
 pub fn scan_for_gap(

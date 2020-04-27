@@ -532,7 +532,7 @@ impl Aeron {
         let start_ms = unix_time_ms();
 
         loop {
-            while MemoryMappedFile::file_size(context.cnc_file_name())? == 0 {
+            while MemoryMappedFile::get_file_size(context.cnc_file_name())? == 0 {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
                     return Err(AeronError::DriverTimeout(format!(
                         "CnC file not created: {}",

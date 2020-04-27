@@ -24,7 +24,7 @@ pub fn is_power_of_two(value: Index) -> bool {
     value > 0 && ((value & (!value + 1)) == value)
 }
 
-// Returns number of trailing bits which are set to 0
+/// Returns number of trailing bits which are set to 0
 pub fn number_of_trailing_zeroes(value: i32) -> i32 {
     let table = [
         0, 1, 2, 24, 3, 19, 6, 25, 22, 4, 20, 10, 16, 7, 12, 26, 31, 23, 18, 5, 21, 9, 15, 11, 30, 17, 8, 14, 29, 13, 28, 27,

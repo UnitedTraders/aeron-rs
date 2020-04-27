@@ -16,22 +16,24 @@
 
 use std::sync::atomic::{fence, Ordering};
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{
-        buffer_claim::BufferClaim,
-        data_frame_header, frame_descriptor,
-        header::HeaderWriter,
-        log_buffer_descriptor,
-        term_appender::{OnReservedValueSupplier, TERM_APPENDER_FAILED},
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            buffer_claim::BufferClaim,
+            data_frame_header, frame_descriptor,
+            header::HeaderWriter,
+            log_buffer_descriptor,
+            term_appender::{OnReservedValueSupplier, TERM_APPENDER_FAILED},
+        },
+    },
+    utils::{
+        bit_utils,
+        types::{Index, I64_SIZE},
     },
 };
-use crate::utils::{
-    bit_utils,
-    types::{Index, I64_SIZE},
-};
 
-pub(crate) struct ExclusiveTermAppender {
+pub struct ExclusiveTermAppender {
     term_buffer: AtomicBuffer,
     tail_addr: *const i64,
 }
@@ -121,49 +123,52 @@ impl ExclusiveTermAppender {
 
         resulting_offset
     }
-    /* TODO: Not sure that its used! Port it if actually used or remove from here!
-    template <class BufferIterator> inline std::int32_t append_unfragmented_message(
-    std::int32_t term_id,
-    std::int32_t term_offset,
-    const &HeaderWriter header,
-    BufferIterator bufferIt,
-    util::index_t length,
-    const on_reserved_value_supplier_t& reserved_value_supplier)
-    {
-    const util::index_t frame_length = length + data_frame_header::LENGTH;
-    const util::index_t aligned_length = util::BitUtil::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
-    const std::int32_t term_length = self.term_buffer.capacity();
+    //TODO: Not sure that its used! Port it if actually used or remove from here!
+    pub fn append_unfragmented_message_bulk(
+        &mut self,
+        term_id: i32,
+        term_offset: Index,
+        header: &HeaderWriter,
+        buffers: Vec<AtomicBuffer>,
+        length: Index,
+        reserved_value_supplier: OnReservedValueSupplier,
+    ) -> Index {
+        let frame_length: Index = length + data_frame_header::LENGTH;
+        let aligned_length: Index = bit_utils::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
 
-    std::int32_t resulting_offset = term_offset + aligned_length;
-    put_raw_tail_ordered(term_id, resulting_offset);
+        let term_length = self.term_buffer.capacity();
+        let mut resulting_offset = term_offset + aligned_length;
 
-    if (resulting_offset > term_length)
-    {
-    resulting_offset = handleEndOfLogCondition(self.term_buffer, term_id, term_offset, header, term_length);
+        self.put_raw_tail_ordered(term_id as i64, resulting_offset);
+
+        if resulting_offset > term_length {
+            resulting_offset =
+                ExclusiveTermAppender::handle_end_of_log_condition(&self.term_buffer, term_id, term_offset, header, term_length);
+        } else {
+            header.write(&self.term_buffer, term_offset, frame_length, term_id);
+
+            let mut offset = term_offset + data_frame_header::LENGTH;
+
+            for buf in buffers.iter() {
+                let ending_offset = offset + length;
+                if offset >= ending_offset {
+                    break;
+                }
+                offset += buf.capacity();
+
+                self.term_buffer.copy_from(offset, buf, 0, buf.capacity());
+            }
+
+            let reserved_value = reserved_value_supplier(self.term_buffer, term_offset, frame_length);
+            self.term_buffer
+                .put::<i64>(term_offset + *data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reserved_value);
+
+            frame_descriptor::set_frame_length_ordered(&self.term_buffer, term_offset, frame_length);
+        }
+
+        resulting_offset
     }
-    else
-    {
-    header.write(self.term_buffer, term_offset, frame_length, term_id);
-
-    std::int32_t offset = term_offset + data_frame_header::LENGTH;
-    for (
-    std::int32_t endingOffset = offset + length;
-    offset < endingOffset;
-    offset += bufferIt->capacity(), ++bufferIt)
-    {
-    self.term_buffer.putBytes(offset, *bufferIt, 0, bufferIt->capacity());
-    }
-
-    const std::int64_t reservedValue = reserved_value_supplier(self.term_buffer, term_offset, frame_length);
-    self.term_buffer.putInt64(term_offset + data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reservedValue);
-
-    frame_descriptor::frame_lengthOrdered(self.term_buffer, term_offset, frame_length);
-    }
-
-    return resulting_offset;
-    }
-    */
 
     #[allow(clippy::too_many_arguments)]
     pub fn append_fragmented_message(

@@ -8,6 +8,8 @@
 # IDEA
 /.idea/*
 
+# OS X
+.DS_Store
 
 # Created by https://www.gitignore.io/api/vim
 # Edit at https://www.gitignore.io/?templates=vim

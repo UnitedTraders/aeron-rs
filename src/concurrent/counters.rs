@@ -20,12 +20,14 @@ use std::fmt;
 
 use lazy_static::lazy_static;
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
-use crate::utils::{
-    errors::*,
-    misc::CACHE_LINE_LENGTH,
-    types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
+use crate::{
+    concurrent::atomic_buffer::AtomicBuffer,
+    offset_of,
+    utils::{
+        errors::*,
+        misc::CACHE_LINE_LENGTH,
+        types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
+    },
 };
 
 /**
@@ -79,10 +81,10 @@ pub const RECORD_ALLOCATED: i32 = 1;
 pub const RECORD_RECLAIMED: i32 = -1;
 pub const NOT_FREE_TO_REUSE: Moment = MAX_MOMENT;
 
-const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
-const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
-pub(crate) const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
-pub(crate) const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
+pub const COUNTER_LENGTH: Index = std::mem::size_of::<CounterValueDefn>() as Index;
+pub const METADATA_LENGTH: Index = std::mem::size_of::<CounterMetaDataDefn>() as Index;
+pub const MAX_LABEL_LENGTH: Index = std::mem::size_of::<CounterMetaDataLabel>() as Index;
+pub const MAX_KEY_LENGTH: Index = std::mem::size_of::<CounterMetaDataKey>() as Index;
 
 // Original C++ alignment specification was #pragma pack(4)
 #[repr(C, packed(4))]
@@ -168,6 +170,31 @@ impl CountersReader {
         }
     }
 
+    pub fn for_each<F>(&self, on_counters_metadata: F)
+    where
+        F: Fn(i32, i32, &AtomicBuffer, CString),
+    {
+        for (id, i) in (0..self.metadata_buffer.capacity())
+            .step_by(METADATA_LENGTH as usize)
+            .enumerate()
+        {
+            let record_status = self.metadata_buffer.get_volatile::<i32>(i);
+            if record_status == RECORD_UNUSED {
+                break;
+            } else if record_status == RECORD_ALLOCATED {
+                let record = self.metadata_buffer.overlay_struct::<CounterMetaDataDefn>(i);
+
+                let label = self.metadata_buffer.get_string(i + *LABEL_LENGTH_OFFSET);
+                let key_buffer = AtomicBuffer::new(
+                    unsafe { self.metadata_buffer.buffer().offset((i + *KEY_OFFSET) as isize) },
+                    std::mem::size_of::<CounterMetaDataKey>() as i32,
+                );
+
+                on_counters_metadata(id as i32, (unsafe { *record }).type_id, &key_buffer, label);
+            }
+        }
+    }
+
     pub fn max_counter_id(&self) -> i32 {
         self.max_counter_id
     }
@@ -233,7 +260,7 @@ impl CountersReader {
     }
 }
 
-// This struct is needed to implement iterator for CountersReader
+/// This struct is needed to implement iterator for CountersReader
 pub struct CountersReaderIter<'a> {
     inner: &'a CountersReader,
     pos: usize,
@@ -320,11 +347,11 @@ impl CountersManager {
         self.reader.iter()
     }
 
-    // This fn allocates counter with given type, key and label.
-    // The keys can be provided by two ways:
-    // 1. through key_opt param
-    // 2. could be generated and written in-place by key_func param
-    // If both key_opt and key_func are specified then AeronError is returned.
+    /// This fn allocates counter with given type, key and label.
+    /// The keys can be provided by two ways:
+    /// 1. through key_opt param
+    /// 2. could be generated and written in-place by key_func param
+    /// If both key_opt and key_func are specified then AeronError is returned.
     pub fn allocate_opt(
         &mut self,
         type_id: i32,

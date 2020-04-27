@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -68,7 +69,7 @@ impl Counter {
         cr.counter_label(self.atomic_counter.id())
     }
 
-    // Inherited from AtomicCounter
+    /// Inherited from AtomicCounter
     pub fn id(&self) -> i32 {
         self.atomic_counter.id()
     }
