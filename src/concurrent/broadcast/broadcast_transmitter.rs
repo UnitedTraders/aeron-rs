@@ -133,10 +133,10 @@ mod tests {
     use super::*;
     use crate::concurrent::atomic_buffer::AlignedBuffer;
 
-    const CAPACITY: Index = (1024);
+    const CAPACITY: Index = 1024;
     // const TOTAL_BUFFER_LENGTH: Index = (CAPACITY + broadcast_buffer_descriptor::TRAILER_LENGTH);
     // const SRC_BUFFER_SIZE: i32 = (1024);
-    const MSG_TYPE_ID: i32 = (7);
+    const MSG_TYPE_ID: i32 = 7;
     // const TAIL_INTENT_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET);
     // const TAIL_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::TAIL_COUNTER_OFFSET);
     // const LATEST_COUNTER_INDEX: Index = (CAPACITY + broadcast_buffer_descriptor::LATEST_COUNTER_OFFSET);

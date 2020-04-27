@@ -2120,7 +2120,7 @@ mod tests {
     const TERM_LENGTH: i32 = log_buffer_descriptor::TERM_MIN_LENGTH;
     const PAGE_SIZE: i32 = log_buffer_descriptor::AERON_PAGE_MIN_SIZE;
     const COUNTER_TYPE_ID: i32 = 102;
-    const LOG_FILE_LENGTH: i32 = ((TERM_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH);
+    const LOG_FILE_LENGTH: i32 = (TERM_LENGTH * 3) + log_buffer_descriptor::LOG_META_DATA_LENGTH;
     const SOURCE_IDENTITY: &str = "127.0.0.1:43567";
     const COUNTER_LABEL: &str = "counter label";
 
