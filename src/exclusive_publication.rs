@@ -486,55 +486,60 @@ impl ExclusivePublication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // TODO: Implement if necessary
-    // pub fn offer_bulk(
-    //     &mut self,
-    //     buffers: Vec<AtomicBuffer>,
-    //     reserved_value_supplier: OnReservedValueSupplier,
-    // ) -> Result<i64, AeronError> {
-    //     let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
-    //
-    //     if length == std::i32::MAX {
-    //         return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
-    //     }
-    //
-    //     let mut new_position = PUBLICATION_CLOSED;
-    //
-    //     if !self.is_closed() {
-    //         let limit = self.publication_limit.get_volatile();
-    //         let term_appender: &ExclusiveTermAppender = &self.appenders[self.active_partition_index];
-    //         let position = self.term_begin_position + self.term_offset;
-    //
-    //         if position < limit {
-    //             let resulting_offset = if length <= self.max_payload_length {
-    //                 term_appender.append_unfragmented_message_bulk(
-    //                     self.term_id,
-    //                     self.term_offset,
-    //                     &self.header_writer,
-    //                     buffers,
-    //                     length,
-    //                     reserved_value_supplier,
-    //                 )
-    //             } else {
-    //                 self.check_max_message_length(length)?;
-    //                 term_appender.append_unfragmented_message_bulk(
-    //                     self.term_id,
-    //                     self.term_offset,
-    //                     &self.header_writer,
-    //                     buffers,
-    //                     length,
-    //                     self.max_payload_length,
-    //                     reserved_value_supplier,
-    //                 )
-    //             };
-    //
-    //             new_position = self.new_position(resulting_offset);
-    //         } else {
-    //             new_position = self.back_pressure_status(position, length as Index);
-    //         }
-    //     }
-    //
-    //     Ok(new_position)
-    // }
+    pub fn offer_bulk(
+        &mut self,
+        buffers: Vec<AtomicBuffer>,
+        reserved_value_supplier: OnReservedValueSupplier,
+    ) -> Result<i64, AeronError> {
+        let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
+
+        if length == std::i32::MAX {
+            return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
+        }
+
+        let mut new_position = PUBLICATION_CLOSED;
+
+        if !self.is_closed() {
+            let limit = self.publication_limit.get_volatile();
+            let term_appender = &mut self.appenders[self.active_partition_index as usize];
+            let position = self.term_begin_position + self.term_offset as i64;
+
+            if position < limit {
+                let resulting_offset = if length <= self.max_payload_length {
+                    term_appender.append_unfragmented_message_bulk(
+                        self.term_id,
+                        self.term_offset,
+                        &self.header_writer,
+                        buffers,
+                        length,
+                        reserved_value_supplier,
+                    )
+                } else {
+                    if length > self.max_message_length {
+                        return Err(AeronError::IllegalArgumentException(format!(
+                            "encoded message exceeds max_message_length of {}, length={}",
+                            self.max_message_length, length
+                        )));
+                    }
+
+                    term_appender.append_unfragmented_message_bulk(
+                        self.term_id,
+                        self.term_offset,
+                        &self.header_writer,
+                        buffers,
+                        length,
+                        reserved_value_supplier,
+                    )
+                };
+
+                new_position = self.new_position(resulting_offset);
+            } else {
+                new_position = self.back_pressure_status(position, length as Index);
+            }
+        }
+
+        Ok(new_position)
+    }
 
     /**
      * Try to claim a range in the publication log into which a message can be written with zero copy semantics.
