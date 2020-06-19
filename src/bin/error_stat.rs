@@ -51,7 +51,7 @@ fn main() {
 
     let cnc_file_name = settings.base_path + "/" + CNC_FILE;
 
-    println!("Opening CnC file: {}", cnc_file_name.clone());
+    println!("Opening CnC file: {}", cnc_file_name);
 
     let cnc_file = MemoryMappedFile::map_existing(&cnc_file_name, false).expect("Cannot map file");
     let cnc_version = cnc_file_descriptor::cnc_version_volatile(&cnc_file);

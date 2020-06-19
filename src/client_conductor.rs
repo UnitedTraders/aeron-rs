@@ -575,7 +575,7 @@ impl ClientConductor {
             */
         ttrace!(
             "add_publication: on channel:{} stream:{}",
-            channel.clone().to_str().unwrap(),
+            channel.to_str().unwrap(),
             stream_id
         );
 
@@ -727,7 +727,7 @@ impl ClientConductor {
     pub fn add_exclusive_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
         ttrace!(
             "add_exclusive_publication: on channel:{} stream:{}",
-            channel.clone().to_str().unwrap(),
+            channel.to_str().unwrap(),
             stream_id
         );
 
@@ -876,7 +876,7 @@ impl ClientConductor {
     ) -> Result<i64, AeronError> {
         ttrace!(
             "add_subscription: on channel:{} stream:{}",
-            channel.clone().to_str().unwrap(),
+            channel.to_str().unwrap(),
             stream_id
         );
 
@@ -1123,7 +1123,7 @@ impl ClientConductor {
         ttrace!(
             "add_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
-            endpoint_channel.clone().to_str().unwrap()
+            endpoint_channel.to_str().unwrap()
         );
 
         self.verify_driver_is_active()?;
@@ -1148,7 +1148,7 @@ impl ClientConductor {
         ttrace!(
             "remove_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
-            endpoint_channel.clone().to_str().unwrap()
+            endpoint_channel.to_str().unwrap()
         );
 
         self.verify_driver_is_active()?;
@@ -1179,7 +1179,7 @@ impl ClientConductor {
         ttrace!(
             "add_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
-            endpoint_channel.clone().to_str().unwrap()
+            endpoint_channel.to_str().unwrap()
         );
 
         self.verify_driver_is_active()?;
@@ -1211,7 +1211,7 @@ impl ClientConductor {
         ttrace!(
             "remove_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
-            endpoint_channel.clone().to_str().unwrap()
+            endpoint_channel.to_str().unwrap()
         );
 
         self.verify_driver_is_active()?;
@@ -1701,7 +1701,7 @@ impl DriverListener for ClientConductor {
                 "on_error_response: for subscription, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
-                error_message.clone().to_str().unwrap()
+                error_message.to_str().unwrap()
             );
             subscription.status = RegistrationStatus::Errored;
             subscription.error_code = error_code;
@@ -1714,7 +1714,7 @@ impl DriverListener for ClientConductor {
                 "on_error_response: for publication, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
-                error_message.clone().to_str().unwrap()
+                error_message.to_str().unwrap()
             );
             publication.status = RegistrationStatus::Errored;
             publication.error_code = error_code;
@@ -1787,8 +1787,8 @@ impl DriverListener for ClientConductor {
                         session_id,
                         subscriber_position_id,
                         subscription_registration_id,
-                        log_filename.clone().to_str().unwrap(),
-                        source_identity.clone().to_str().unwrap()
+                        log_filename.to_str().unwrap(),
+                        source_identity.to_str().unwrap()
                     );
                 }
             }
