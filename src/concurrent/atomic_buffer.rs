@@ -72,6 +72,11 @@ impl Write for AtomicBuffer {
     }
 }
 
+// Where needed AtomicBuffer is accessed through mem fences or atomic operations.
+// Seems its safe to share AtomicBuffer between threads.
+unsafe impl Send for AtomicBuffer {}
+unsafe impl Sync for AtomicBuffer {}
+
 // todo: add bounds checks!!!
 // todo: remove unsafe?
 impl AtomicBuffer {

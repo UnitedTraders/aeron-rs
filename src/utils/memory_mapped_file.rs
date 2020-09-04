@@ -70,6 +70,11 @@ pub struct MemoryMappedFile {
     memory_size: Index,
 }
 
+// Mutable access to the ptr goes through creation of AtomicBuffer which is thread safe.
+// There is memory_mut_ptr() method but its only used for tests.
+unsafe impl Send for MemoryMappedFile {}
+unsafe impl Sync for MemoryMappedFile {}
+
 impl MemoryMappedFile {
     #[allow(dead_code)]
     fn page_size() -> usize {
@@ -117,6 +122,7 @@ impl MemoryMappedFile {
         Self::from_file_handle(fd, offset, size, read_only)
     }
 
+    #[cfg(test)]
     pub fn memory_mut_ptr(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.memory_size as usize) }
     }

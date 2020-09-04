@@ -16,7 +16,6 @@
 
 use aeron_rs::{
     concurrent::{
-        atomic_buffer::AtomicBuffer,
         reports::{self, loss_report_descriptor},
     },
     context::Context,
@@ -58,8 +57,8 @@ fn main() {
         panic!("Loss report does not exist: {}", filename);
     });
 
-    let mut loss_report_file = MemoryMappedFile::map_existing(filename, false).expect("Cannot map file");
-    let buffer = AtomicBuffer::new(loss_report_file.memory_mut_ptr().as_mut_ptr(), loss_report_file.memory_size());
+    let loss_report_file = MemoryMappedFile::map_existing(filename, false).expect("Cannot map file");
+    let buffer = loss_report_file.atomic_buffer(0, loss_report_file.memory_size());
 
     println!("OBSERVATION_COUNT, TOTAL_BYTES_LOST, FIRST_OBSERVATION, LAST_OBSERVATION, SESSION_ID, STREAM_ID, CHANNEL, SOURCE");
 
