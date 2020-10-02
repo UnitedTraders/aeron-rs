@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-const BUFFER_BUILDER_MAX_CAPACITY: Index = std::u32::MAX as Index - 8;
+const BUFFER_BUILDER_MAX_CAPACITY: Index = std::i32::MAX as Index - 8;
 
 /// This type must not impl Copy! Only move semantics is allowed.
 /// BufferBuilder owns memory (allocates / deallocates it)
