@@ -260,8 +260,8 @@ fn main() {
                 .lock()
                 .unwrap()
                 .try_claim(settings.message_length, &mut buffer_claim)
-                .unwrap()
-                < 0
+                .unwrap_err()
+                == AeronError::BackPressured
             {
                 back_pressure_count += 1;
                 offer_idle_strategy.idle();

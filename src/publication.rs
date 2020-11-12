@@ -39,12 +39,6 @@ use crate::{
     utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
 };
 
-pub const NOT_CONNECTED: i64 = -1;
-pub const BACK_PRESSURED: i64 = -2;
-pub const ADMIN_ACTION: i64 = -3;
-pub const PUBLICATION_CLOSED: i64 = -4;
-pub const MAX_POSITION_EXCEEDED: i64 = -5;
-
 pub trait BulkPubSize {
     const SIZE: usize;
 }
@@ -348,7 +342,7 @@ impl Publication {
         offset: Index,
         length: Index,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> Result<i64, AeronError> {
+    ) -> Result<u64, AeronError> {
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
@@ -411,7 +405,7 @@ impl Publication {
      * @    The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
-    pub fn offer_part(&self, buffer: AtomicBuffer, offset: Index, length: Index) -> Result<i64, AeronError> {
+    pub fn offer_part(&self, buffer: AtomicBuffer, offset: Index, length: Index) -> Result<u64, AeronError> {
         self.offer_opt(buffer, offset, length, default_reserved_value_supplier)
     }
 
@@ -421,7 +415,7 @@ impl Publication {
      * @param buffer containing message.
      * @    The new stream position on success, otherwise {@link BACK_PRESSURED} or {@link NOT_CONNECTED}.
      */
-    pub fn offer(&self, buffer: AtomicBuffer) -> Result<i64, AeronError> {
+    pub fn offer(&self, buffer: AtomicBuffer) -> Result<u64, AeronError> {
         self.offer_part(buffer, 0, buffer.capacity())
     }
 
@@ -463,7 +457,7 @@ impl Publication {
         &mut self,
         buffers: Vec<AtomicBuffer>,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> Result<i64, AeronError> {
+    ) -> Result<u64, AeronError> {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
         if length == std::i32::MAX {
@@ -540,7 +534,7 @@ impl Publication {
      * @throws IllegalArgumentException if the length is greater than max payload length within an MTU.
      * @see BufferClaim::commit
      */
-    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<i64, AeronError> {
+    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<u64, AeronError> {
         self.check_payload_length(length)?;
 
         if !self.is_closed() {
@@ -662,9 +656,14 @@ impl Publication {
         term_id: i32,
         position: Index,
         resulting_offset: Index,
-    ) -> Result<i64, AeronError> {
+    ) -> Result<u64, AeronError> {
         if resulting_offset > 0 {
-            return Ok((position - term_offset) as i64 + resulting_offset as i64);
+            let new_position = (position - term_offset) as i64 + resulting_offset as i64;
+            return if new_position >= 0 {
+                Ok(new_position as u64)
+            } else {
+                Err(AeronError::UnknownCode(new_position))
+            };
         }
 
         if position as i64 + term_offset as i64 > self.max_possible_position {
@@ -1015,7 +1014,10 @@ mod tests {
         let expected_position = test.src_buffer.capacity() + LENGTH;
         test.publication_limit.set(2 * test.src_buffer.capacity() as i64);
 
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), expected_position as i64);
+        assert_eq!(
+            test.publication.offer(test.src_buffer).unwrap() as i64,
+            expected_position as i64
+        );
 
         let position = test.publication.position();
         assert!(position.is_ok());
@@ -1086,7 +1088,8 @@ mod tests {
         );
 
         assert!(
-            test.publication.offer(test.src_buffer).unwrap() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
+            test.publication.offer(test.src_buffer).unwrap() as i64
+                > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
 
         let position = test.publication.position();
@@ -1128,7 +1131,7 @@ mod tests {
         );
 
         assert!(
-            test.publication.try_claim(1024, &mut buffer_claim).unwrap()
+            test.publication.try_claim(1024, &mut buffer_claim).unwrap() as i64
                 > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
 

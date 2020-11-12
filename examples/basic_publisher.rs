@@ -165,21 +165,9 @@ fn main() {
         let result = publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32);
 
         if let Ok(code) = result {
-            match code {
-                aeron_rs::publication::BACK_PRESSURED => println!("Offer failed due to back pressure"),
-                aeron_rs::publication::NOT_CONNECTED => println!("Offer failed because publisher is not connected to subscriber"),
-                aeron_rs::publication::ADMIN_ACTION => println!("Offer failed because of an administration action in the system"),
-                aeron_rs::publication::PUBLICATION_CLOSED => println!("Offer failed publication is closed"),
-                _ => {
-                    if code < 0 {
-                        println!("Offer failed due to unknown reason, ret code {}", code);
-                    } else {
-                        println!("sent!");
-                    }
-                }
-            }
+            println!("Sent with code {}!", code);
         } else {
-            println!("offer with error: {:?}", result.err());
+            println!("Offer with error: {:?}", result.err());
         }
 
         if !publication.lock().unwrap().is_connected() {

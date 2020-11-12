@@ -42,6 +42,7 @@ pub enum AeronError {
     AdminAction,
     PublicationClosed,
     MaxPositionExceeded,
+    UnknownCode(i64),
 }
 
 impl Display for AeronError {
@@ -64,6 +65,7 @@ impl Display for AeronError {
             AeronError::AdminAction => write!(f, "Offer failed because of an administration action in the system"),
             AeronError::PublicationClosed => write!(f, "Offer failed publication is closed"),
             AeronError::MaxPositionExceeded => write!(f, "Max possible position exceeded"),
+            AeronError::UnknownCode(code) => write!(f, "Unknown code {} on getting position", code),
         }
     }
 }
