@@ -15,9 +15,7 @@
  */
 
 use aeron_rs::{
-    concurrent::{
-        reports::{self, loss_report_descriptor},
-    },
+    concurrent::reports::{self, loss_report_descriptor},
     context::Context,
     utils::memory_mapped_file::MemoryMappedFile,
 };
