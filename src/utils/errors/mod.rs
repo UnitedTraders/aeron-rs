@@ -37,6 +37,12 @@ pub enum AeronError {
     ClientTimeoutException(String),
     BroadcastTransmitError(BroadcastTransmitError),
     RingBufferError(RingBufferError),
+    NotConnected,
+    BackPressured,
+    AdminAction,
+    PublicationClosed,
+    MaxPositionExceeded,
+    UnknownCode(i64),
 }
 
 impl Display for AeronError {
@@ -54,6 +60,12 @@ impl Display for AeronError {
             AeronError::ClientTimeoutException(err) => write!(f, "ClientTimeoutException: {:?}", err),
             AeronError::BroadcastTransmitError(err) => write!(f, "BroadcastTransmitError: {:?}", err),
             AeronError::RingBufferError(err) => write!(f, "RingBufferError: {:?}", err),
+            AeronError::NotConnected => write!(f, "Offer failed due to back pressure"),
+            AeronError::BackPressured => write!(f, "Offer failed because publisher is not connected to subscriber"),
+            AeronError::AdminAction => write!(f, "Offer failed because of an administration action in the system"),
+            AeronError::PublicationClosed => write!(f, "Offer failed publication is closed"),
+            AeronError::MaxPositionExceeded => write!(f, "Max possible position exceeded"),
+            AeronError::UnknownCode(code) => write!(f, "Unknown code {} on getting position", code),
         }
     }
 }

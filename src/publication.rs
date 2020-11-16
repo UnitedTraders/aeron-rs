@@ -39,12 +39,6 @@ use crate::{
     utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
 };
 
-pub const NOT_CONNECTED: i64 = -1;
-pub const BACK_PRESSURED: i64 = -2;
-pub const ADMIN_ACTION: i64 = -3;
-pub const PUBLICATION_CLOSED: i64 = -4;
-pub const MAX_POSITION_EXCEEDED: i64 = -5;
-
 pub trait BulkPubSize {
     const SIZE: usize;
 }
@@ -269,19 +263,19 @@ impl Publication {
      *
      * @    the current position to which the publication has advanced for this stream or {@link CLOSED}.
      */
-    pub fn position(&self) -> i64 {
+    pub fn position(&self) -> Result<i64, AeronError> {
         if !self.is_closed() {
             let raw_tail = log_buffer_descriptor::raw_tail_volatile(&self.log_meta_data_buffer);
             let term_offset = log_buffer_descriptor::term_offset(raw_tail, self.term_buffer_length() as i64);
 
-            log_buffer_descriptor::compute_position(
+            Ok(log_buffer_descriptor::compute_position(
                 log_buffer_descriptor::term_id(raw_tail),
                 term_offset as Index,
                 self.position_bits_to_shift,
                 self.initial_term_id,
-            )
+            ))
         } else {
-            PUBLICATION_CLOSED
+            Err(AeronError::PublicationClosed)
         }
     }
 
@@ -292,11 +286,11 @@ impl Publication {
      *
      * @    the position limit beyond which this {@link Publication} will be back pressured.
      */
-    pub fn publication_limit(&self) -> i64 {
+    pub fn publication_limit(&self) -> Result<i64, AeronError> {
         if self.is_closed() {
-            PUBLICATION_CLOSED
+            Err(AeronError::PublicationClosed)
         } else {
-            self.publication_limit.get_volatile()
+            Ok(self.publication_limit.get_volatile())
         }
     }
 
@@ -315,11 +309,11 @@ impl Publication {
      * @     window for offering into a publication before the {@link #positionLimit(&self)} is reached. If
      * the publication is closed then {@link #CLOSED} will be returned.
      */
-    pub fn available_window(&self) -> i64 {
+    pub fn available_window(&self) -> Result<i64, AeronError> {
         if !self.is_closed() {
-            self.publication_limit.get_volatile() - self.position()
+            Ok(self.publication_limit.get_volatile() - self.position()?)
         } else {
-            PUBLICATION_CLOSED
+            Err(AeronError::PublicationClosed)
         }
     }
 
@@ -348,9 +342,7 @@ impl Publication {
         offset: Index,
         length: Index,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> Result<i64, AeronError> {
-        let mut new_position = PUBLICATION_CLOSED;
-
+    ) -> Result<u64, AeronError> {
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
             let term_count = log_buffer_descriptor::active_term_count(&self.log_meta_data_buffer);
@@ -363,7 +355,7 @@ impl Publication {
                     + term_offset;
 
             if term_count != (term_id - self.initial_term_id) {
-                return Ok(ADMIN_ACTION);
+                return Err(AeronError::AdminAction);
             }
 
             if position < limit {
@@ -389,19 +381,19 @@ impl Publication {
                     )
                 };
 
-                new_position = self.new_position(
+                Ok(self.new_position(
                     term_count,
                     term_offset as i32,
                     term_id,
                     position as Index,
                     resulting_offset.expect("Something wrong with resulting offset"),
-                );
+                )?)
             } else {
-                new_position = self.back_pressure_status(position, length);
+                Err(self.back_pressure_status(position, length))
             }
+        } else {
+            Err(AeronError::PublicationClosed)
         }
-
-        Ok(new_position)
     }
 
     /**
@@ -413,7 +405,7 @@ impl Publication {
      * @    The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
-    pub fn offer_part(&self, buffer: AtomicBuffer, offset: Index, length: Index) -> Result<i64, AeronError> {
+    pub fn offer_part(&self, buffer: AtomicBuffer, offset: Index, length: Index) -> Result<u64, AeronError> {
         self.offer_opt(buffer, offset, length, default_reserved_value_supplier)
     }
 
@@ -423,7 +415,7 @@ impl Publication {
      * @param buffer containing message.
      * @    The new stream position on success, otherwise {@link BACK_PRESSURED} or {@link NOT_CONNECTED}.
      */
-    pub fn offer(&self, buffer: AtomicBuffer) -> Result<i64, AeronError> {
+    pub fn offer(&self, buffer: AtomicBuffer) -> Result<u64, AeronError> {
         self.offer_part(buffer, 0, buffer.capacity())
     }
 
@@ -465,14 +457,12 @@ impl Publication {
         &mut self,
         buffers: Vec<AtomicBuffer>,
         reserved_value_supplier: OnReservedValueSupplier,
-    ) -> Result<i64, AeronError> {
+    ) -> Result<u64, AeronError> {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
         if length == std::i32::MAX {
             return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
         }
-
-        let mut new_position = PUBLICATION_CLOSED;
 
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
@@ -486,7 +476,7 @@ impl Publication {
                     + term_offset;
 
             if term_count != (term_id - self.initial_term_id) {
-                return Ok(ADMIN_ACTION);
+                return Err(AeronError::AdminAction);
             }
 
             if position < limit {
@@ -516,19 +506,19 @@ impl Publication {
                     )
                 };
 
-                new_position = self.new_position(
+                Ok(self.new_position(
                     term_count,
                     term_offset as i32,
                     term_id,
                     position as Index,
                     resulting_offset.expect("Error getting resulting_offset"),
-                );
+                )?)
             } else {
-                new_position = self.back_pressure_status(position, length as Index);
+                Err(self.back_pressure_status(position, length as Index))
             }
+        } else {
+            Err(AeronError::NotConnected)
         }
-
-        Ok(new_position)
     }
 
     /**
@@ -544,9 +534,8 @@ impl Publication {
      * @throws IllegalArgumentException if the length is greater than max payload length within an MTU.
      * @see BufferClaim::commit
      */
-    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<i64, AeronError> {
+    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<u64, AeronError> {
         self.check_payload_length(length)?;
-        let mut new_position = PUBLICATION_CLOSED;
 
         if !self.is_closed() {
             let limit = self.publication_limit.get_volatile();
@@ -560,24 +549,24 @@ impl Publication {
                     + term_offset;
 
             if term_count != (term_id - self.initial_term_id) {
-                return Ok(ADMIN_ACTION);
+                return Err(AeronError::AdminAction);
             }
 
             if position < limit {
                 let resulting_offset = term_appender.claim(&self.header_writer, length, buffer_claim, term_id);
-                new_position = self.new_position(
+                Ok(self.new_position(
                     term_count,
                     term_offset as i32,
                     term_id,
                     position as Index,
                     resulting_offset.expect("Error getting resulting_offset"),
-                );
+                )?)
             } else {
-                new_position = self.back_pressure_status(position, length);
+                Err(self.back_pressure_status(position, length))
             }
+        } else {
+            Err(AeronError::PublicationClosed)
         }
-
-        Ok(new_position)
     }
 
     /**
@@ -660,30 +649,42 @@ impl Publication {
         self.is_closed.store(true, Ordering::Release);
     }
 
-    fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: Index, resulting_offset: Index) -> i64 {
+    fn new_position(
+        &self,
+        term_count: Index,
+        term_offset: Index,
+        term_id: i32,
+        position: Index,
+        resulting_offset: Index,
+    ) -> Result<u64, AeronError> {
         if resulting_offset > 0 {
-            return (position - term_offset) as i64 + resulting_offset as i64;
+            let new_position = (position - term_offset) as i64 + resulting_offset as i64;
+            return if new_position >= 0 {
+                Ok(new_position as u64)
+            } else {
+                Err(AeronError::UnknownCode(new_position))
+            };
         }
 
         if position as i64 + term_offset as i64 > self.max_possible_position {
-            return MAX_POSITION_EXCEEDED;
+            return Err(AeronError::MaxPositionExceeded);
         }
 
         log_buffer_descriptor::rotate_log(&self.log_meta_data_buffer, term_count, term_id);
 
-        ADMIN_ACTION
+        Err(AeronError::AdminAction)
     }
 
-    fn back_pressure_status(&self, current_position: i64, message_length: i32) -> i64 {
+    fn back_pressure_status(&self, current_position: i64, message_length: i32) -> AeronError {
         if current_position + message_length as i64 >= self.max_possible_position {
-            return MAX_POSITION_EXCEEDED;
+            return AeronError::MaxPositionExceeded;
         }
 
         if log_buffer_descriptor::is_connected(&self.log_meta_data_buffer) {
-            return BACK_PRESSURED;
+            return AeronError::BackPressured;
         }
 
-        NOT_CONNECTED
+        AeronError::NotConnected
     }
 
     fn check_max_message_length(&self, length: Index) -> Result<(), AeronError> {
@@ -747,7 +748,7 @@ mod tests {
             status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED},
         },
         driver_proxy::DriverProxy,
-        publication::{Publication, ADMIN_ACTION, NOT_CONNECTED, PUBLICATION_CLOSED},
+        publication::Publication,
         utils::{
             errors::AeronError,
             log_buffers::LogBuffers,
@@ -939,7 +940,9 @@ mod tests {
     #[test]
     fn should_report_initial_position() {
         let test = PublicationTest::new();
-        assert_eq!(test.publication.position(), 0);
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert_eq!(position.unwrap(), 0);
     }
 
     #[test]
@@ -975,7 +978,10 @@ mod tests {
     fn should_ensure_the_publication_is_open_before_reading_position() {
         let test = PublicationTest::new();
         test.publication.close();
-        assert_eq!(test.publication.position(), PUBLICATION_CLOSED);
+
+        let position = test.publication.position();
+        assert!(position.is_err());
+        assert_eq!(position.unwrap_err(), AeronError::PublicationClosed);
     }
 
     #[test]
@@ -983,7 +989,10 @@ mod tests {
         let test = PublicationTest::new();
         test.publication.close();
         assert!(test.publication.is_closed());
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), PUBLICATION_CLOSED);
+
+        let offer_result = test.publication.offer(test.src_buffer);
+        assert!(offer_result.is_err());
+        assert_eq!(offer_result.unwrap_err(), AeronError::PublicationClosed);
     }
 
     #[test]
@@ -993,10 +1002,10 @@ mod tests {
 
         test.publication.close();
         assert!(test.publication.is_closed());
-        assert_eq!(
-            test.publication.try_claim(1024, &mut buffer_claim).unwrap(),
-            PUBLICATION_CLOSED
-        );
+
+        let claim_result = test.publication.try_claim(1024, &mut buffer_claim);
+        assert!(claim_result.is_err());
+        assert_eq!(claim_result.unwrap_err(), AeronError::PublicationClosed);
     }
 
     #[test]
@@ -1005,8 +1014,14 @@ mod tests {
         let expected_position = test.src_buffer.capacity() + LENGTH;
         test.publication_limit.set(2 * test.src_buffer.capacity() as i64);
 
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), expected_position as i64);
-        assert_eq!(test.publication.position(), expected_position as i64);
+        assert_eq!(
+            test.publication.offer(test.src_buffer).unwrap() as i64,
+            expected_position as i64
+        );
+
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert_eq!(position.unwrap(), expected_position as i64);
     }
 
     #[test]
@@ -1015,7 +1030,9 @@ mod tests {
 
         test.publication_limit.set(0);
 
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), NOT_CONNECTED);
+        let offer_result = test.publication.offer(test.src_buffer);
+        assert!(offer_result.is_err());
+        assert_eq!(offer_result.unwrap_err(), AeronError::NotConnected);
     }
 
     #[test]
@@ -1030,8 +1047,13 @@ mod tests {
         );
         test.publication_limit.set(i64::max_value() as i64);
 
-        assert_eq!(test.publication.position(), initial_position as i64);
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert_eq!(position.unwrap(), initial_position as i64);
+
+        let offer_result = test.publication.offer(test.src_buffer);
+        assert!(offer_result.is_err());
+        assert_eq!(offer_result.unwrap_err(), AeronError::AdminAction);
     }
 
     #[test]
@@ -1046,8 +1068,13 @@ mod tests {
         );
         test.publication_limit.set(i32::max_value() as i64);
 
-        assert_eq!(test.publication.position(), initial_position as i64);
-        assert_eq!(test.publication.offer(test.src_buffer).unwrap(), ADMIN_ACTION);
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert_eq!(position.unwrap(), initial_position as i64);
+
+        let offer_result = test.publication.offer(test.src_buffer);
+        assert!(offer_result.is_err());
+        assert_eq!(offer_result.unwrap_err(), AeronError::AdminAction);
 
         let next_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1 + 1);
         assert_eq!(
@@ -1061,9 +1088,13 @@ mod tests {
         );
 
         assert!(
-            test.publication.offer(test.src_buffer).unwrap() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
+            test.publication.offer(test.src_buffer).unwrap() as i64
+                > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
-        assert!(test.publication.position() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
+
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert!(position.unwrap() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
     }
 
     #[test]
@@ -1080,8 +1111,13 @@ mod tests {
 
         let mut buffer_claim = BufferClaim::default();
 
-        assert_eq!(test.publication.position(), initial_position as i64);
-        assert_eq!(test.publication.try_claim(1024, &mut buffer_claim).unwrap(), ADMIN_ACTION);
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert_eq!(position.unwrap(), initial_position as i64);
+
+        let claim_result = test.publication.try_claim(1024, &mut buffer_claim);
+        assert!(claim_result.is_err());
+        assert_eq!(claim_result.unwrap_err(), AeronError::AdminAction);
 
         let next_index = log_buffer_descriptor::index_by_term(TERM_ID_1, TERM_ID_1 + 1);
         assert_eq!(
@@ -1095,9 +1131,12 @@ mod tests {
         );
 
         assert!(
-            test.publication.try_claim(1024, &mut buffer_claim).unwrap()
+            test.publication.try_claim(1024, &mut buffer_claim).unwrap() as i64
                 > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
-        assert!(test.publication.position() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
+
+        let position = test.publication.position();
+        assert!(position.is_ok());
+        assert!(position.unwrap() > (initial_position + LENGTH + test.src_buffer.capacity()) as i64);
     }
 }

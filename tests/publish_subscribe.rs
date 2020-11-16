@@ -197,21 +197,9 @@ fn test_unfragmented_msg() {
     let result = publication.lock().unwrap().offer(src_buffer);
 
     if let Ok(code) = result {
-        match code {
-            aeron_rs::publication::BACK_PRESSURED => println!("Offer failed due to back pressure"),
-            aeron_rs::publication::NOT_CONNECTED => println!("Offer failed because publisher is not connected to subscriber"),
-            aeron_rs::publication::ADMIN_ACTION => println!("Offer failed because of an administration action in the system"),
-            aeron_rs::publication::PUBLICATION_CLOSED => println!("Offer failed publication is closed"),
-            _ => {
-                if code < 0 {
-                    panic!("Offer failed due to unknown reason, ret code {}", code);
-                } else {
-                    println!("sent!");
-                }
-            }
-        }
+        println!("Sent with code {}!", code);
     } else {
-        panic!("offer with error: {:?}", result.err());
+        panic!("Offer with error: {:?}", result.err());
     }
 
     let idle_strategy = SleepingIdleStrategy::new(1000);
@@ -290,21 +278,9 @@ fn test_fragmented_msg() {
     let result = publication.lock().unwrap().offer(src_buffer);
 
     if let Ok(code) = result {
-        match code {
-            aeron_rs::publication::BACK_PRESSURED => println!("Offer failed due to back pressure"),
-            aeron_rs::publication::NOT_CONNECTED => println!("Offer failed because publisher is not connected to subscriber"),
-            aeron_rs::publication::ADMIN_ACTION => println!("Offer failed because of an administration action in the system"),
-            aeron_rs::publication::PUBLICATION_CLOSED => println!("Offer failed publication is closed"),
-            _ => {
-                if code < 0 {
-                    panic!("Offer failed due to unknown reason, ret code {}", code);
-                } else {
-                    println!("sent!");
-                }
-            }
-        }
+        println!("Sent with code {}!", code);
     } else {
-        panic!("offer with error: {:?}", result.err());
+        panic!("Offer with error: {:?}", result.err());
     }
 
     let mut handler_f = |buffer: &AtomicBuffer, offset, length, _header: &Header| {
@@ -423,7 +399,7 @@ fn test_sequential_consistency() {
     for seq_no in 0..messages_to_send {
         offer_idle_strategy.reset();
 
-        while publication.lock().unwrap().try_claim(I64_SIZE, &mut buffer_claim).unwrap() < 0 {
+        while publication.lock().unwrap().try_claim(I64_SIZE, &mut buffer_claim).is_err() {
             offer_idle_strategy.idle();
         }
 

@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn atomic_buffer_put_bytes() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn atomic_buffer_put_bytes_with_write_trait() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let mut buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn atomic_buffer_get_as_slice() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn atomic_buffer_get_as_mut_slice() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let mut buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn atomic_buffer_get_sub_slice() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let buffer = AtomicBuffer::new(data.as_mut_ptr(), 8);
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn atomic_buffer_get_sub_slice_out_of_bounds() {
-        let mut data: Vec<u8> = (0u8..=7).map(|x| x).collect();
+        let mut data: Vec<u8> = (0u8..=7).collect();
         assert_eq!(data.len(), 8);
 
         let x = AtomicBuffer::new(data.as_mut_ptr(), 8);
