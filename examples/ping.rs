@@ -127,7 +127,7 @@ fn send_ping_and_receive_pong(
                 idle_strategy.idle();
             }
 
-            if image.position() >= position {
+            if image.position() >= position as i64 {
                 break;
             }
         }
