@@ -393,7 +393,7 @@ impl Publication {
                     term_count,
                     term_offset as i32,
                     term_id,
-                    position as Index,
+                    position,
                     resulting_offset.expect("Something wrong with resulting offset"),
                 );
             } else {
@@ -520,7 +520,7 @@ impl Publication {
                     term_count,
                     term_offset as i32,
                     term_id,
-                    position as Index,
+                    position,
                     resulting_offset.expect("Error getting resulting_offset"),
                 );
             } else {
@@ -569,7 +569,7 @@ impl Publication {
                     term_count,
                     term_offset as i32,
                     term_id,
-                    position as Index,
+                    position,
                     resulting_offset.expect("Error getting resulting_offset"),
                 );
             } else {
@@ -660,9 +660,9 @@ impl Publication {
         self.is_closed.store(true, Ordering::Release);
     }
 
-    fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: Index, resulting_offset: Index) -> i64 {
+    fn new_position(&self, term_count: Index, term_offset: Index, term_id: i32, position: i64, resulting_offset: Index) -> i64 {
         if resulting_offset > 0 {
-            return (position - term_offset) as i64 + resulting_offset as i64;
+            return (position - term_offset as i64) + resulting_offset as i64;
         }
 
         if position as i64 + term_offset as i64 > self.max_possible_position {

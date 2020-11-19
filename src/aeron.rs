@@ -55,7 +55,6 @@ use crate::{
 
 #[allow(dead_code)]
 pub struct Aeron {
-    random_engine: rand::rngs::ThreadRng,
     session_id_distribution: rand::distributions::Uniform<i32>,
 
     context: Context,
@@ -130,7 +129,6 @@ impl Aeron {
         let use_agent_invoker = context.use_conductor_agent_invoker();
 
         let mut aeronchik = Self {
-            random_engine: rand::thread_rng(),
             session_id_distribution: Uniform::from(std::i32::MIN..std::i32::MAX),
             context: context.clone(),
             cnc_buffer: cnc_buf,

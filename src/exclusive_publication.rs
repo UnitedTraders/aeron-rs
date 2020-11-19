@@ -485,7 +485,6 @@ impl ExclusivePublication {
      * @return The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
-    // TODO: Implement if necessary
     pub fn offer_bulk(
         &mut self,
         buffers: Vec<AtomicBuffer>,
