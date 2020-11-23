@@ -256,15 +256,20 @@ fn main() {
 
             offer_idle_strategy.reset();
 
-            while publication
-                .lock()
-                .unwrap()
-                .try_claim(settings.message_length, &mut buffer_claim)
-                .unwrap_err()
-                == AeronError::BackPressured
-            {
-                back_pressure_count += 1;
-                offer_idle_strategy.idle();
+            loop {
+                match publication
+                    .lock()
+                    .unwrap()
+                    .try_claim(settings.message_length, &mut buffer_claim)
+                {
+                    Ok(_) => break,
+                    Err(AeronError::BackPressured) => {
+                        back_pressure_count += 1;
+                        offer_idle_strategy.idle();
+                    }
+                    // TODO: Decide, if we need to keep stats for other errors
+                    _ => continue,
+                }
             }
 
             buffer_claim.buffer().put::<i64>(buffer_claim.offset(), i);
