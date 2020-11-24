@@ -42,8 +42,8 @@ pub enum AeronError {
     ReentrantException(String),
     #[error("RegistrationException: {0}")]
     RegistrationException(String),
-    #[error("ChannelEndpointException: {0:?}")]
-    ChannelEndpointException((i64, String)), // correlation ID + error message
+    #[error("ChannelEndpointException. For msg with correlation ID = {0} error occurred: {1}")]
+    ChannelEndpointException(i64, String), // correlation ID + error message
     #[error("ClientTimeoutException: {0}")]
     ClientTimeoutException(String),
     #[error("BroadcastTransmitError: {0:?}")]
