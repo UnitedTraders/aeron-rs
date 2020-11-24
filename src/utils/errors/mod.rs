@@ -14,72 +14,54 @@
  * limitations under the License.
  */
 
-use std::fmt::Display;
-use std::{fmt, io};
+use std::io;
 
-use crate::concurrent::{self, broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
+use thiserror::Error;
+
+use crate::concurrent::{broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
 
 pub mod distinct_error_log;
 pub mod error_log_descriptor;
 pub mod error_log_reader;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AeronError {
+    #[error("Aeron error: {0}")]
     GenericError(String),
+    #[error("Illegal argument: {0}")]
     IllegalArgumentException(String),
+    #[error("Illegal state: {0}")]
     IllegalStateException(String),
+    #[error("MemMappedFileError: {0}")]
     MemMappedFileError(io::Error),
+    #[error("ConductorServiceTimeout: {0}")]
     ConductorServiceTimeout(String),
+    #[error("DriverTimeout: {0}")]
     DriverTimeout(String),
+    #[error("ReentrantException: {0}")]
     ReentrantException(String),
+    #[error("RegistrationException: {0}")]
     RegistrationException(String),
-    ChannelEndpointException((i64, String)), // correlation ID + error message
+    #[error("ChannelEndpointException. For msg with correlation ID = {0} error occurred: {1}")]
+    ChannelEndpointException(i64, String), // correlation ID + error message
+    #[error("ClientTimeoutException: {0}")]
     ClientTimeoutException(String),
-    BroadcastTransmitError(BroadcastTransmitError),
-    RingBufferError(RingBufferError),
+    #[error("BroadcastTransmitError: {0:?}")]
+    BroadcastTransmitError(#[from] BroadcastTransmitError),
+    #[error("RingBufferError: {0:?}")]
+    RingBufferError(#[from] RingBufferError),
+    #[error("Offer failed because publisher is not connected to subscriber")]
     NotConnected,
+    #[error("Offer failed due to back pressure")]
     BackPressured,
+    #[error("Offer failed because of an administration action in the system")]
     AdminAction,
+    #[error("Offer failed publication is closed")]
     PublicationClosed,
+    #[error("Max possible position exceeded")]
     MaxPositionExceeded,
+    #[error("Unknown code {0} on getting position")]
     UnknownCode(i64),
-}
-
-impl Display for AeronError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            AeronError::GenericError(msg) => write!(f, "Aeron error: {}", msg),
-            AeronError::IllegalArgumentException(msg) => write!(f, "Illegal argument: {}", msg),
-            AeronError::IllegalStateException(msg) => write!(f, "Illegal state: {}", msg),
-            AeronError::MemMappedFileError(err) => write!(f, "MemMappedFileError: {:?}", err),
-            AeronError::ConductorServiceTimeout(err) => write!(f, "ConductorServiceTimeout: {:?}", err),
-            AeronError::DriverTimeout(err) => write!(f, "DriverTimeout: {:?}", err),
-            AeronError::ReentrantException(err) => write!(f, "ReentrantException: {:?}", err),
-            AeronError::RegistrationException(err) => write!(f, "RegistrationException: {:?}", err),
-            AeronError::ChannelEndpointException(err) => write!(f, "ChannelEndpointException: {:?}", err),
-            AeronError::ClientTimeoutException(err) => write!(f, "ClientTimeoutException: {:?}", err),
-            AeronError::BroadcastTransmitError(err) => write!(f, "BroadcastTransmitError: {:?}", err),
-            AeronError::RingBufferError(err) => write!(f, "RingBufferError: {:?}", err),
-            AeronError::NotConnected => write!(f, "Offer failed because publisher is not connected to subscriber"),
-            AeronError::BackPressured => write!(f, "Offer failed due to back pressure"),
-            AeronError::AdminAction => write!(f, "Offer failed because of an administration action in the system"),
-            AeronError::PublicationClosed => write!(f, "Offer failed publication is closed"),
-            AeronError::MaxPositionExceeded => write!(f, "Max possible position exceeded"),
-            AeronError::UnknownCode(code) => write!(f, "Unknown code {} on getting position", code),
-        }
-    }
-}
-
-impl std::convert::From<concurrent::ring_buffer::RingBufferError> for AeronError {
-    fn from(err: RingBufferError) -> Self {
-        AeronError::RingBufferError(err)
-    }
-}
-
-impl std::convert::From<concurrent::broadcast::BroadcastTransmitError> for AeronError {
-    fn from(err: BroadcastTransmitError) -> Self {
-        AeronError::BroadcastTransmitError(err)
-    }
 }
 
 impl PartialEq for AeronError {

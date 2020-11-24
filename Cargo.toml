@@ -9,6 +9,7 @@ repository = "https://github.com/UnitedTraders/aeron-rs"
 edition = "2018"
 
 [dependencies]
+thiserror = "=1.0.20"
 cache_line_size="1.0.0"
 num-traits="0.2.11"
 lazy_static = "1.4.0"

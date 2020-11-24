@@ -1616,10 +1616,10 @@ impl DriverListener for ClientConductor {
                     if subscription.channel_status_id() == offending_command_correlation_id as i32 {
                         ttrace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
-                        (self.error_handler)(ChannelEndpointException((
+                        (self.error_handler)(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
-                        )));
+                        ));
 
                         if let Some(mut images) = subscription.close_and_remove_images() {
                             for image in images.iter_mut() {
@@ -1654,10 +1654,10 @@ impl DriverListener for ClientConductor {
                     {
                         ttrace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
-                        (self.error_handler)(ChannelEndpointException((
+                        (self.error_handler)(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
-                        )));
+                        ));
                         publication.lock().expect("Mutex on pub poisoned").close();
                         publication_to_remove.push(*reg_id);
                     }
@@ -1676,10 +1676,10 @@ impl DriverListener for ClientConductor {
                     if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
                         == offending_command_correlation_id as i32
                     {
-                        (self.error_handler)(ChannelEndpointException((
+                        (self.error_handler)(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
-                        )));
+                        ));
                         publication.lock().expect("Mutex on pub poisoned").close();
                         epublication_to_remove.push(*reg_id);
                     }
