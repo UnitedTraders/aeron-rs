@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
+
+use thiserror::Error;
 
 use crate::{
     command::control_protocol_events::AeronCommand,
@@ -115,32 +116,16 @@ pub mod record_descriptor {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Error)]
 pub enum RingBufferError {
+    #[error("Insufficient capacity")]
     InsufficientCapacity,
+    #[error("Encoded message exceeds maxMsgLength of {max}: length={msg}")]
     MessageTooLong { msg: Index, max: Index },
+    #[error("Message type id must be greater than zero, msgTypeId={0}")]
     NonPositiveMessageTypeId(i32),
+    #[error("Capacity must be a positive power of 2 + TRAILER_LENGTH: capacity={capacity}")]
     CapacityIsNotTwoPower { capacity: Index },
-}
-
-impl fmt::Display for RingBufferError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = match self {
-            RingBufferError::InsufficientCapacity => "Insufficient capacity".into(),
-            RingBufferError::MessageTooLong { msg, max } => {
-                format!("Encoded message exceeds maxMsgLength of {}: length={}", max, msg)
-            }
-            RingBufferError::NonPositiveMessageTypeId(type_id) => {
-                format!("Message type id must be greater than zero, msgTypeId={}", type_id)
-            }
-            RingBufferError::CapacityIsNotTwoPower { capacity } => format!(
-                "Capacity must be a positive power of 2 + TRAILER_LENGTH: capacity={}",
-                capacity
-            ),
-        };
-
-        write!(f, "{}", msg)
-    }
 }
 
 #[derive(Debug)]
