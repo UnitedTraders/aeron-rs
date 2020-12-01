@@ -256,12 +256,10 @@ fn main() {
 
             offer_idle_strategy.reset();
 
-            while publication
+            while let Err(AeronError::BackPressured) = publication
                 .lock()
                 .unwrap()
                 .try_claim(settings.message_length, &mut buffer_claim)
-                .unwrap_err()
-                == AeronError::BackPressured
             {
                 back_pressure_count += 1;
                 offer_idle_strategy.idle();
