@@ -517,7 +517,7 @@ impl Publication {
                 Err(self.back_pressure_status(position, length as Index))
             }
         } else {
-            Err(AeronError::NotConnected)
+            Err(AeronError::PublicationClosed)
         }
     }
 
