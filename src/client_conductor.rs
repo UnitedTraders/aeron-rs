@@ -632,10 +632,7 @@ impl ClientConductor {
                                 self.driver_timeout_ms
                             )))
                         } else {
-                            Err(AeronError::GenericError(format!(
-                                "publication not ready yet, status {:?}",
-                                state.status
-                            )))
+                            Err(AeronError::PublicationNotReady(registration_id))
                         }
                     }
                     RegistrationStatus::Registered => {
@@ -941,10 +938,7 @@ impl ClientConductor {
                             self.driver_timeout_ms
                         )))
                     } else {
-                        Err(AeronError::GenericError(format!(
-                            "subscription not ready yet, status {:?}",
-                            state.status
-                        )))
+                        Err(AeronError::SubscriptionNotReady(registration_id))
                     }
                 } else if RegistrationStatus::Errored == state.status {
                     subscription_to_remove = Some(registration_id);

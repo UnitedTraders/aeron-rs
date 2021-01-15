@@ -28,6 +28,10 @@ pub mod error_log_reader;
 pub enum AeronError {
     #[error("Aeron error: {0}")]
     GenericError(String),
+    #[error("Subscription {0} not ready")]
+    SubscriptionNotReady(i64),
+    #[error("Publication {0} not ready")]
+    PublicationNotReady(i64),
     #[error("Illegal argument: {0}")]
     IllegalArgumentException(String),
     #[error("Illegal state: {0}")]
