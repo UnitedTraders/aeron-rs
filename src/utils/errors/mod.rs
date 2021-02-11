@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::hash::{Hash, Hasher};
 use std::io;
 
 use thiserror::Error;
@@ -72,6 +73,17 @@ impl PartialEq for AeronError {
     fn eq(&self, other: &Self) -> bool {
         // Errors are equal if they have same type regardless the content of data (error message) inside
         std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl Eq for AeronError {}
+
+impl Hash for AeronError {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            AeronError::MemMappedFileError(err) => err.kind().hash(state),
+            err => err.hash(state),
+        }
     }
 }
 
