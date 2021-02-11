@@ -189,7 +189,7 @@ mod tests {
             .open(&file_path)
             .unwrap();
 
-        let size = 10000 as Index;
+        let size = 10000;
         tmp_file.set_len(size as u64).unwrap();
 
         {

@@ -196,7 +196,7 @@ impl ChannelUriStringBuilder {
 
     #[inline]
     pub fn mtu(&mut self, mtu: u32) -> Result<&mut Self, AeronError> {
-        if mtu < 32 || mtu > 65504 {
+        if !(32..=65504).contains(&mtu) {
             return Err(AeronError::IllegalArgumentException(format!(
                 "MTU is not in range 32-65504: {}",
                 mtu

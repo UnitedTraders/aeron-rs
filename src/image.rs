@@ -320,7 +320,7 @@ impl Image {
             let position = self.subscriber_position.get();
             let term_offset: Index = (position as Index) & self.term_length_mask;
             let index = log_buffer_descriptor::index_by_position(position, self.position_bits_to_shift);
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let term_buffer = self.term_buffers[index as usize];
 
             let read_outcome: ReadOutcome = term_reader::read(
@@ -366,7 +366,7 @@ impl Image {
             let initial_position = self.subscriber_position.get();
             let initial_offset = (initial_position & self.term_length_mask as i64) as i32;
             let index = log_buffer_descriptor::index_by_position(initial_position, self.position_bits_to_shift);
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
 
             let term_buffer = self.term_buffers[index as usize];
             let mut offset = initial_offset as i32;
@@ -436,7 +436,7 @@ impl Image {
             let mut initial_offset: Index = (initial_position as i32) & self.term_length_mask;
             let index = log_buffer_descriptor::index_by_position(initial_position, self.position_bits_to_shift);
 
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
 
             let term_buffer = self.term_buffers[index as usize];
             let mut resulting_offset: Index = initial_offset;
@@ -524,7 +524,7 @@ impl Image {
             let mut initial_position = self.subscriber_position.get();
             let mut initial_offset: Index = initial_position as Index & self.term_length_mask;
             let index = log_buffer_descriptor::index_by_position(initial_position, self.position_bits_to_shift);
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let term_buffer = self.term_buffers[index as usize];
             let mut resulting_offset: Index = initial_offset;
             let capacity = term_buffer.capacity() as i64;
@@ -612,7 +612,7 @@ impl Image {
             let mut offset: Index = initial_offset;
             let mut position: i64 = initial_position;
             let index: Index = log_buffer_descriptor::index_by_position(initial_position, self.position_bits_to_shift);
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let termb_buffer = self.term_buffers[index as usize];
             let capacity: Index = termb_buffer.capacity();
 
@@ -696,7 +696,7 @@ impl Image {
             let position = self.subscriber_position.get();
             let term_offset = position as Index & self.term_length_mask;
             let index = log_buffer_descriptor::index_by_position(position, self.position_bits_to_shift);
-            assert!(index >= 0 && index < log_buffer_descriptor::PARTITION_COUNT);
+            assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let term_buffer = self.term_buffers[index as usize];
             let limit_offset: Index = min(term_offset + block_length_limit, term_buffer.capacity());
             let resulting_offset: Index = scan(&term_buffer, term_offset, limit_offset);

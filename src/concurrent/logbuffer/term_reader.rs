@@ -57,9 +57,11 @@ pub fn read(
     header: &mut Header,
     _exception_handler: impl Fn(AeronError),
 ) -> ReadOutcome {
-    let mut outcome = ReadOutcome::default();
-    outcome.fragments_read = 0;
-    outcome.offset = term_offset;
+    let mut outcome = ReadOutcome {
+        offset: term_offset,
+        ..Default::default()
+    };
+
     let capacity = term_buffer.capacity();
 
     while outcome.fragments_read < fragments_limit && term_offset < capacity {

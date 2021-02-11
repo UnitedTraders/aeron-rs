@@ -736,7 +736,7 @@ mod tests {
         let reader = UnsafeBufferPosition::new(reader_buffer, counter_id);
         let writer = UnsafeBufferPosition::new(writer_buffer, counter_id);
 
-        let expected_value = 0xFFFF_FFFFF;
+        let expected_value = 0x000F_FFFF_FFFF;
 
         writer.set_ordered(expected_value);
         assert_eq!(reader.get_volatile(), expected_value);
