@@ -512,15 +512,15 @@ mod tests {
         let tail: Index = 0;
         let tail_index: Index = 0;
         let length: Index = 8;
-        let record_length: Index = length + record_descriptor::HEADER_LENGTH;
-        let aligned_record_length: Index = align(record_length, record_descriptor::ALIGNMENT);
+        let expected_record_length: Index = length + record_descriptor::HEADER_LENGTH;
+        let aligned_record_length: Index = align(expected_record_length, record_descriptor::ALIGNMENT);
 
         test.ring_buffer
             .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
             .unwrap();
 
         let record_length = test.ab.get::<i32>(record_descriptor::length_offset(tail_index));
-        assert_eq!(record_length, record_length);
+        assert_eq!(record_length, expected_record_length);
 
         let msg_type = test.ab.get::<i32>(record_descriptor::type_offset(tail_index));
         assert_eq!(msg_type, MSG_TYPE_ID);
