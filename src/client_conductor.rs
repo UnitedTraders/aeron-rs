@@ -23,6 +23,7 @@ use std::{
     },
 };
 
+use crate::utils::errors::{DriverTimeoutError, GenericError};
 use crate::{
     concurrent::{
         agent_runner::Agent,
@@ -48,7 +49,7 @@ use crate::{
     subscription::Subscription,
     ttrace,
     utils::{
-        errors::AeronError::{self, ChannelEndpointException, ClientTimeoutException},
+        errors::AeronError::{self, ChannelEndpointException},
         log_buffers::LogBuffers,
         misc::CallbackGuard,
         types::{Moment, MAX_MOMENT},
@@ -61,8 +62,8 @@ const KEEPALIVE_TIMEOUT_MS: Moment = 500;
 const RESOURCE_TIMEOUT_MS: Moment = 1000;
 
 /// MediaDriver
-#[derive(PartialEq, Debug)]
-enum RegistrationStatus {
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum RegistrationStatus {
     Awaiting,
     Registered,
     Errored,
@@ -418,7 +419,7 @@ impl ClientConductor {
 
     pub fn ensure_open(&self) -> Result<(), AeronError> {
         if self.is_closed() {
-            Err(AeronError::GenericError(String::from("Aeron client conductor is closed")))
+            Err(GenericError::ClientConductorClosed.into())
         } else {
             Ok(())
         }
@@ -451,7 +452,7 @@ impl ClientConductor {
             if now_ms > self.driver_proxy.time_of_last_driver_keepalive() as Moment + self.driver_timeout_ms {
                 self.driver_active.store(false, Ordering::SeqCst);
 
-                let err = AeronError::DriverTimeout(format!("driver has been inactive for over {} ms", self.driver_timeout_ms));
+                let err = DriverTimeoutError::WasInactive(self.driver_timeout_ms).into();
 
                 ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
@@ -470,7 +471,7 @@ impl ClientConductor {
                 } else {
                     self.close_all_resources(now_ms);
 
-                    let err = AeronError::GenericError(String::from("client heartbeat timestamp not active"));
+                    let err = GenericError::ClientHeartbeatNotActive.into();
 
                     ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
@@ -505,7 +506,7 @@ impl ClientConductor {
 
     pub fn verify_driver_is_active(&self) -> Result<(), AeronError> {
         if !self.driver_active.load(Ordering::SeqCst) {
-            Err(AeronError::DriverTimeout(String::from("driver is inactive")))
+            Err(DriverTimeoutError::Inactive.into())
         } else {
             Ok(())
         }
@@ -513,14 +514,14 @@ impl ClientConductor {
 
     pub fn verify_driver_is_active_via_error_handler(&self) {
         if !self.driver_active.load(Ordering::SeqCst) {
-            let err = AeronError::DriverTimeout(String::from("driver is inactive"));
+            let err = DriverTimeoutError::Inactive.into();
             (self.error_handler)(err);
         }
     }
 
     pub fn ensure_not_reentrant(&self) {
         if self.is_in_callback {
-            let err = AeronError::ReentrantException(String::from("client cannot be invoked within callback"));
+            let err = AeronError::ReentrantException;
             (self.error_handler)(err);
         }
     }
@@ -620,7 +621,7 @@ impl ClientConductor {
                     );
                     Ok(publication)
                 } else {
-                    Err(AeronError::GenericError(String::from("publication already dropped")))
+                    Err(GenericError::PublicationAlreadyDropped.into())
                 }
             } else {
                 // Otherwise fill in the state.publication
@@ -662,10 +663,10 @@ impl ClientConductor {
 
                             Ok(new_pub)
                         } else {
-                            Err(AeronError::GenericError(format!(
-                                "buffers was not set for Publication with registration_id {}",
-                                state.registration_id
-                            )))
+                            Err(GenericError::BufferNotSetForPublication {
+                                registration_id: state.registration_id,
+                            }
+                            .into())
                         }
                     }
 
@@ -680,7 +681,7 @@ impl ClientConductor {
             }
         } else {
             // error, publication not found
-            return Err(AeronError::GenericError(String::from("publication not found")));
+            return Err(GenericError::PublicationNotFound.into());
         };
 
         if let Some(id) = publication_to_remove {
@@ -691,11 +692,7 @@ impl ClientConductor {
     }
 
     pub fn return_registration_error(err_code: i32, err_message: &CStr) -> AeronError {
-        AeronError::RegistrationException(format!(
-            "error code {}, error message: {}",
-            err_code,
-            err_message.to_str().expect("CStr conversion error")
-        ))
+        AeronError::RegistrationException(err_code, String::from(err_message.to_str().expect("CStr conversion error")))
     }
 
     pub fn release_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
@@ -715,7 +712,7 @@ impl ClientConductor {
                 "release_publication: publication with registration_id {} not found",
                 registration_id
             );
-            return Err(AeronError::GenericError(String::from("Unknown registration_id")));
+            return Err(GenericError::UnknownRegistrationId(registration_id).into());
         }
 
         Ok(())
@@ -768,9 +765,7 @@ impl ClientConductor {
                     );
                     Ok(publication)
                 } else {
-                    Err(AeronError::GenericError(String::from(
-                        "exclusive publication already dropped",
-                    )))
+                    Err(GenericError::ExclusivePublicationAlreadyDropped.into())
                 }
             } else {
                 // Otherwise fill in the state.publication
@@ -782,10 +777,7 @@ impl ClientConductor {
                                 self.driver_timeout_ms
                             )))
                         } else {
-                            Err(AeronError::GenericError(format!(
-                                "exclusive publication not ready yet, status {:?}",
-                                state.status
-                            )))
+                            Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
                         }
                     }
                     RegistrationStatus::Registered => {
@@ -814,10 +806,10 @@ impl ClientConductor {
 
                             Ok(new_pub)
                         } else {
-                            Err(AeronError::GenericError(format!(
-                                "buffers was not set for exclusive Publication with registration_id {}",
-                                state.registration_id
-                            )))
+                            Err(GenericError::BufferNotSetForPublication {
+                                registration_id: state.registration_id,
+                            }
+                            .into())
                         }
                     }
 
@@ -832,7 +824,7 @@ impl ClientConductor {
             }
         } else {
             // error, publication not found
-            return Err(AeronError::GenericError(String::from("exclusive publication not found")));
+            return Err(GenericError::ExclusivePublicationNotFound.into());
         };
 
         if let Some(id) = publication_to_remove {
@@ -859,7 +851,7 @@ impl ClientConductor {
                 "release_exclusive_publication: exclusive publication with registration_id {} not found",
                 registration_id
             );
-            return Err(AeronError::GenericError(String::from("Unknown registration_id")));
+            return Err(GenericError::UnknownRegistrationId(registration_id).into());
         }
         Ok(())
     }
@@ -923,7 +915,7 @@ impl ClientConductor {
                     );
                     Ok(subscription)
                 } else {
-                    Err(AeronError::GenericError(String::from("subscription already dropped")))
+                    Err(GenericError::SubscriptionAlreadyDropped.into())
                 };
 
                 state.subscription_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
@@ -933,10 +925,7 @@ impl ClientConductor {
                 // state.subscription in None - was not set in the past
                 if RegistrationStatus::Awaiting == state.status {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(AeronError::DriverTimeout(format!(
-                            "no response from driver in {} ms",
-                            self.driver_timeout_ms
-                        )))
+                        Err(DriverTimeoutError::NoResponse(self.driver_timeout_ms).into())
                     } else {
                         Err(AeronError::SubscriptionNotReady(registration_id))
                     }
@@ -947,14 +936,11 @@ impl ClientConductor {
                         &state.error_message,
                     ))
                 } else {
-                    Err(AeronError::GenericError(format!(
-                        "subscription is not there - don't know why, status {:?}",
-                        state.status
-                    )))
+                    Err(GenericError::SubscriptionWasNotCreatedBefore { status: state.status }.into())
                 }
             }
         } else {
-            Err(AeronError::GenericError(String::from("subscription not found")))
+            Err(GenericError::SubscriptionNotFound.into())
         };
 
         if let Some(id) = subscription_to_remove {
@@ -984,7 +970,7 @@ impl ClientConductor {
                 "release_subscription: subscription with registration_id {} not found",
                 registration_id
             );
-            return Err(AeronError::GenericError(String::from("unknown registration_id")));
+            return Err(GenericError::UnknownRegistrationId(registration_id).into());
         }
 
         self.linger_all_resources((self.epoch_clock)(), images);
@@ -1054,7 +1040,7 @@ impl ClientConductor {
                     );
                     Ok(counter)
                 } else {
-                    Err(AeronError::GenericError(String::from("counter already dropped")))
+                    Err(GenericError::CounterAlreadyDropped.into())
                 };
 
                 state.counter_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
@@ -1064,15 +1050,9 @@ impl ClientConductor {
                 // state.counter in None - was not set in the past
                 if RegistrationStatus::Awaiting == state.status {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(AeronError::DriverTimeout(format!(
-                            "no response from driver in {} ms",
-                            self.driver_timeout_ms
-                        )))
+                        Err(DriverTimeoutError::NoResponse(self.driver_timeout_ms).into())
                     } else {
-                        Err(AeronError::GenericError(format!(
-                            "counter not ready yet, status {:?}",
-                            state.status
-                        )))
+                        Err(GenericError::CounterNotReadyYet { status: state.status }.into())
                     }
                 } else if RegistrationStatus::Errored == state.status {
                     counter_to_remove = Some(registration_id);
@@ -1081,14 +1061,11 @@ impl ClientConductor {
                         &state.error_message,
                     ))
                 } else {
-                    Err(AeronError::GenericError(format!(
-                        "counter is not there - don't know why, status {:?}",
-                        state.status
-                    )))
+                    Err(GenericError::CounterWasNotCreatedBefore { status: state.status }.into())
                 }
             }
         } else {
-            Err(AeronError::GenericError(String::from("counter not found")))
+            Err(GenericError::CounterNotFound.into())
         };
 
         if let Some(id) = counter_to_remove {
@@ -1107,7 +1084,7 @@ impl ClientConductor {
             ttrace!("release_counter: counter with registration_id {} RELEASED", registration_id);
         } else {
             ttrace!("release_counter: counter with registration_id {} not found", registration_id);
-            return Err(AeronError::GenericError(String::from("Unknown registration_id")));
+            return Err(GenericError::UnknownRegistrationId(registration_id).into());
         }
 
         Ok(())
@@ -1254,7 +1231,7 @@ impl ClientConductor {
                 )),
             }
         } else {
-            Err(AeronError::GenericError(String::from("correlation_id unknown")))
+            Err(GenericError::UnknownCorrelationId(correlation_id).into())
         };
 
         if let Some(id) = destination_to_remove {
@@ -1910,7 +1887,7 @@ impl DriverListener for ClientConductor {
             ttrace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
 
             self.close_all_resources((self.epoch_clock)());
-            (self.error_handler)(ClientTimeoutException(String::from("client timeout from driver")));
+            (self.error_handler)(AeronError::ClientTimeoutException);
         }
     }
 }
@@ -1931,9 +1908,10 @@ unsafe impl Sync for ClientConductor {}
 mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use nix::unistd;
-
+    use galvanic_assert::matchers::any_value;
+    use galvanic_assert::{assert_that, has_structure, structure};
     use lazy_static::lazy_static;
+    use nix::unistd;
 
     use crate::command::control_protocol_events::AeronCommand;
     use crate::command::counter_message_flyweight::CounterMessageFlyweight;
@@ -2387,9 +2365,9 @@ mod tests {
         );
 
         let publication = test.conductor.lock().unwrap().find_publication(id);
-        assert_eq!(
-            publication.err().unwrap(),
-            AeronError::RegistrationException(String::from("fafa"))
+        assert_that!(
+            &publication.err().unwrap(),
+            has_structure!(AeronError::RegistrationException[any_value(), any_value()])
         );
     }
 
@@ -2635,9 +2613,9 @@ mod tests {
         );
 
         let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
-        assert_eq!(
-            publication.err().unwrap(),
-            AeronError::RegistrationException(String::from("fafa"))
+        assert_that!(
+            &publication.err().unwrap(),
+            has_structure!(AeronError::RegistrationException[any_value(), any_value()])
         );
     }
 
@@ -2934,7 +2912,10 @@ mod tests {
 
         let subscription = test.conductor.lock().unwrap().find_subscription(id);
 
-        assert_eq!(subscription.err().unwrap(), AeronError::DriverTimeout(String::from("fafa")));
+        assert_that!(
+            &subscription.err().unwrap(),
+            has_structure!(AeronError::DriverTimeout[any_value()])
+        );
     }
 
     #[test]
@@ -2960,9 +2941,9 @@ mod tests {
 
         let subscription = test.conductor.lock().unwrap().find_subscription(id);
 
-        assert_eq!(
-            subscription.err().unwrap(),
-            AeronError::RegistrationException(String::from("fafa"))
+        assert_that!(
+            &subscription.err().unwrap(),
+            has_structure!(AeronError::RegistrationException[any_value(), any_value()])
         );
     }
 
@@ -2996,13 +2977,13 @@ mod tests {
     #[allow(dead_code)]
     fn error_handler2(error: AeronError) {
         ERR_HANDLER_CALLED2.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
         println!("It was called");
     }
 
     fn error_handler3(error: AeronError) {
         ERR_HANDLER_CALLED3.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3023,7 +3004,7 @@ mod tests {
 
     fn error_handler4(error: AeronError) {
         ERR_HANDLER_CALLED4.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3043,15 +3024,12 @@ mod tests {
 
         let result = test.conductor.lock().unwrap().add_publication(str_to_c(CHANNEL), STREAM_ID);
 
-        assert_eq!(
-            result.err().unwrap(),
-            AeronError::DriverTimeout(String::from("Doesn't matter"))
-        );
+        assert_that!(&result.err().unwrap(), has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     fn error_handler5(error: AeronError) {
         ERR_HANDLER_CALLED5.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3075,7 +3053,7 @@ mod tests {
 
     fn error_handler6(error: AeronError) {
         ERR_HANDLER_CALLED6.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3098,15 +3076,12 @@ mod tests {
             on_available_image_handler,
             on_unavailable_image_handler,
         );
-        assert_eq!(
-            result.err().unwrap(),
-            AeronError::DriverTimeout(String::from("Doesn't matter"))
-        );
+        assert_that!(&result.err().unwrap(), has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     fn error_handler7(error: AeronError) {
         ERR_HANDLER_CALLED7.store(true, Ordering::SeqCst);
-        assert_eq!(error, AeronError::DriverTimeout(String::from("Doesn't matter")));
+        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3124,10 +3099,7 @@ mod tests {
         assert!(called);
 
         let result = test.conductor.lock().unwrap().release_subscription(100, Vec::<Image>::new());
-        assert_eq!(
-            result.err().unwrap(),
-            AeronError::GenericError(String::from("Doesn't matter"))
-        );
+        assert_that!(&result.err().unwrap(), has_structure!(AeronError::GenericError[any_value()]));
     }
 
     fn on_new_publication_handler1(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
@@ -4124,9 +4096,9 @@ mod tests {
 
         let counter = test.conductor.lock().unwrap().find_counter(id);
 
-        assert_eq!(
-            counter.err().unwrap(),
-            AeronError::DriverTimeout(String::from("Doesn't matter"))
+        assert_that!(
+            &counter.err().unwrap(),
+            has_structure!(AeronError::DriverTimeout[any_value()])
         );
     }
 
@@ -4149,9 +4121,9 @@ mod tests {
 
         let counter = test.conductor.lock().unwrap().find_counter(id);
 
-        assert_eq!(
-            counter.err().unwrap(),
-            AeronError::RegistrationException(String::from("Doesn't matter"))
+        assert_that!(
+            &counter.err().unwrap(),
+            has_structure!(AeronError::RegistrationException[any_value(), any_value()])
         );
     }
 

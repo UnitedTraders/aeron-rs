@@ -738,6 +738,7 @@ mod tests {
     use lazy_static::lazy_static;
 
     use super::*;
+    use crate::utils::errors::GenericError;
     use crate::{
         concurrent::{atomic_buffer::AlignedBuffer, logbuffer::data_frame_header::DataFrameHeaderDefn},
         utils::bit_utils::{align, number_of_trailing_zeroes},
@@ -787,7 +788,7 @@ mod tests {
         _length: Index,
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
-        Err(AeronError::GenericError(String::from("Test")))
+        Err(GenericError::Custom("Test".to_string()).into())
     }
 
     fn controlled_poll_handler_continue(

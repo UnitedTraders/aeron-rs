@@ -22,6 +22,7 @@ use std::{
     },
 };
 
+use crate::utils::errors::GenericError;
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -114,9 +115,7 @@ impl Subscription {
                 .expect("Mutex poisoned")
                 .add_rcv_destination(self.registration_id, endpoint_channel_cstr)
         } else {
-            Err(AeronError::GenericError(String::from(
-                "String to CString conversion failed for endpoint_channel",
-            )))
+            Err(GenericError::StringToCStringConversionFailed.into())
         }
     }
 
@@ -131,9 +130,7 @@ impl Subscription {
                 .expect("Mutex poisoned")
                 .remove_rcv_destination(self.registration_id, endpoint_channel_cstr)
         } else {
-            Err(AeronError::GenericError(String::from(
-                "String to CString conversion failed for endpoint_channel",
-            )))
+            Err(GenericError::StringToCStringConversionFailed.into())
         }
     }
 
