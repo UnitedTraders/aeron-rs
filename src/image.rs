@@ -791,6 +791,7 @@ mod tests {
         Err(GenericError::Custom("Test".to_string()).into())
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_continue(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -800,6 +801,7 @@ mod tests {
         Ok(ControlledPollAction::CONTINUE)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_abort(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -809,6 +811,7 @@ mod tests {
         Ok(ControlledPollAction::ABORT)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_break(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -818,6 +821,7 @@ mod tests {
         Ok(ControlledPollAction::BREAK)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_commit(
         _buf: &AtomicBuffer,
         offset: Index,
@@ -833,6 +837,7 @@ mod tests {
         unreachable!("Should not get there!");
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_handler_cont_cont(
         _buf: &AtomicBuffer,
         offset: Index,

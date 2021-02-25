@@ -429,7 +429,7 @@ impl ClientConductor {
         self.counter_values_buffer
     }
 
-    fn on_heartbeat_check_timeouts(&mut self) -> Result<i64, AeronError> {
+    fn on_heartbeat_check_timeouts(&mut self) -> i64 {
         let now_ms = (self.epoch_clock)();
         let mut result: i64 = 0;
 
@@ -501,7 +501,7 @@ impl ClientConductor {
             result = 1;
         }
 
-        Ok(result)
+        result
     }
 
     pub fn verify_driver_is_active(&self) -> Result<(), AeronError> {
@@ -1419,7 +1419,7 @@ impl Agent for ClientConductor {
         let dla = self.driver_listener_adapter.take().unwrap();
         work_count += dla.receive_messages(self)?;
         self.driver_listener_adapter.replace(dla);
-        work_count += self.on_heartbeat_check_timeouts()? as usize;
+        work_count += self.on_heartbeat_check_timeouts() as usize;
         Ok(work_count as i32)
     }
 
