@@ -23,7 +23,7 @@ use std::{
     },
 };
 
-use crate::utils::errors::{DriverTimeoutError, GenericError, IllegalArgumentError};
+use crate::utils::errors::{ConductorServiceTimeoutError, DriverTimeoutError, GenericError, IllegalArgumentError};
 use crate::{
     concurrent::{
         agent_runner::Agent,
@@ -436,10 +436,7 @@ impl ClientConductor {
         if now_ms > self.time_of_last_do_work_ms + self.inter_service_timeout_ms {
             self.close_all_resources(now_ms);
 
-            let err = AeronError::ConductorServiceTimeout(format!(
-                "timeout between service calls over {} ms",
-                self.inter_service_timeout_ms
-            ));
+            let err = ConductorServiceTimeoutError::TimeoutBetweenServiceCallsOverTimeout(self.inter_service_timeout_ms).into();
 
             ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
@@ -628,10 +625,7 @@ impl ClientConductor {
                 match state.status {
                     RegistrationStatus::Awaiting => {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(AeronError::ConductorServiceTimeout(format!(
-                                "no response from driver in {} ms",
-                                self.driver_timeout_ms
-                            )))
+                            Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
                         } else {
                             Err(AeronError::PublicationNotReady(registration_id))
                         }
@@ -772,10 +766,7 @@ impl ClientConductor {
                 match state.status {
                     RegistrationStatus::Awaiting => {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(AeronError::ConductorServiceTimeout(format!(
-                                "no response from driver in {} ms",
-                                self.driver_timeout_ms
-                            )))
+                            Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
                         } else {
                             Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
                         }
@@ -1218,10 +1209,7 @@ impl ClientConductor {
             match state.status {
                 RegistrationStatus::Awaiting => {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(AeronError::ConductorServiceTimeout(format!(
-                            "no response from driver in {} ms",
-                            self.driver_timeout_ms
-                        )))
+                        Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
                     } else {
                         Ok(false)
                     }
@@ -2343,9 +2331,9 @@ mod tests {
 
         let publication = test.conductor.lock().unwrap().find_publication(id);
 
-        assert_eq!(
-            publication.err().unwrap(),
-            AeronError::ConductorServiceTimeout(String::from("fafa"))
+        assert_that!(
+            &publication.err().unwrap(),
+            has_structure!(AeronError::ConductorServiceTimeout[any_value()])
         );
     }
 
@@ -2591,9 +2579,9 @@ mod tests {
 
         let publication = test.conductor.lock().unwrap().find_exclusive_publication(id);
 
-        assert_eq!(
-            publication.err().unwrap(),
-            AeronError::ConductorServiceTimeout(String::from("fafa"))
+        assert_that!(
+            &publication.err().unwrap(),
+            has_structure!(AeronError::ConductorServiceTimeout[any_value()])
         );
     }
 

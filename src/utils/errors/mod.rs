@@ -22,7 +22,7 @@ use thiserror::Error;
 use crate::channel_uri::State;
 use crate::client_conductor::RegistrationStatus;
 use crate::concurrent::{broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
-use crate::utils::types::Index;
+use crate::utils::types::{Index, Moment};
 
 pub mod distinct_error_log;
 pub mod error_log_descriptor;
@@ -43,7 +43,7 @@ pub enum AeronError {
     #[error("MemMappedFileError: {0}")]
     MemMappedFileError(io::Error),
     #[error("ConductorServiceTimeout: {0}")]
-    ConductorServiceTimeout(String),
+    ConductorServiceTimeout(#[from] ConductorServiceTimeoutError),
     #[error("DriverTimeout: {0}")]
     DriverTimeout(#[from] DriverTimeoutError),
     #[error("ReentrantException: Client cannot be invoked within callback")]
@@ -70,6 +70,14 @@ pub enum AeronError {
     MaxPositionExceeded,
     #[error("Unknown code {0} on getting position")]
     UnknownCode(i64),
+}
+
+#[derive(Error, Debug)]
+pub enum ConductorServiceTimeoutError {
+    #[error("Timeout between service calls over {0} ms")]
+    TimeoutBetweenServiceCallsOverTimeout(Moment),
+    #[error("No response from driver in {0} ms")]
+    NoResponseFromDriver(Moment),
 }
 
 #[derive(Error, Debug)]
