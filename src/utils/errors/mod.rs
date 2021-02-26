@@ -19,8 +19,10 @@ use std::io;
 
 use thiserror::Error;
 
+use crate::channel_uri::State;
 use crate::client_conductor::RegistrationStatus;
 use crate::concurrent::{broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
+use crate::utils::types::Index;
 
 pub mod distinct_error_log;
 pub mod error_log_descriptor;
@@ -35,7 +37,7 @@ pub enum AeronError {
     #[error("Publication {0} not ready")]
     PublicationNotReady(i64),
     #[error("Illegal argument: {0}")]
-    IllegalArgumentException(String),
+    IllegalArgumentException(#[from] IllegalArgumentError),
     #[error("Illegal state: {0}")]
     IllegalStateException(String),
     #[error("MemMappedFileError: {0}")]
@@ -84,6 +86,69 @@ pub enum DriverTimeoutError {
     Inactive,
     #[error("No response from driver in {0} ms")]
     NoResponse(u64),
+}
+
+#[derive(Error, Debug)]
+pub enum IllegalArgumentError {
+    #[error("Limit outside range: capacity={capacity}  limit={limit}")]
+    LimitOutsideRange { capacity: Index, limit: Index },
+    #[error("Aeron URIs must start with 'aeron:', found: '{uri}'")]
+    UriMustStartWithAeron { uri: String },
+    #[error("Unknown media: {0}")]
+    UnknownMedia(String),
+    #[error("No more input found, state={state:?}")]
+    NoMoreInputFound { state: State },
+    #[error("Invalid prefix: {0}")]
+    InvalidPrefix(String),
+    #[error("Invalid media: {0}")]
+    InvalidMedia(String),
+    #[error("Invalid control mode: {0}")]
+    InvalidControlMode(String),
+    #[error("MTU is not in range {left_bound}-{right_bound}: {0}")]
+    MtuIsNotInRange { mtu: u32, left_bound: i32, right_bound: i32 },
+    #[error("MTU not a multiple of FRAME_ALIGNMENT= {frame_alignment}: mtu= {mtu}")]
+    MtuNotMultipleOfFrameAlignment { mtu: u32, frame_alignment: Index },
+    #[error("Term offset is not in range 0-1g: {0}")]
+    TermOffsetNotInRange(u32),
+    #[error("Term offset is not a multiple of FRAME_ALIGNMENT= {frame_alignment}: offset= {term_offset}")]
+    TermOffsetNotMultipleOfFrameAlignment { term_offset: u32, frame_alignment: Index },
+    #[error("Linger value cannot be negative: {0}")]
+    LingerValueCannotBeNegative(i64),
+    #[error("Key length is out of bounds: length= {key_length}, limit= {limit}")]
+    KeyLengthIsOutOfBounds { key_length: usize, limit: Index },
+    #[error("Label length is out of bounds: length= {label_length}, limit= {limit}")]
+    LabelLengthIsOutOfBounds { label_length: usize, limit: Index },
+    #[error("{filename}:{line}: counter id {counter_id} out of range: max_counter_id={max_counter_id}")]
+    CounterIdOutOfRange {
+        filename: String,
+        line: u32,
+        counter_id: i32,
+        max_counter_id: i32,
+    },
+    #[error("Allocate: label can't be converted")]
+    AllocateLabelCanNotBeConverted,
+    #[error("Allocate: label is too long")]
+    AllocateLabelTooLong,
+    #[error("Allocate: key is ambiguous")]
+    AllocateKeyIsAmbiguous,
+    #[error("Allocate: key is too long")]
+    AllocateKeyIsTooLong,
+    #[error("Unable to allocate counter, values buffer is full")]
+    UnableAllocateCounterBecauseValueBufferFull,
+    #[error("Unable to allocate counter, metadata buffer is full")]
+    UnableAllocateCounterBecauseMetadataBufferFull,
+    #[error("Encoded message exceeds max_message_length of {max_message_length}, length={length}")]
+    EncodedMessageExceedsMaxMessageLength { length: i32, max_message_length: i32 },
+    #[error("Encoded message exceeds max_payload_length of {max_payload_length}, length={length}")]
+    EncodedMessageExceedsMaxPayloadLength { length: i32, max_payload_length: i32 },
+    #[error("New position {new_position} is out of range {left_bound} - {right_bound}")]
+    NewPositionOutOfRange {
+        new_position: i64,
+        left_bound: i64,
+        right_bound: i64,
+    },
+    #[error("New_position {new_position} is not aligned to FRAME_ALIGNMENT= {frame_alignment}")]
+    NewPositionNotAlignedToFrameAlignment { new_position: i64, frame_alignment: Index },
 }
 
 #[derive(Error, Debug)]

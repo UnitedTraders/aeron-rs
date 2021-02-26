@@ -34,6 +34,7 @@ use crate::concurrent::{
     },
     position::{ReadablePosition, UnsafeBufferPosition},
 };
+use crate::utils::errors::IllegalArgumentError;
 use crate::utils::{
     bit_utils::{align, number_of_trailing_zeroes},
     errors::AeronError,
@@ -154,17 +155,20 @@ impl Image {
             (current_position - (current_position & self.term_length_mask as i64)) + self.term_length_mask as i64 + 1;
 
         if new_position < current_position || new_position > limit_position {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "{} new_position out of range {} - {}",
-                new_position, current_position, limit_position
-            )));
+            return Err(IllegalArgumentError::NewPositionOutOfRange {
+                new_position,
+                left_bound: current_position,
+                right_bound: limit_position,
+            }
+            .into());
         }
 
         if 0 != (new_position & (frame_descriptor::FRAME_ALIGNMENT - 1) as i64) {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "{} new_position not aligned to FRAME_ALIGNMENT",
-                new_position
-            )));
+            return Err(IllegalArgumentError::NewPositionNotAlignedToFrameAlignment {
+                new_position,
+                frame_alignment: frame_descriptor::FRAME_ALIGNMENT,
+            }
+            .into());
         }
 
         Ok(())

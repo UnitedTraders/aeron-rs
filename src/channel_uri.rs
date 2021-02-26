@@ -20,7 +20,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::utils::errors::AeronError;
+use crate::utils::errors::{AeronError, IllegalArgumentError};
 
 pub const SPY_QUALIFIER: &str = "aeron-spy";
 pub const AERON_SCHEME: &str = "aeron";
@@ -57,8 +57,7 @@ pub const REJOIN_PARAM_NAME: &str = "rejoin";
 pub const CONGESTION_CONTROL_PARAM_NAME: &str = "cc";
 
 #[derive(Debug)]
-#[allow(dead_code)]
-enum State {
+pub enum State {
     Media,
     ParamsKey,
     ParamsValue,
@@ -150,10 +149,7 @@ impl ChannelUri {
         }
 
         if !&uri[position..].starts_with(AERON_PREFIX) {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "Aeron URIs must start with 'aeron:', found: '{}'",
-                uri
-            )));
+            return Err(IllegalArgumentError::UriMustStartWithAeron { uri: uri.to_string() }.into());
         } else {
             position += AERON_PREFIX.len();
         }
@@ -218,17 +214,14 @@ impl ChannelUri {
             State::Media => {
                 media = builder;
                 if media != IPC_MEDIA && media != UDP_MEDIA {
-                    return Err(AeronError::IllegalArgumentException(format!("unknown media: {}", media)));
+                    return Err(IllegalArgumentError::UnknownMedia(media).into());
                 }
             }
             State::ParamsValue => {
                 params.insert(key, builder);
             }
             _ => {
-                return Err(AeronError::IllegalArgumentException(format!(
-                    "no more input found, state={:?}",
-                    state
-                )))
+                return Err(IllegalArgumentError::NoMoreInputFound { state }.into());
             }
         }
 
@@ -275,6 +268,9 @@ impl Display for ChannelUri {
 
 #[cfg(test)]
 mod tests {
+    use galvanic_assert::matchers::any_value;
+    use galvanic_assert::{assert_that, has_structure, structure};
+
     use crate::channel_uri::{ChannelUri, SPY_QUALIFIER, UDP_MEDIA};
     use crate::channel_uri_string_builder::ChannelUriStringBuilder;
     use crate::utils::errors::AeronError;
@@ -300,16 +296,28 @@ mod tests {
     #[test]
     fn should_reject_uri_without_aeron_prefix() {
         let result = ChannelUri::parse(":udp");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalArgumentException[any_value()])
+        );
 
         let result = ChannelUri::parse("aeron");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalArgumentException[any_value()])
+        );
 
         let result = ChannelUri::parse("aron:");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalArgumentException[any_value()])
+        );
 
         let result = ChannelUri::parse("eeron:");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalArgumentException[any_value()])
+        );
     }
 
     #[test]
@@ -321,7 +329,10 @@ mod tests {
     #[test]
     fn should_reject_invalid_media() {
         let result = ChannelUri::parse("aeron:ipcsdfgfdhfgf");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalArgumentException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalArgumentException[any_value()])
+        );
     }
 
     #[test]

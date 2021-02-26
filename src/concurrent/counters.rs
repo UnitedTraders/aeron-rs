@@ -242,14 +242,13 @@ impl CountersReader {
 
     fn validate_counter_id(&self, counter_id: i32) -> Result<(), AeronError> {
         if counter_id < 0 || counter_id > self.max_counter_id {
-            let err_msg = format!(
-                "{}:{}: counter id {} out of range: max_counter_id={}",
-                file!(),
-                line!(),
+            Err(IllegalArgumentError::CounterIdOutOfRange {
+                filename: file!().to_string(),
+                line: line!(),
                 counter_id,
-                self.max_counter_id
-            );
-            Err(AeronError::IllegalArgumentException(err_msg))
+                max_counter_id: self.max_counter_id,
+            }
+            .into())
         } else {
             Ok(())
         }
@@ -365,15 +364,13 @@ impl CountersManager {
         let conv_result = CString::new(label_rs);
 
         if conv_result.is_err() {
-            return Err(AeronError::IllegalArgumentException(String::from(
-                "allocate: label can't be converted",
-            )));
+            return Err(IllegalArgumentError::AllocateLabelCanNotBeConverted.into());
         }
 
         let label = conv_result.unwrap();
 
         if label.as_bytes().len() > MAX_LABEL_LENGTH as usize {
-            return Err(AeronError::IllegalArgumentException(String::from("allocate: label too long")));
+            return Err(IllegalArgumentError::AllocateLabelTooLong.into());
         }
 
         self.check_counters_capacity(counter_id)?;
@@ -390,14 +387,14 @@ impl CountersManager {
         self.reader.metadata_buffer.put::<CounterMetaDataDefn>(record_offset, record);
 
         if key_opt.is_some() && key_func.is_some() {
-            return Err(AeronError::IllegalArgumentException(String::from("allocate: key ambiguity")));
+            return Err(IllegalArgumentError::AllocateKeyIsAmbiguous.into());
         }
 
         if let Some(key) = key_opt {
             // In original code log key is truncated to MAX_KEY_LENGTH and no error produced.
             // In Rust implementation we'll return error in such situation.
             if key.len() > MAX_KEY_LENGTH as usize {
-                return Err(AeronError::IllegalArgumentException(String::from("allocate: key too long")));
+                return Err(IllegalArgumentError::AllocateKeyIsTooLong.into());
             }
 
             self.reader.metadata_buffer.put_bytes(record_offset + *KEY_OFFSET, key);
@@ -476,9 +473,7 @@ impl CountersManager {
 
     fn check_counters_capacity(&self, counter_id: i32) -> Result<i32, AeronError> {
         if CountersReader::counter_offset(counter_id) + COUNTER_LENGTH > self.reader.values_buffer.capacity() {
-            return Err(AeronError::IllegalArgumentException(String::from(
-                "unable to allocate counter, values buffer is full",
-            )));
+            return Err(IllegalArgumentError::UnableAllocateCounterBecauseValueBufferFull.into());
         }
 
         Ok(0)
@@ -486,9 +481,7 @@ impl CountersManager {
 
     fn check_meta_data_capacity(&self, record_offset: Index) -> Result<i32, AeronError> {
         if record_offset + METADATA_LENGTH > self.reader.metadata_buffer.capacity() {
-            return Err(AeronError::IllegalArgumentException(String::from(
-                "unable to allocate counter, metadata buffer is full",
-            )));
+            return Err(IllegalArgumentError::UnableAllocateCounterBecauseMetadataBufferFull.into());
         }
 
         Ok(0)

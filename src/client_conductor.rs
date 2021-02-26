@@ -23,7 +23,7 @@ use std::{
     },
 };
 
-use crate::utils::errors::{DriverTimeoutError, GenericError};
+use crate::utils::errors::{DriverTimeoutError, GenericError, IllegalArgumentError};
 use crate::{
     concurrent::{
         agent_runner::Agent,
@@ -991,17 +991,19 @@ impl ClientConductor {
         self.ensure_open()?;
 
         if key_buffer.len() > counters::MAX_KEY_LENGTH as usize {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "key length out of bounds: {}",
-                key_buffer.len()
-            )));
+            return Err(IllegalArgumentError::KeyLengthIsOutOfBounds {
+                key_length: key_buffer.len(),
+                limit: counters::MAX_KEY_LENGTH,
+            }
+            .into());
         }
 
         if label.len() > counters::MAX_LABEL_LENGTH as usize {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "label length out of bounds: {}",
-                label.len()
-            )));
+            return Err(IllegalArgumentError::LabelLengthIsOutOfBounds {
+                label_length: label.len(),
+                limit: counters::MAX_LABEL_LENGTH,
+            }
+            .into());
         }
 
         let registration_id = self
