@@ -39,7 +39,7 @@ pub enum AeronError {
     #[error("Illegal argument: {0}")]
     IllegalArgumentException(#[from] IllegalArgumentError),
     #[error("Illegal state: {0}")]
-    IllegalStateException(String),
+    IllegalStateException(#[from] IllegalStateError),
     #[error("MemMappedFileError: {0}")]
     MemMappedFileError(io::Error),
     #[error("ConductorServiceTimeout: {0}")]
@@ -78,6 +78,44 @@ pub enum ConductorServiceTimeoutError {
     TimeoutBetweenServiceCallsOverTimeout(Moment),
     #[error("No response from driver in {0} ms")]
     NoResponseFromDriver(Moment),
+}
+
+#[derive(Error, Debug)]
+pub enum IllegalStateError {
+    #[error("Max capacity was reached: {0}")]
+    MaxCapacityReached(Index),
+    #[error("Encountered '{c}' within media definition at index {index} in '{uri}'")]
+    EncounteredCharacterWithinMediaDefinition { c: char, index: usize, uri: String },
+    #[error("Empty key is not allowed at index {index} in '{uri}'")]
+    EmptyKeyNotAllowed { index: usize, uri: String },
+    #[error("Invalid end of key at index {index} in '{uri}'")]
+    InvalidEndOfKey { index: usize, uri: String },
+    #[error("Couldn't write command to driver")]
+    CouldNotWriteCommandToDriver,
+    #[error("Length overflow: {0}")]
+    LengthOverflow(i32),
+    #[error("Publication is closed")]
+    PublicationClosed,
+    #[error("Subscription is closed")]
+    SubscriptionClosed,
+    #[error("Frame header length {length} must be equal to {data_offset}")]
+    FrameHeaderLengthMustBeEqualToDataOffset { length: Index, data_offset: Index },
+    #[error("Max frame length must be a multiple of {frame_alignment} , length = {length}")]
+    MaxFrameLengthMustBeMultipleOfFrameAlignment { length: i32, frame_alignment: Index },
+    #[error("Term length is less than min size of {term_min_length} , length= {term_length}")]
+    TermLengthIsLessThanMinPossibleSize { term_length: i32, term_min_length: Index },
+    #[error("Term length is greater than max size of {term_max_length} , length= {term_length}")]
+    TermLengthIsGreaterThanMaxPossibleSize { term_length: i32, term_max_length: Index },
+    #[error("Term length is not a power of 2, length= {0}")]
+    TermLengthIsNotPowerOfTwo(i32),
+    #[error("Page size is less than min size of {page_min_size}, size= {page_size}")]
+    PageSizeLessThanMinPossibleSize { page_size: i32, page_min_size: Index },
+    #[error("Page size is greater than max size of {page_max_size}, size= {page_size}")]
+    PageSizeGreaterThanMaxPossibleSize { page_size: i32, page_max_size: Index },
+    #[error("Page size is not a power of 2, length= {0}")]
+    PageSizeIsNotPowerOfTwo(i32),
+    #[error("Action possibly delayed: expected_term_id={expected_term_id} term_id={term_id}")]
+    ActionPossiblyDelayed { term_id: i32, expected_term_id: i32 },
 }
 
 #[derive(Error, Debug)]

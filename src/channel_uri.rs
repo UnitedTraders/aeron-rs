@@ -20,7 +20,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::utils::errors::{AeronError, IllegalArgumentError};
+use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
 
 pub const SPY_QUALIFIER: &str = "aeron-spy";
 pub const AERON_SCHEME: &str = "aeron";
@@ -170,30 +170,34 @@ impl ChannelUri {
                         state = State::ParamsKey;
                     }
                     '=' | '|' | ':' => {
-                        return Err(AeronError::IllegalStateException(format!(
-                            "encountered '{}' within media definition at index {} in {}",
-                            c, i, uri
-                        )));
+                        return Err(IllegalStateError::EncounteredCharacterWithinMediaDefinition {
+                            c,
+                            index: i,
+                            uri: uri.to_string(),
+                        }
+                        .into());
                     }
                     _ => builder.push(c),
                 },
                 State::ParamsKey => {
                     if c == '=' {
                         if builder.is_empty() {
-                            return Err(AeronError::IllegalStateException(format!(
-                                "empty key not allowed at index {} in {}",
-                                i, uri,
-                            )));
+                            return Err(IllegalStateError::EmptyKeyNotAllowed {
+                                index: i,
+                                uri: uri.to_string(),
+                            }
+                            .into());
                         }
                         key = builder.clone();
                         builder.clear();
                         state = State::ParamsValue;
                     } else {
                         if c == '|' {
-                            return Err(AeronError::IllegalStateException(format!(
-                                "invalid en of key at index  {} in {}",
-                                i, uri,
-                            )));
+                            return Err(IllegalStateError::InvalidEndOfKey {
+                                index: i,
+                                uri: uri.to_string(),
+                            }
+                            .into());
                         }
                         builder.push(c);
                     }
@@ -323,7 +327,10 @@ mod tests {
     #[test]
     fn should_reject_with_out_of_place_colon() {
         let result = ChannelUri::parse("aeron:udp:");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalStateException[any_value()])
+        );
     }
 
     #[test]
@@ -338,13 +345,19 @@ mod tests {
     #[test]
     fn should_reject_with_missing_query_separator_when_followed_with_params() {
         let result = ChannelUri::parse("aeron:ipc|sparse=true");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalStateException[any_value()])
+        );
     }
 
     #[test]
     fn should_reject_with_invalid_params() {
         let result = ChannelUri::parse("aeron:udp?endpoint=localhost:4652|-~@{]|=??#s!£$%====");
-        assert_eq!(result.unwrap_err(), AeronError::IllegalStateException(String::from("")));
+        assert_that!(
+            &result.unwrap_err(),
+            has_structure!(AeronError::IllegalStateException[any_value()])
+        );
     }
 
     #[test]

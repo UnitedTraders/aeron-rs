@@ -15,6 +15,7 @@
  */
 
 use crate::concurrent::{atomic_buffer::AtomicBuffer, logbuffer::data_frame_header};
+use crate::utils::errors::IllegalStateError;
 use crate::utils::{errors::AeronError, types::Index};
 
 /**
@@ -63,21 +64,22 @@ pub const MAX_MESSAGE_LENGTH: Index = 16 * 1024 * 1024;
 
 pub fn check_header_length(length: Index) -> Result<(), AeronError> {
     if length != data_frame_header::LENGTH {
-        return Err(AeronError::IllegalStateException(format!(
-            "frame header length {} must be equal to {}",
+        return Err(IllegalStateError::FrameHeaderLengthMustBeEqualToDataOffset {
             length,
-            data_frame_header::LENGTH
-        )));
+            data_offset: data_frame_header::LENGTH,
+        }
+        .into());
     }
     Ok(())
 }
 
 pub fn check_max_frame_length(length: Index) -> Result<(), AeronError> {
     if (length & (FRAME_ALIGNMENT - 1)) != 0 {
-        return Err(AeronError::IllegalStateException(format!(
-            "max frame length must be a multiple of {} , length = {}",
-            FRAME_ALIGNMENT, length
-        )));
+        return Err(IllegalStateError::MaxFrameLengthMustBeMultipleOfFrameAlignment {
+            length,
+            frame_alignment: FRAME_ALIGNMENT,
+        }
+        .into());
     }
     Ok(())
 }

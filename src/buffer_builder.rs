@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::utils::errors::IllegalArgumentError;
+use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
 use crate::{
     concurrent::{
         atomic_buffer::AtomicBuffer,
@@ -112,10 +112,7 @@ impl BufferBuilder {
 
             if new_capacity < capacity || new_capacity > BUFFER_BUILDER_MAX_CAPACITY {
                 if capacity == BUFFER_BUILDER_MAX_CAPACITY {
-                    return Err(AeronError::IllegalStateException(format!(
-                        "max capacity reached:  {}",
-                        BUFFER_BUILDER_MAX_CAPACITY
-                    )));
+                    return Err(IllegalStateError::MaxCapacityReached(BUFFER_BUILDER_MAX_CAPACITY).into());
                 }
 
                 capacity = BUFFER_BUILDER_MAX_CAPACITY;

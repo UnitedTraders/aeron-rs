@@ -17,6 +17,7 @@
 use std::ffi::CString;
 use std::sync::Arc;
 
+use crate::utils::errors::IllegalStateError;
 use crate::{
     command::{
         control_protocol_events::AeronCommand,
@@ -320,9 +321,7 @@ impl DriverProxy {
         let msg_type = filler(buffer, &mut length)?;
 
         if self.to_driver_command_buffer.write(msg_type, buffer, 0, length).is_err() {
-            return Err(AeronError::IllegalStateException(String::from(
-                "couldn't write command to driver",
-            )));
+            return Err(IllegalStateError::CouldNotWriteCommandToDriver.into());
         }
 
         Ok(())

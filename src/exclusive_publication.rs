@@ -22,7 +22,7 @@ use std::{
     },
 };
 
-use crate::utils::errors::IllegalArgumentError;
+use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -492,7 +492,7 @@ impl ExclusivePublication {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
         if length == std::i32::MAX {
-            return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
+            return Err(IllegalStateError::LengthOverflow(length).into());
         }
 
         if !self.is_closed() {
@@ -579,7 +579,7 @@ impl ExclusivePublication {
      */
     pub fn add_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
+            return Err(IllegalStateError::PublicationClosed.into());
         }
 
         self.conductor
@@ -595,7 +595,7 @@ impl ExclusivePublication {
      */
     pub fn remove_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
+            return Err(IllegalStateError::PublicationClosed.into());
         }
 
         self.conductor

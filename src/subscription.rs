@@ -22,7 +22,7 @@ use std::{
     },
 };
 
-use crate::utils::errors::GenericError;
+use crate::utils::errors::{GenericError, IllegalStateError};
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -106,7 +106,7 @@ impl Subscription {
 
     pub fn add_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
+            return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
         if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
@@ -121,7 +121,7 @@ impl Subscription {
 
     pub fn remove_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
+            return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
         if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
