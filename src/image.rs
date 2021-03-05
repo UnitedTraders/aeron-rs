@@ -41,6 +41,7 @@ use crate::utils::{
     types::Index,
 };
 
+#[cfg_attr(nightly, allow(clippy::upper_case_acronyms))]
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
     /**
@@ -733,6 +734,7 @@ impl Image {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use lazy_static::lazy_static;
