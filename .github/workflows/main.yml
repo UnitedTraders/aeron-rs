@@ -1,0 +1,81 @@
+name: Rust CI
+on:
+  push:
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  test:
+    name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu] # linux-only
+    steps:
+      - uses: actions/checkout@master
+        with:
+          submodules: 'true'
+      - name: Get latest CMake
+        uses: lukka/get-cmake@latest
+      - name: configure aeronmd
+        run: mkdir build && cd build && cmake -G "CodeBlocks - Unix Makefiles" ../
+        working-directory: aeron
+      - name: build aeronmd
+        run: make aeronmd && mkdir -p $(systemd-path user-binaries) && mv ./binaries/aeronmd $(systemd-path user-binaries)
+        working-directory: aeron/build
+      - name: Set environment variables
+        shell: bash
+        run: |
+           echo "$(systemd-path user-binaries)" >> $GITHUB_PATH
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{matrix.toolchain}}
+          override: true
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-targets -- --test-threads=1
+        env:
+          RUST_LOG: 'trace'
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install minimal stable with clippy and rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+          override: true
+
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --all-targets --all-features -- -D clippy::all -D warnings
+
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install minimal stable with rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+          override: true
+
+      - name: rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check

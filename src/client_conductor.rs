@@ -186,6 +186,7 @@ struct CounterStateDefn {
     counter: Option<Weak<Counter>>,
     registration_id: i64,
     time_of_registration_ms: Moment,
+    #[allow(dead_code)]
     counter_id: i32,
     status: RegistrationStatus,
     error_code: i32,
@@ -446,7 +447,13 @@ impl ClientConductor {
         self.time_of_last_do_work_ms = now_ms;
 
         if now_ms > self.time_of_last_keepalive_ms + KEEPALIVE_TIMEOUT_MS {
-            if now_ms > self.driver_proxy.time_of_last_driver_keepalive() as Moment + self.driver_timeout_ms {
+            let last_keepalive: Moment = if self.driver_proxy.time_of_last_driver_keepalive() >= 0 {
+                self.driver_proxy.time_of_last_driver_keepalive() as Moment + self.driver_timeout_ms
+            } else {
+                MAX_MOMENT
+            };
+
+            if now_ms > last_keepalive {
                 self.driver_active.store(false, Ordering::SeqCst);
 
                 let err = DriverTimeoutError::WasInactive(self.driver_timeout_ms).into();
