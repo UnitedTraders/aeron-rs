@@ -300,64 +300,40 @@ mod tests {
     #[test]
     fn should_reject_uri_without_aeron_prefix() {
         let result = ChannelUri::parse(":udp");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalArgumentException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalArgument[any_value()]));
 
         let result = ChannelUri::parse("aeron");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalArgumentException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalArgument[any_value()]));
 
         let result = ChannelUri::parse("aron:");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalArgumentException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalArgument[any_value()]));
 
         let result = ChannelUri::parse("eeron:");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalArgumentException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalArgument[any_value()]));
     }
 
     #[test]
     fn should_reject_with_out_of_place_colon() {
         let result = ChannelUri::parse("aeron:udp:");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalStateException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalState[any_value()]));
     }
 
     #[test]
     fn should_reject_invalid_media() {
         let result = ChannelUri::parse("aeron:ipcsdfgfdhfgf");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalArgumentException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalArgument[any_value()]));
     }
 
     #[test]
     fn should_reject_with_missing_query_separator_when_followed_with_params() {
         let result = ChannelUri::parse("aeron:ipc|sparse=true");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalStateException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalState[any_value()]));
     }
 
     #[test]
     fn should_reject_with_invalid_params() {
         let result = ChannelUri::parse("aeron:udp?endpoint=localhost:4652|-~@{]|=??#s!£$%====");
-        assert_that!(
-            &result.unwrap_err(),
-            has_structure!(AeronError::IllegalStateException[any_value()])
-        );
+        assert_that!(&result.unwrap_err(), has_structure!(AeronError::IllegalState[any_value()]));
     }
 
     #[test]

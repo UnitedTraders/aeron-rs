@@ -31,21 +31,21 @@ pub mod error_log_reader;
 #[derive(Debug, Error)]
 pub enum AeronError {
     #[error("Aeron error: {0}")]
-    GenericError(#[from] GenericError),
+    Generic(#[from] GenericError),
     #[error("Subscription {0} not ready")]
     SubscriptionNotReady(i64),
     #[error("Publication {0} not ready")]
     PublicationNotReady(i64),
     #[error("Illegal argument: {0}")]
-    IllegalArgumentException(#[from] IllegalArgumentError),
+    IllegalArgument(#[from] IllegalArgumentError),
     #[error("Illegal state: {0}")]
-    IllegalStateException(#[from] IllegalStateError),
+    IllegalState(#[from] IllegalStateError),
     #[error("MemMappedFileError: {0}")]
     MemMappedFileError(io::Error),
     #[error("ConductorServiceTimeout: {0}")]
-    ConductorServiceTimeout(#[from] ConductorServiceTimeoutError),
+    ConductorServiceTimeout(#[from] ConductorServiceError),
     #[error("DriverTimeout: {0}")]
-    DriverTimeout(#[from] DriverTimeoutError),
+    DriverTimeout(#[from] DriverInteractionError),
     #[error("ReentrantException: Client cannot be invoked within callback")]
     ReentrantException,
     #[error("RegistrationException: {0}")]
@@ -57,7 +57,7 @@ pub enum AeronError {
     #[error("BroadcastTransmitError: {0:?}")]
     BroadcastTransmitError(#[from] BroadcastTransmitError),
     #[error("RingBufferError: {0:?}")]
-    RingBufferError(#[from] RingBufferError),
+    RingBuffer(#[from] RingBufferError),
     #[error("Offer failed because publisher is not connected to subscriber")]
     NotConnected,
     #[error("Offer failed due to back pressure")]
@@ -73,7 +73,7 @@ pub enum AeronError {
 }
 
 #[derive(Error, Debug)]
-pub enum ConductorServiceTimeoutError {
+pub enum ConductorServiceError {
     #[error("Timeout between service calls over {0} ms")]
     TimeoutBetweenServiceCallsOverTimeout(Moment),
     #[error("No response from driver in {0} ms")]
@@ -119,7 +119,7 @@ pub enum IllegalStateError {
 }
 
 #[derive(Error, Debug)]
-pub enum DriverTimeoutError {
+pub enum DriverInteractionError {
     #[error("CnC file not created: {file_name}")]
     CncNotCreated { file_name: String },
     #[error("CnC file is created but not initialised: {file_name}")]
@@ -219,8 +219,8 @@ pub enum GenericError {
     ExclusivePublicationAlreadyDropped,
     #[error("Exclusive publication not ready yet, status {status:?}")]
     ExclusivePublicationNotReadyYet { status: RegistrationStatus },
-    #[error("")]
-    BufferNotSetForExclusivePublication { registartion_id: i64 },
+    #[error("Buffers was not set for ExclusivePublication with registration_id {registration_id}")]
+    BufferNotSetForExclusivePublication { registration_id: i64 },
     #[error("Exclusive publication not found")]
     ExclusivePublicationNotFound,
     #[error("Subscription already dropped")]

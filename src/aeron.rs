@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use rand::distributions::Uniform;
 
-use crate::utils::errors::{DriverTimeoutError, GenericError};
+use crate::utils::errors::{DriverInteractionError, GenericError};
 use crate::utils::misc::semantic_version_to_string;
 use crate::{
     client_conductor::ClientConductor,
@@ -534,7 +534,7 @@ impl Aeron {
         loop {
             while MemoryMappedFile::get_file_size(context.cnc_file_name())? == 0 {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
-                    return Err(DriverTimeoutError::CncNotCreated {
+                    return Err(DriverInteractionError::CncNotCreated {
                         file_name: context.cnc_file_name(),
                     }
                     .into());
@@ -549,7 +549,7 @@ impl Aeron {
 
             while 0 == cnc_version {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
-                    return Err(DriverTimeoutError::CncCreatedButNotInitialised {
+                    return Err(DriverInteractionError::CncCreatedButNotInitialised {
                         file_name: context.cnc_file_name(),
                     }
                     .into());
@@ -572,7 +572,7 @@ impl Aeron {
 
             while 0 == ring_buffer.consumer_heartbeat_time() {
                 if unix_time_ms() > start_ms + context.media_driver_timeout() {
-                    return Err(DriverTimeoutError::NoHeartbeatDetected.into());
+                    return Err(DriverInteractionError::NoHeartbeatDetected.into());
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_1));
@@ -581,7 +581,7 @@ impl Aeron {
             let time_ms = unix_time_ms();
             if (ring_buffer.consumer_heartbeat_time() as Moment) < time_ms - context.media_driver_timeout() {
                 if time_ms > start_ms + context.media_driver_timeout() {
-                    return Err(DriverTimeoutError::NoHeartbeatDetected.into());
+                    return Err(DriverInteractionError::NoHeartbeatDetected.into());
                 }
 
                 std::thread::sleep(Duration::from_millis(IDLE_SLEEP_MS_100));

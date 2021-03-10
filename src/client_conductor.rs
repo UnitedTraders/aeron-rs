@@ -23,7 +23,7 @@ use std::{
     },
 };
 
-use crate::utils::errors::{ConductorServiceTimeoutError, DriverTimeoutError, GenericError, IllegalArgumentError};
+use crate::utils::errors::{ConductorServiceError, DriverInteractionError, GenericError, IllegalArgumentError};
 use crate::{
     concurrent::{
         agent_runner::Agent,
@@ -437,7 +437,7 @@ impl ClientConductor {
         if now_ms > self.time_of_last_do_work_ms + self.inter_service_timeout_ms {
             self.close_all_resources(now_ms);
 
-            let err = ConductorServiceTimeoutError::TimeoutBetweenServiceCallsOverTimeout(self.inter_service_timeout_ms).into();
+            let err = ConductorServiceError::TimeoutBetweenServiceCallsOverTimeout(self.inter_service_timeout_ms).into();
 
             ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
@@ -456,7 +456,7 @@ impl ClientConductor {
             if now_ms > last_keepalive {
                 self.driver_active.store(false, Ordering::SeqCst);
 
-                let err = DriverTimeoutError::WasInactive(self.driver_timeout_ms).into();
+                let err = DriverInteractionError::WasInactive(self.driver_timeout_ms).into();
 
                 ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
@@ -510,7 +510,7 @@ impl ClientConductor {
 
     pub fn verify_driver_is_active(&self) -> Result<(), AeronError> {
         if !self.driver_active.load(Ordering::SeqCst) {
-            Err(DriverTimeoutError::Inactive.into())
+            Err(DriverInteractionError::Inactive.into())
         } else {
             Ok(())
         }
@@ -518,7 +518,7 @@ impl ClientConductor {
 
     pub fn verify_driver_is_active_via_error_handler(&self) {
         if !self.driver_active.load(Ordering::SeqCst) {
-            let err = DriverTimeoutError::Inactive.into();
+            let err = DriverInteractionError::Inactive.into();
             (self.error_handler)(err);
         }
     }
@@ -632,7 +632,7 @@ impl ClientConductor {
                 match state.status {
                     RegistrationStatus::Awaiting => {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
+                            Err(ConductorServiceError::NoResponseFromDriver(self.driver_timeout_ms).into())
                         } else {
                             Err(AeronError::PublicationNotReady(registration_id))
                         }
@@ -773,7 +773,7 @@ impl ClientConductor {
                 match state.status {
                     RegistrationStatus::Awaiting => {
                         if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
+                            Err(ConductorServiceError::NoResponseFromDriver(self.driver_timeout_ms).into())
                         } else {
                             Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
                         }
@@ -804,7 +804,7 @@ impl ClientConductor {
 
                             Ok(new_pub)
                         } else {
-                            Err(GenericError::BufferNotSetForPublication {
+                            Err(GenericError::BufferNotSetForExclusivePublication {
                                 registration_id: state.registration_id,
                             }
                             .into())
@@ -923,7 +923,7 @@ impl ClientConductor {
                 // state.subscription in None - was not set in the past
                 if RegistrationStatus::Awaiting == state.status {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(DriverTimeoutError::NoResponse(self.driver_timeout_ms).into())
+                        Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
                     } else {
                         Err(AeronError::SubscriptionNotReady(registration_id))
                     }
@@ -1050,7 +1050,7 @@ impl ClientConductor {
                 // state.counter in None - was not set in the past
                 if RegistrationStatus::Awaiting == state.status {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(DriverTimeoutError::NoResponse(self.driver_timeout_ms).into())
+                        Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
                     } else {
                         Err(GenericError::CounterNotReadyYet { status: state.status }.into())
                     }
@@ -1216,7 +1216,7 @@ impl ClientConductor {
             match state.status {
                 RegistrationStatus::Awaiting => {
                     if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(ConductorServiceTimeoutError::NoResponseFromDriver(self.driver_timeout_ms).into())
+                        Err(ConductorServiceError::NoResponseFromDriver(self.driver_timeout_ms).into())
                     } else {
                         Ok(false)
                     }
@@ -3096,7 +3096,7 @@ mod tests {
         assert!(called);
 
         let result = test.conductor.lock().unwrap().release_subscription(100, Vec::<Image>::new());
-        assert_that!(&result.err().unwrap(), has_structure!(AeronError::GenericError[any_value()]));
+        assert_that!(&result.err().unwrap(), has_structure!(AeronError::Generic[any_value()]));
     }
 
     fn on_new_publication_handler1(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
