@@ -22,6 +22,7 @@ use std::{
     },
 };
 
+use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -399,10 +400,11 @@ impl ExclusivePublication {
                     )
                 } else {
                     if length > self.max_message_length {
-                        return Err(AeronError::IllegalArgumentException(format!(
-                            "encoded message exceeds max_message_length of {}, length={}",
-                            self.max_message_length, length
-                        )));
+                        return Err(IllegalArgumentError::EncodedMessageExceedsMaxMessageLength {
+                            length,
+                            max_message_length: self.max_message_length,
+                        }
+                        .into());
                     }
                     term_appender.append_fragmented_message(
                         self.term_id,
@@ -490,7 +492,7 @@ impl ExclusivePublication {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
         if length == std::i32::MAX {
-            return Err(AeronError::IllegalStateException(format!("length overflow: {}", length)));
+            return Err(IllegalStateError::LengthOverflow(length).into());
         }
 
         if !self.is_closed() {
@@ -510,10 +512,11 @@ impl ExclusivePublication {
                     )
                 } else {
                     if length > self.max_message_length {
-                        return Err(AeronError::IllegalArgumentException(format!(
-                            "encoded message exceeds max_message_length of {}, length={}",
-                            self.max_message_length, length
-                        )));
+                        return Err(IllegalArgumentError::EncodedMessageExceedsMaxMessageLength {
+                            length,
+                            max_message_length: self.max_message_length,
+                        }
+                        .into());
                     }
 
                     term_appender.append_unfragmented_message_bulk(
@@ -576,7 +579,7 @@ impl ExclusivePublication {
      */
     pub fn add_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
+            return Err(IllegalStateError::PublicationClosed.into());
         }
 
         self.conductor
@@ -592,7 +595,7 @@ impl ExclusivePublication {
      */
     pub fn remove_destination(&mut self, endpoint_channel: CString) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Publication is closed")));
+            return Err(IllegalStateError::PublicationClosed.into());
         }
 
         self.conductor
@@ -664,10 +667,11 @@ impl ExclusivePublication {
     #[allow(dead_code)]
     fn check_max_message_length(&self, length: Index) -> Result<(), AeronError> {
         if length > self.max_message_length {
-            Err(AeronError::IllegalArgumentException(format!(
-                "encoded message exceeds max_message_length of {}, length={}",
-                self.max_message_length, length
-            )))
+            Err(IllegalArgumentError::EncodedMessageExceedsMaxMessageLength {
+                length,
+                max_message_length: self.max_message_length,
+            }
+            .into())
         } else {
             Ok(())
         }
@@ -675,10 +679,11 @@ impl ExclusivePublication {
 
     fn check_payload_length(&self, length: Index) -> Result<(), AeronError> {
         if length > self.max_payload_length {
-            Err(AeronError::IllegalArgumentException(format!(
-                "encoded message exceeds max_payload_length of {}, length={}",
-                self.max_payload_length, length
-            )))
+            Err(IllegalArgumentError::EncodedMessageExceedsMaxPayloadLength {
+                length,
+                max_payload_length: self.max_payload_length,
+            }
+            .into())
         } else {
             Ok(())
         }

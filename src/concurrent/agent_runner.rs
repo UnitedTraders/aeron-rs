@@ -23,7 +23,7 @@ use std::{
 };
 
 use crate::concurrent::{logbuffer::term_reader::ErrorHandler, strategies::Strategy};
-use crate::utils::errors::AeronError;
+use crate::utils::errors::{AeronError, GenericError};
 
 /// The trait to be implemented by agents run within AgentRunner
 pub trait Agent {
@@ -105,7 +105,7 @@ impl<
         if let Ok(handle) = th {
             Ok(AgentStopper::new(handle, tx))
         } else {
-            Err(AeronError::GenericError(format!("Agent start failed: {:?}", th.err())))
+            Err(GenericError::AgentStartFailed { msg: th.err() }.into())
         }
     }
 

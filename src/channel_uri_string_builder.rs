@@ -16,7 +16,7 @@
 
 use crate::channel_uri;
 use crate::concurrent::logbuffer;
-use crate::utils::errors::AeronError;
+use crate::utils::errors::{AeronError, IllegalArgumentError};
 
 #[derive(Debug)]
 struct Value {
@@ -99,10 +99,7 @@ impl ChannelUriStringBuilder {
     pub fn prefix(&mut self, new_prefix: &str) -> Result<&mut Self, AeronError> {
         if let Some(prefix) = &self.prefix {
             if !prefix.is_empty() && !prefix.eq(channel_uri::SPY_QUALIFIER) {
-                return Err(AeronError::IllegalArgumentException(format!(
-                    "invalid prefix: {}",
-                    new_prefix
-                )));
+                return Err(IllegalArgumentError::InvalidPrefix(new_prefix.to_string()).into());
             }
         }
 
@@ -119,7 +116,7 @@ impl ChannelUriStringBuilder {
     #[inline]
     pub fn media(&mut self, media: &str) -> Result<&mut Self, AeronError> {
         if !media.eq(channel_uri::UDP_MEDIA) && !media.eq(channel_uri::IPC_MEDIA) {
-            return Err(AeronError::IllegalArgumentException(format!("invalid media: {}", media)));
+            return Err(IllegalArgumentError::InvalidMedia(media.to_string()).into());
         }
 
         self.media = Some(String::from(media));
@@ -147,10 +144,7 @@ impl ChannelUriStringBuilder {
     #[inline]
     pub fn control_mode(&mut self, control_mode: &str) -> Result<&mut Self, AeronError> {
         if !control_mode.eq(channel_uri::MDC_CONTROL_MODE_MANUAL) && !control_mode.eq(channel_uri::MDC_CONTROL_MODE_DYNAMIC) {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "invalid control mode: {}",
-                control_mode
-            )));
+            return Err(IllegalArgumentError::InvalidControlMode(control_mode.to_string()).into());
         }
 
         self.prefix = Some(String::from(control_mode));
@@ -197,17 +191,20 @@ impl ChannelUriStringBuilder {
     #[inline]
     pub fn mtu(&mut self, mtu: u32) -> Result<&mut Self, AeronError> {
         if !(32..=65504).contains(&mtu) {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "MTU is not in range 32-65504: {}",
-                mtu
-            )));
+            return Err(IllegalArgumentError::MtuIsNotInRange {
+                mtu,
+                left_bound: 32,
+                right_bound: 65504,
+            }
+            .into());
         }
 
         if mtu & (logbuffer::frame_descriptor::FRAME_ALIGNMENT - 1) as u32 != 0 {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "MTU not a multiple of FRAME_ALIGNMENT: mtu= {}",
-                mtu
-            )));
+            return Err(IllegalArgumentError::MtuNotMultipleOfFrameAlignment {
+                mtu,
+                frame_alignment: logbuffer::frame_descriptor::FRAME_ALIGNMENT,
+            }
+            .into());
         }
 
         self.mtu = Some(Value::new(mtu as i64));
@@ -236,17 +233,15 @@ impl ChannelUriStringBuilder {
     #[inline]
     pub fn term_offset(&mut self, term_offset: u32) -> Result<&mut Self, AeronError> {
         if term_offset > logbuffer::log_buffer_descriptor::TERM_MAX_LENGTH as u32 {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "term_offset not in range 0-1g: {}",
-                term_offset
-            )));
+            return Err(IllegalArgumentError::TermOffsetNotInRange(term_offset).into());
         }
 
         if term_offset & (logbuffer::frame_descriptor::FRAME_ALIGNMENT - 1) as u32 != 0 {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "term_offset not a multiple of FRAME_ALIGNMENT: mtu= {}",
-                term_offset
-            )));
+            return Err(IllegalArgumentError::TermOffsetNotMultipleOfFrameAlignment {
+                term_offset,
+                frame_alignment: logbuffer::frame_descriptor::FRAME_ALIGNMENT,
+            }
+            .into());
         }
 
         self.term_offset = Some(Value::new(term_offset as i64));
@@ -262,10 +257,7 @@ impl ChannelUriStringBuilder {
     #[inline]
     pub fn linger(&mut self, linger_ns: i64) -> Result<&mut Self, AeronError> {
         if linger_ns < 0 {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "linger value cannot be negative: {}",
-                linger_ns
-            )));
+            return Err(IllegalArgumentError::LingerValueCannotBeNegative(linger_ns).into());
         }
 
         self.linger = Some(Value::new(linger_ns));

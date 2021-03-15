@@ -18,6 +18,7 @@ use std::env;
 use std::ffi::CString;
 use std::sync::Arc;
 
+use crate::utils::errors::GenericError;
 use crate::{
     cnc_file_descriptor,
     concurrent::{counters::CountersReader, logbuffer::term_reader::ErrorHandler, ring_buffer::ManyToOneRingBuffer},
@@ -463,11 +464,11 @@ impl Context {
             let cnc_version = cnc_file_descriptor::cnc_version_volatile(&cnc_file);
 
             if semantic_version_major(cnc_version) != semantic_version_major(cnc_file_descriptor::CNC_VERSION) {
-                return Err(AeronError::GenericError(format!(
-                    "Aeron CnC version does not match: app={} file={}",
-                    semantic_version_to_string(cnc_file_descriptor::CNC_VERSION),
-                    semantic_version_to_string(cnc_version)
-                )));
+                return Err(GenericError::CncVersionDoesntMatch {
+                    app_version: semantic_version_to_string(cnc_file_descriptor::CNC_VERSION),
+                    file_version: semantic_version_to_string(cnc_version),
+                }
+                .into());
             }
 
             let to_driver_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_file);

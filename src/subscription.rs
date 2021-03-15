@@ -22,6 +22,7 @@ use std::{
     },
 };
 
+use crate::utils::errors::{GenericError, IllegalStateError};
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -105,7 +106,7 @@ impl Subscription {
 
     pub fn add_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
+            return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
         if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
@@ -114,15 +115,13 @@ impl Subscription {
                 .expect("Mutex poisoned")
                 .add_rcv_destination(self.registration_id, endpoint_channel_cstr)
         } else {
-            Err(AeronError::GenericError(String::from(
-                "String to CString conversion failed for endpoint_channel",
-            )))
+            Err(GenericError::StringToCStringConversionFailed.into())
         }
     }
 
     pub fn remove_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
         if self.is_closed() {
-            return Err(AeronError::IllegalStateException(String::from("Subscription is closed")));
+            return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
         if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
@@ -131,9 +130,7 @@ impl Subscription {
                 .expect("Mutex poisoned")
                 .remove_rcv_destination(self.registration_id, endpoint_channel_cstr)
         } else {
-            Err(AeronError::GenericError(String::from(
-                "String to CString conversion failed for endpoint_channel",
-            )))
+            Err(GenericError::StringToCStringConversionFailed.into())
         }
     }
 

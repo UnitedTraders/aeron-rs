@@ -16,6 +16,7 @@
 
 use lazy_static::lazy_static;
 
+use crate::utils::errors::IllegalStateError;
 use crate::{
     concurrent::atomic_buffer::AtomicBuffer,
     offset_of,
@@ -142,24 +143,23 @@ pub const LOG_META_DATA_LENGTH: Index = 4 * 1024;
 
 pub fn check_term_length(term_length: Index) -> Result<(), AeronError> {
     if term_length < TERM_MIN_LENGTH {
-        return Err(AeronError::IllegalStateException(format!(
-            "term length less than min size of {} , length= {}",
-            TERM_MIN_LENGTH, term_length
-        )));
+        return Err(IllegalStateError::TermLengthIsLessThanMinPossibleSize {
+            term_length,
+            term_min_length: TERM_MIN_LENGTH,
+        }
+        .into());
     }
 
     if term_length > TERM_MAX_LENGTH {
-        return Err(AeronError::IllegalStateException(format!(
-            "term length greater than max size of {} , length= {}",
-            TERM_MAX_LENGTH, term_length
-        )));
+        return Err(IllegalStateError::TermLengthIsGreaterThanMaxPossibleSize {
+            term_length,
+            term_max_length: TERM_MAX_LENGTH,
+        }
+        .into());
     }
 
     if !is_power_of_two(term_length) {
-        return Err(AeronError::IllegalStateException(format!(
-            "term length not a power of 2, length= {}",
-            term_length
-        )));
+        return Err(IllegalStateError::TermLengthIsNotPowerOfTwo(term_length).into());
     }
 
     Ok(())
@@ -167,24 +167,23 @@ pub fn check_term_length(term_length: Index) -> Result<(), AeronError> {
 
 pub fn check_page_size(page_size: Index) -> Result<(), AeronError> {
     if page_size < AERON_PAGE_MIN_SIZE {
-        return Err(AeronError::IllegalStateException(format!(
-            "page size less than min size of {}, size= {}",
-            AERON_PAGE_MIN_SIZE, page_size
-        )));
+        return Err(IllegalStateError::PageSizeLessThanMinPossibleSize {
+            page_size,
+            page_min_size: AERON_PAGE_MIN_SIZE,
+        }
+        .into());
     }
 
     if page_size > AERON_PAGE_MAX_SIZE {
-        return Err(AeronError::IllegalStateException(format!(
-            "page size greater than max size of {}, size= {}",
-            AERON_PAGE_MAX_SIZE, page_size
-        )));
+        return Err(IllegalStateError::PageSizeGreaterThanMaxPossibleSize {
+            page_size,
+            page_max_size: AERON_PAGE_MAX_SIZE,
+        }
+        .into());
     }
 
     if !is_power_of_two(page_size) {
-        return Err(AeronError::IllegalStateException(format!(
-            "page size not a power of 2, size= {}",
-            page_size
-        )));
+        return Err(IllegalStateError::PageSizeIsNotPowerOfTwo(page_size).into());
     }
 
     Ok(())

@@ -34,6 +34,7 @@ use crate::concurrent::{
     },
     position::{ReadablePosition, UnsafeBufferPosition},
 };
+use crate::utils::errors::IllegalArgumentError;
 use crate::utils::{
     bit_utils::{align, number_of_trailing_zeroes},
     errors::AeronError,
@@ -41,7 +42,6 @@ use crate::utils::{
     types::Index,
 };
 
-#[cfg_attr(nightly, allow(clippy::upper_case_acronyms))]
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
     /**
@@ -155,17 +155,20 @@ impl Image {
             (current_position - (current_position & self.term_length_mask as i64)) + self.term_length_mask as i64 + 1;
 
         if new_position < current_position || new_position > limit_position {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "{} new_position out of range {} - {}",
-                new_position, current_position, limit_position
-            )));
+            return Err(IllegalArgumentError::NewPositionOutOfRange {
+                new_position,
+                left_bound: current_position,
+                right_bound: limit_position,
+            }
+            .into());
         }
 
         if 0 != (new_position & (frame_descriptor::FRAME_ALIGNMENT - 1) as i64) {
-            return Err(AeronError::IllegalArgumentException(format!(
-                "{} new_position not aligned to FRAME_ALIGNMENT",
-                new_position
-            )));
+            return Err(IllegalArgumentError::NewPositionNotAlignedToFrameAlignment {
+                new_position,
+                frame_alignment: frame_descriptor::FRAME_ALIGNMENT,
+            }
+            .into());
         }
 
         Ok(())
@@ -734,12 +737,12 @@ impl Image {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
 #[cfg(test)]
 mod tests {
     use lazy_static::lazy_static;
 
     use super::*;
+    use crate::utils::errors::GenericError;
     use crate::{
         concurrent::{atomic_buffer::AlignedBuffer, logbuffer::data_frame_header::DataFrameHeaderDefn},
         utils::bit_utils::{align, number_of_trailing_zeroes},
@@ -789,9 +792,10 @@ mod tests {
         _length: Index,
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
-        Err(AeronError::GenericError(String::from("Test")))
+        Err(GenericError::Custom("Test".to_string()).into())
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_continue(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -801,6 +805,7 @@ mod tests {
         Ok(ControlledPollAction::CONTINUE)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_abort(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -810,6 +815,7 @@ mod tests {
         Ok(ControlledPollAction::ABORT)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_break(
         _buf: &AtomicBuffer,
         _offset: Index,
@@ -819,6 +825,7 @@ mod tests {
         Ok(ControlledPollAction::BREAK)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_poll_handler_commit(
         _buf: &AtomicBuffer,
         offset: Index,
@@ -834,6 +841,7 @@ mod tests {
         unreachable!("Should not get there!");
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn controlled_handler_cont_cont(
         _buf: &AtomicBuffer,
         offset: Index,

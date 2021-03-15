@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::utils::errors::IllegalStateError;
 use crate::{
     concurrent::{
         atomic_buffer::AtomicBuffer,
@@ -392,10 +393,11 @@ impl TermAppender {
 
     fn check_term(expected_term_id: i32, term_id: i32) -> Result<(), AeronError> {
         if term_id != expected_term_id {
-            return Err(AeronError::IllegalStateException(format!(
-                "action possibly delayed: expected_term_id={} term_id={}",
-                expected_term_id, term_id
-            )));
+            return Err(IllegalStateError::ActionPossiblyDelayed {
+                expected_term_id,
+                term_id,
+            }
+            .into());
         }
         Ok(())
     }
