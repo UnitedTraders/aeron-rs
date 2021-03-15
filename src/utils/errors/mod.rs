@@ -42,8 +42,6 @@ pub enum AeronError {
     IllegalState(#[from] IllegalStateError),
     #[error("MemMappedFileError: {0}")]
     MemMappedFileError(io::Error),
-    #[error("ConductorServiceTimeout: {0}")]
-    ConductorServiceTimeout(#[from] ConductorServiceError),
     #[error("DriverTimeout: {0}")]
     DriverTimeout(#[from] DriverInteractionError),
     #[error("ReentrantException: Client cannot be invoked within callback")]
@@ -73,97 +71,69 @@ pub enum AeronError {
 }
 
 #[derive(Error, Debug)]
-pub enum ConductorServiceError {
-    #[error("Timeout between service calls over {0} ms")]
-    TimeoutBetweenServiceCallsOverTimeout(Moment),
-    #[error("No response from driver in {0} ms")]
-    NoResponseFromDriver(Moment),
-}
-
-#[derive(Error, Debug)]
 pub enum IllegalStateError {
-    #[error("Max capacity was reached: {0}")]
-    MaxCapacityReached(Index),
+    #[error("Action possibly delayed: expected_term_id={expected_term_id} term_id={term_id}")]
+    ActionPossiblyDelayed { term_id: i32, expected_term_id: i32 },
+    #[error("Couldn't write command to driver")]
+    CouldNotWriteCommandToDriver,
     #[error("Encountered '{c}' within media definition at index {index} in '{uri}'")]
     EncounteredCharacterWithinMediaDefinition { c: char, index: usize, uri: String },
     #[error("Empty key is not allowed at index {index} in '{uri}'")]
     EmptyKeyNotAllowed { index: usize, uri: String },
+    #[error("Frame header length {length} must be equal to {data_offset}")]
+    FrameHeaderLengthMustBeEqualToDataOffset { length: Index, data_offset: Index },
     #[error("Invalid end of key at index {index} in '{uri}'")]
     InvalidEndOfKey { index: usize, uri: String },
-    #[error("Couldn't write command to driver")]
-    CouldNotWriteCommandToDriver,
     #[error("Length overflow: {0}")]
     LengthOverflow(i32),
+    #[error("Max capacity was reached: {0}")]
+    MaxCapacityReached(Index),
+    #[error("Max frame length must be a multiple of {frame_alignment} , length = {length}")]
+    MaxFrameLengthMustBeMultipleOfFrameAlignment { length: i32, frame_alignment: Index },
+    #[error("Page size is not a power of 2, length= {0}")]
+    PageSizeIsNotPowerOfTwo(i32),
+    #[error("Page size is greater than max size of {page_max_size}, size= {page_size}")]
+    PageSizeGreaterThanMaxPossibleSize { page_size: i32, page_max_size: Index },
+    #[error("Page size is less than min size of {page_min_size}, size= {page_size}")]
+    PageSizeLessThanMinPossibleSize { page_size: i32, page_min_size: Index },
     #[error("Publication is closed")]
     PublicationClosed,
     #[error("Subscription is closed")]
     SubscriptionClosed,
-    #[error("Frame header length {length} must be equal to {data_offset}")]
-    FrameHeaderLengthMustBeEqualToDataOffset { length: Index, data_offset: Index },
-    #[error("Max frame length must be a multiple of {frame_alignment} , length = {length}")]
-    MaxFrameLengthMustBeMultipleOfFrameAlignment { length: i32, frame_alignment: Index },
-    #[error("Term length is less than min size of {term_min_length} , length= {term_length}")]
-    TermLengthIsLessThanMinPossibleSize { term_length: i32, term_min_length: Index },
     #[error("Term length is greater than max size of {term_max_length} , length= {term_length}")]
     TermLengthIsGreaterThanMaxPossibleSize { term_length: i32, term_max_length: Index },
+    #[error("Term length is less than min size of {term_min_length} , length= {term_length}")]
+    TermLengthIsLessThanMinPossibleSize { term_length: i32, term_min_length: Index },
     #[error("Term length is not a power of 2, length= {0}")]
     TermLengthIsNotPowerOfTwo(i32),
-    #[error("Page size is less than min size of {page_min_size}, size= {page_size}")]
-    PageSizeLessThanMinPossibleSize { page_size: i32, page_min_size: Index },
-    #[error("Page size is greater than max size of {page_max_size}, size= {page_size}")]
-    PageSizeGreaterThanMaxPossibleSize { page_size: i32, page_max_size: Index },
-    #[error("Page size is not a power of 2, length= {0}")]
-    PageSizeIsNotPowerOfTwo(i32),
-    #[error("Action possibly delayed: expected_term_id={expected_term_id} term_id={term_id}")]
-    ActionPossiblyDelayed { term_id: i32, expected_term_id: i32 },
 }
 
 #[derive(Error, Debug)]
 pub enum DriverInteractionError {
-    #[error("CnC file not created: {file_name}")]
-    CncNotCreated { file_name: String },
     #[error("CnC file is created but not initialised: {file_name}")]
     CncCreatedButNotInitialised { file_name: String },
+    #[error("CnC file not created: {file_name}")]
+    CncNotCreated { file_name: String },
+    #[error("Driver is inactive, on checking the status")]
+    Inactive,
     #[error("No driver heartbeat detected")]
     NoHeartbeatDetected,
-    #[error("Driver has been inactive for over {0} ms")]
-    WasInactive(u64),
-    #[error("Driver is inactive")]
-    Inactive,
-    #[error("No response from driver in {0} ms")]
+    #[error("No response from driver in {0} ms, interaction time was too long")]
     NoResponse(u64),
+    #[error("Driver has been inactive for over {0} ms, marking as inactive")]
+    WasInactive(u64),
 }
 
 #[derive(Error, Debug)]
 pub enum IllegalArgumentError {
-    #[error("Limit outside range: capacity={capacity}  limit={limit}")]
-    LimitOutsideRange { capacity: Index, limit: Index },
-    #[error("Aeron URIs must start with 'aeron:', found: '{uri}'")]
-    UriMustStartWithAeron { uri: String },
-    #[error("Unknown media: {0}")]
-    UnknownMedia(String),
-    #[error("No more input found, state={state:?}")]
-    NoMoreInputFound { state: State },
-    #[error("Invalid prefix: {0}")]
-    InvalidPrefix(String),
-    #[error("Invalid media: {0}")]
-    InvalidMedia(String),
-    #[error("Invalid control mode: {0}")]
-    InvalidControlMode(String),
-    #[error("MTU is not in range {left_bound}-{right_bound}: {0}")]
-    MtuIsNotInRange { mtu: u32, left_bound: i32, right_bound: i32 },
-    #[error("MTU not a multiple of FRAME_ALIGNMENT= {frame_alignment}: mtu= {mtu}")]
-    MtuNotMultipleOfFrameAlignment { mtu: u32, frame_alignment: Index },
-    #[error("Term offset is not in range 0-1g: {0}")]
-    TermOffsetNotInRange(u32),
-    #[error("Term offset is not a multiple of FRAME_ALIGNMENT= {frame_alignment}: offset= {term_offset}")]
-    TermOffsetNotMultipleOfFrameAlignment { term_offset: u32, frame_alignment: Index },
-    #[error("Linger value cannot be negative: {0}")]
-    LingerValueCannotBeNegative(i64),
-    #[error("Key length is out of bounds: length= {key_length}, limit= {limit}")]
-    KeyLengthIsOutOfBounds { key_length: usize, limit: Index },
-    #[error("Label length is out of bounds: length= {label_length}, limit= {limit}")]
-    LabelLengthIsOutOfBounds { label_length: usize, limit: Index },
+    #[error("Allocate: key is ambiguous")]
+    AllocateKeyIsAmbiguous,
+    #[error("Allocate: key is too long")]
+    AllocateKeyIsTooLong,
+    #[error("Allocate: label can't be converted")]
+    AllocateLabelCanNotBeConverted,
+    #[error("Allocate: label is too long")]
+    AllocateLabelTooLong,
     #[error("{filename}:{line}: counter id {counter_id} out of range: max_counter_id={max_counter_id}")]
     CounterIdOutOfRange {
         filename: String,
@@ -171,64 +141,66 @@ pub enum IllegalArgumentError {
         counter_id: i32,
         max_counter_id: i32,
     },
-    #[error("Allocate: label can't be converted")]
-    AllocateLabelCanNotBeConverted,
-    #[error("Allocate: label is too long")]
-    AllocateLabelTooLong,
-    #[error("Allocate: key is ambiguous")]
-    AllocateKeyIsAmbiguous,
-    #[error("Allocate: key is too long")]
-    AllocateKeyIsTooLong,
-    #[error("Unable to allocate counter, values buffer is full")]
-    UnableAllocateCounterBecauseValueBufferFull,
-    #[error("Unable to allocate counter, metadata buffer is full")]
-    UnableAllocateCounterBecauseMetadataBufferFull,
     #[error("Encoded message exceeds max_message_length of {max_message_length}, length={length}")]
     EncodedMessageExceedsMaxMessageLength { length: i32, max_message_length: i32 },
     #[error("Encoded message exceeds max_payload_length of {max_payload_length}, length={length}")]
     EncodedMessageExceedsMaxPayloadLength { length: i32, max_payload_length: i32 },
+    #[error("Invalid control mode: {0}")]
+    InvalidControlMode(String),
+    #[error("Invalid media: {0}")]
+    InvalidMedia(String),
+    #[error("Invalid prefix: {0}")]
+    InvalidPrefix(String),
+    #[error("Key length is out of bounds: length= {key_length}, limit= {limit}")]
+    KeyLengthIsOutOfBounds { key_length: usize, limit: Index },
+    #[error("Label length is out of bounds: length= {label_length}, limit= {limit}")]
+    LabelLengthIsOutOfBounds { label_length: usize, limit: Index },
+    #[error("Limit outside range: capacity={capacity}  limit={limit}")]
+    LimitOutsideRange { capacity: Index, limit: Index },
+    #[error("Linger value cannot be negative: {0}")]
+    LingerValueCannotBeNegative(i64),
+    #[error("MTU is not in range {left_bound}-{right_bound}: {0}")]
+    MtuIsNotInRange { mtu: u32, left_bound: i32, right_bound: i32 },
+    #[error("MTU not a multiple of FRAME_ALIGNMENT= {frame_alignment}: mtu= {mtu}")]
+    MtuNotMultipleOfFrameAlignment { mtu: u32, frame_alignment: Index },
+    #[error("New_position {new_position} is not aligned to FRAME_ALIGNMENT= {frame_alignment}")]
+    NewPositionNotAlignedToFrameAlignment { new_position: i64, frame_alignment: Index },
     #[error("New position {new_position} is out of range {left_bound} - {right_bound}")]
     NewPositionOutOfRange {
         new_position: i64,
         left_bound: i64,
         right_bound: i64,
     },
-    #[error("New_position {new_position} is not aligned to FRAME_ALIGNMENT= {frame_alignment}")]
-    NewPositionNotAlignedToFrameAlignment { new_position: i64, frame_alignment: Index },
+    #[error("No more input found, state={state:?}")]
+    NoMoreInputFound { state: State },
+    #[error("Term offset is not in range 0-1g: {0}")]
+    TermOffsetNotInRange(u32),
+    #[error("Term offset is not a multiple of FRAME_ALIGNMENT= {frame_alignment}: offset= {term_offset}")]
+    TermOffsetNotMultipleOfFrameAlignment { term_offset: u32, frame_alignment: Index },
+    #[error("Unable to allocate counter, metadata buffer is full")]
+    UnableAllocateCounterBecauseMetadataBufferFull,
+    #[error("Unable to allocate counter, values buffer is full")]
+    UnableAllocateCounterBecauseValueBufferFull,
+    #[error("Unknown media: {0}")]
+    UnknownMedia(String),
+    #[error("Aeron URIs must start with 'aeron:', found: '{uri}'")]
+    UriMustStartWithAeron { uri: String },
 }
 
 #[derive(Error, Debug)]
 pub enum GenericError {
-    #[error("Aeron CnC version does not match:  app={app_version} file={file_version}")]
-    CncVersionDoesntMatch { app_version: String, file_version: String },
     #[error("Agent start failed: {msg:?}")]
     AgentStartFailed { msg: Option<io::Error> },
+    #[error("Buffers was not set for ExclusivePublication with registration_id {registration_id}")]
+    BufferNotSetForExclusivePublication { registration_id: i64 },
+    #[error("Buffers was not set for Publication with registration_id {registration_id}")]
+    BufferNotSetForPublication { registration_id: i64 },
     #[error("Aeron client conductor is closed")]
     ClientConductorClosed,
     #[error("Client heartbeat timestamp not active")]
     ClientHeartbeatNotActive,
-    #[error("Publication already dropped")]
-    PublicationAlreadyDropped,
-    #[error("Buffers was not set for Publication with registration_id {registration_id}")]
-    BufferNotSetForPublication { registration_id: i64 },
-    #[error("Publication not found")]
-    PublicationNotFound,
-    #[error("Unknown registration_id: {0}")]
-    UnknownRegistrationId(i64),
-    #[error("Exclusive publication already dropped")]
-    ExclusivePublicationAlreadyDropped,
-    #[error("Exclusive publication not ready yet, status {status:?}")]
-    ExclusivePublicationNotReadyYet { status: RegistrationStatus },
-    #[error("Buffers was not set for ExclusivePublication with registration_id {registration_id}")]
-    BufferNotSetForExclusivePublication { registration_id: i64 },
-    #[error("Exclusive publication not found")]
-    ExclusivePublicationNotFound,
-    #[error("Subscription already dropped")]
-    SubscriptionAlreadyDropped,
-    #[error("Subscription is not presented, because wasn't created before. Status {status:?}")]
-    SubscriptionWasNotCreatedBefore { status: RegistrationStatus },
-    #[error("Subscription not found")]
-    SubscriptionNotFound,
+    #[error("Aeron CnC version does not match:  app={app_version} file={file_version}")]
+    CncVersionDoesntMatch { app_version: String, file_version: String },
     #[error("Counter already dropped")]
     CounterAlreadyDropped,
     #[error("Counter not ready yet, status {status:?}")]
@@ -237,12 +209,32 @@ pub enum GenericError {
     CounterWasNotCreatedBefore { status: RegistrationStatus },
     #[error("Counter not found")]
     CounterNotFound,
-    #[error("Unknown correlation_id: {0}")]
-    UnknownCorrelationId(i64),
-    #[error("String to CString conversion failed for endpoint_channel")]
-    StringToCStringConversionFailed,
     #[error("{0}")]
     Custom(String),
+    #[error("Exclusive publication already dropped")]
+    ExclusivePublicationAlreadyDropped,
+    #[error("Exclusive publication not found")]
+    ExclusivePublicationNotFound,
+    #[error("Exclusive publication not ready yet, status {status:?}")]
+    ExclusivePublicationNotReadyYet { status: RegistrationStatus },
+    #[error("Publication already dropped")]
+    PublicationAlreadyDropped,
+    #[error("Publication not found")]
+    PublicationNotFound,
+    #[error("String to CString conversion failed for endpoint_channel")]
+    StringToCStringConversionFailed,
+    #[error("Subscription already dropped")]
+    SubscriptionAlreadyDropped,
+    #[error("Subscription not found")]
+    SubscriptionNotFound,
+    #[error("Subscription is not presented, because wasn't created before. Status {status:?}")]
+    SubscriptionWasNotCreatedBefore { status: RegistrationStatus },
+    #[error("Timeout between service calls over {0} ms")]
+    TimeoutBetweenServiceCallsOverTimeout(Moment),
+    #[error("Unknown correlation_id: {0}")]
+    UnknownCorrelationId(i64),
+    #[error("Unknown registration_id: {0}")]
+    UnknownRegistrationId(i64),
 }
 
 impl PartialEq for AeronError {
