@@ -15,7 +15,7 @@
  */
 
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry as HmEntry, HashMap},
     ffi::{CStr, CString},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -430,9 +430,9 @@ impl ClientConductor {
         self.counter_values_buffer
     }
 
-    fn on_heartbeat_check_timeouts(&mut self) -> i64 {
+    fn on_heartbeat_check_timeouts(&mut self) -> bool {
         let now_ms = (self.epoch_clock)();
-        let mut result: i64 = 0;
+        let mut result = false;
 
         if now_ms > self.time_of_last_do_work_ms + self.inter_service_timeout_ms {
             self.close_all_resources(now_ms);
@@ -496,13 +496,13 @@ impl ClientConductor {
             }
 
             self.time_of_last_keepalive_ms = now_ms;
-            result = 1;
+            result = true;
         }
 
         if now_ms > self.time_of_last_check_managed_resources_ms + RESOURCE_TIMEOUT_MS {
             self.on_check_managed_resources(now_ms);
             self.time_of_last_check_managed_resources_ms = now_ms;
-            result = 1;
+            result = true;
         }
 
         result
@@ -612,84 +612,66 @@ impl ClientConductor {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        let mut publication_to_remove: Option<i64> = None;
+        let state = self
+            .publication_by_registration_id
+            .get_mut(&registration_id)
+            .ok_or(GenericError::PublicationNotFound)?;
 
-        let result = if let Some(state) = self.publication_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one.
-            if let Some(maybe_publication) = &state.publication {
-                // If there is publication - just return it
-                if let Some(publication) = maybe_publication.upgrade() {
-                    ttrace!(
-                        "find_publication: existing publication with registration_id {} FOUND",
-                        registration_id
-                    );
-                    Ok(publication)
-                } else {
-                    Err(GenericError::PublicationAlreadyDropped.into())
-                }
-            } else {
-                // Otherwise fill in the state.publication
-                match state.status {
-                    RegistrationStatus::Awaiting => {
-                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
-                        } else {
-                            Err(AeronError::PublicationNotReady(registration_id))
-                        }
-                    }
-                    RegistrationStatus::Registered => {
-                        let publication_limit =
-                            UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
-
-                        if let Some(buffers) = &state.buffers {
-                            let self_for_pub = self.arced_self.as_ref().unwrap();
-                            let publication = Publication::new(
-                                self_for_pub.clone(),
-                                state.channel.clone(),
-                                state.registration_id,
-                                state.original_registration_id,
-                                state.stream_id,
-                                state.session_id,
-                                publication_limit,
-                                state.channel_status_id,
-                                buffers.clone(),
-                            );
-
-                            let new_pub = Arc::new(Mutex::new(publication));
-                            state.publication = Some(Arc::downgrade(&new_pub));
-                            ttrace!(
-                                "find_publication: publication with registration_id {} CREATED",
-                                registration_id
-                            );
-
-                            Ok(new_pub)
-                        } else {
-                            Err(GenericError::BufferNotSetForPublication {
-                                registration_id: state.registration_id,
-                            }
-                            .into())
-                        }
-                    }
-
-                    RegistrationStatus::Errored => {
-                        publication_to_remove = Some(registration_id);
-                        Err(ClientConductor::return_registration_error(
-                            state.error_code,
-                            &state.error_message,
-                        ))
-                    }
-                }
-            }
-        } else {
-            // error, publication not found
-            return Err(GenericError::PublicationNotFound.into());
-        };
-
-        if let Some(id) = publication_to_remove {
-            self.publication_by_registration_id.remove(&id);
+        // try to upgrade weak ptr to strong one.
+        if let Some(maybe_publication) = &state.publication {
+            // If there is publication - just return it
+            let publication = maybe_publication.upgrade().ok_or(GenericError::PublicationAlreadyDropped)?;
+            ttrace!(
+                "find_publication: existing publication with registration_id {} FOUND",
+                registration_id
+            );
+            return Ok(publication);
         }
 
-        result
+        // Otherwise fill in the state.publication
+        match state.status {
+            RegistrationStatus::Awaiting => {
+                if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                    Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
+                } else {
+                    Err(AeronError::PublicationNotReady(registration_id))
+                }
+            }
+            RegistrationStatus::Registered => {
+                let publication_limit = UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
+
+                let buffers = state.buffers.as_ref().ok_or(GenericError::BufferNotSetForPublication {
+                    registration_id: state.registration_id,
+                })?;
+
+                let self_for_pub = self.arced_self.as_ref().unwrap();
+                let publication = Publication::new(
+                    self_for_pub.clone(),
+                    state.channel.clone(),
+                    state.registration_id,
+                    state.original_registration_id,
+                    state.stream_id,
+                    state.session_id,
+                    publication_limit,
+                    state.channel_status_id,
+                    buffers.clone(),
+                );
+
+                let new_pub = Arc::new(Mutex::new(publication));
+                state.publication = Some(Arc::downgrade(&new_pub));
+                ttrace!(
+                    "find_publication: publication with registration_id {} CREATED",
+                    registration_id
+                );
+
+                Ok(new_pub)
+            }
+            RegistrationStatus::Errored => {
+                let err = ClientConductor::return_registration_error(state.error_code, &state.error_message);
+                self.publication_by_registration_id.remove(&registration_id);
+                Err(err)
+            }
+        }
     }
 
     pub fn return_registration_error(err_code: i32, err_message: &CStr) -> AeronError {
@@ -701,9 +683,9 @@ impl ClientConductor {
 
         self.verify_driver_is_active_via_error_handler();
 
-        if let Some(_publication) = self.publication_by_registration_id.get(&registration_id) {
-            let _result = self.driver_proxy.remove_publication(registration_id);
-            self.publication_by_registration_id.remove(&registration_id);
+        if let HmEntry::Occupied(p) = self.publication_by_registration_id.entry(registration_id) {
+            let _ = self.driver_proxy.remove_publication(registration_id);
+            p.remove();
             ttrace!(
                 "release_publication: publication with registration_id {} RELEASED",
                 registration_id
@@ -753,83 +735,71 @@ impl ClientConductor {
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
-        let mut publication_to_remove: Option<i64> = None;
 
-        let result = if let Some(state) = self.exclusive_publication_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one.
-            if let Some(maybe_publication) = &state.publication {
-                // If there is publication - just return it
-                if let Some(publication) = maybe_publication.upgrade() {
-                    ttrace!(
-                        "find_exclusive_publication: existing exclusive publication with registration_id {} FOUND",
-                        registration_id
-                    );
-                    Ok(publication)
-                } else {
-                    Err(GenericError::ExclusivePublicationAlreadyDropped.into())
-                }
-            } else {
-                // Otherwise fill in the state.publication
-                match state.status {
-                    RegistrationStatus::Awaiting => {
-                        if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                            Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
-                        } else {
-                            Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
-                        }
-                    }
-                    RegistrationStatus::Registered => {
-                        let publication_limit =
-                            UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
+        let state = self
+            .exclusive_publication_by_registration_id
+            .get_mut(&registration_id)
+            .ok_or(GenericError::ExclusivePublicationNotFound)?;
 
-                        if let Some(buffers) = &state.buffers {
-                            let publication = ExclusivePublication::new(
-                                self.arced_self.as_ref().unwrap().clone(),
-                                state.channel.clone(),
-                                state.registration_id,
-                                state.stream_id,
-                                state.session_id,
-                                publication_limit,
-                                state.channel_status_id,
-                                buffers.clone(),
-                            );
-
-                            let new_pub = Arc::new(Mutex::new(publication));
-                            state.publication = Some(Arc::downgrade(&new_pub));
-
-                            ttrace!(
-                                "find_exclusive_publication: exclusive publication with registration_id {} CREATED",
-                                registration_id
-                            );
-
-                            Ok(new_pub)
-                        } else {
-                            Err(GenericError::BufferNotSetForExclusivePublication {
-                                registration_id: state.registration_id,
-                            }
-                            .into())
-                        }
-                    }
-
-                    RegistrationStatus::Errored => {
-                        publication_to_remove = Some(registration_id);
-                        Err(ClientConductor::return_registration_error(
-                            state.error_code,
-                            &state.error_message,
-                        ))
-                    }
-                }
-            }
-        } else {
-            // error, publication not found
-            return Err(GenericError::ExclusivePublicationNotFound.into());
-        };
-
-        if let Some(id) = publication_to_remove {
-            self.exclusive_publication_by_registration_id.remove(&id);
+        // try to upgrade weak ptr to strong one.
+        if let Some(maybe_publication) = &state.publication {
+            // If there is publication - just return it
+            let publication = maybe_publication
+                .upgrade()
+                .ok_or(GenericError::ExclusivePublicationAlreadyDropped)?;
+            ttrace!(
+                "find_exclusive_publication: existing exclusive publication with registration_id {} FOUND",
+                registration_id
+            );
+            return Ok(publication);
         }
 
-        result
+        // Otherwise fill in the state.publication
+        match state.status {
+            RegistrationStatus::Awaiting => {
+                if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                    Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
+                } else {
+                    Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
+                }
+            }
+            RegistrationStatus::Registered => {
+                let publication_limit = UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
+
+                let buffers = state
+                    .buffers
+                    .as_ref()
+                    .ok_or(GenericError::BufferNotSetForExclusivePublication {
+                        registration_id: state.registration_id,
+                    })?;
+                let publication = ExclusivePublication::new(
+                    self.arced_self.as_ref().unwrap().clone(),
+                    state.channel.clone(),
+                    state.registration_id,
+                    state.stream_id,
+                    state.session_id,
+                    publication_limit,
+                    state.channel_status_id,
+                    buffers.clone(),
+                );
+
+                let new_pub = Arc::new(Mutex::new(publication));
+                state.publication = Some(Arc::downgrade(&new_pub));
+
+                ttrace!(
+                    "find_exclusive_publication: exclusive publication with registration_id {} CREATED",
+                    registration_id
+                );
+
+                Ok(new_pub)
+            }
+
+            RegistrationStatus::Errored => {
+                let err = ClientConductor::return_registration_error(state.error_code, &state.error_message);
+                self.exclusive_publication_by_registration_id.remove(&registration_id);
+                Err(err)
+            }
+        }
     }
 
     pub fn release_exclusive_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
@@ -837,9 +807,9 @@ impl ClientConductor {
 
         self.verify_driver_is_active_via_error_handler();
 
-        if let Some(_publication) = self.exclusive_publication_by_registration_id.get(&registration_id) {
-            let _result = self.driver_proxy.remove_publication(registration_id);
-            self.exclusive_publication_by_registration_id.remove(&registration_id);
+        if let HmEntry::Occupied(p) = self.exclusive_publication_by_registration_id.entry(registration_id) {
+            let _ = self.driver_proxy.remove_publication(registration_id);
+            p.remove();
             ttrace!(
                 "release_exclusive_publication: exclusive publication with registration_id {} RELEASED",
                 registration_id
@@ -899,53 +869,44 @@ impl ClientConductor {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        // These two tricky fields are needed to avoid double mut borrows of publication_by_registration_id
-        let mut subscription_to_remove: Option<i64> = None;
-
-        let result = if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one.
-            if let Some(maybe_subscription) = &state.subscription {
-                // If there is subscription - just return it
-                let this_arm_result = if let Some(subscription) = maybe_subscription.upgrade() {
+        let state = self
+            .subscription_by_registration_id
+            .get_mut(&registration_id)
+            .ok_or(GenericError::SubscriptionNotFound)?;
+        // try to upgrade weak ptr to strong one.
+        if let Some(subscription) = &state.subscription {
+            // If there is subscription - just return it
+            let res = subscription
+                .upgrade()
+                .ok_or_else(|| GenericError::SubscriptionAlreadyDropped.into())
+                .map(|s| {
                     ttrace!(
                         "find_subscription: existing subscription with registration_id {} FOUND",
                         registration_id
                     );
-                    Ok(subscription)
-                } else {
-                    Err(GenericError::SubscriptionAlreadyDropped.into())
-                };
 
-                state.subscription_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
+                    s
+                });
 
-                this_arm_result
-            } else {
-                // state.subscription in None - was not set in the past
-                if RegistrationStatus::Awaiting == state.status {
-                    if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
-                    } else {
-                        Err(AeronError::SubscriptionNotReady(registration_id))
-                    }
-                } else if RegistrationStatus::Errored == state.status {
-                    subscription_to_remove = Some(registration_id);
-                    Err(ClientConductor::return_registration_error(
-                        state.error_code,
-                        &state.error_message,
-                    ))
-                } else {
-                    Err(GenericError::SubscriptionWasNotCreatedBefore { status: state.status }.into())
-                }
-            }
+            state.subscription_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
+
+            res
         } else {
-            Err(GenericError::SubscriptionNotFound.into())
-        };
-
-        if let Some(id) = subscription_to_remove {
-            self.subscription_by_registration_id.remove(&id);
+            // state.subscription in None - was not set in the past
+            if RegistrationStatus::Awaiting == state.status {
+                if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                    Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
+                } else {
+                    Err(AeronError::SubscriptionNotReady(registration_id))
+                }
+            } else if RegistrationStatus::Errored == state.status {
+                let err = ClientConductor::return_registration_error(state.error_code, &state.error_message);
+                self.subscription_by_registration_id.remove(&registration_id);
+                Err(err)
+            } else {
+                Err(GenericError::SubscriptionWasNotCreatedBefore { status: state.status }.into())
+            }
         }
-
-        result
     }
 
     pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) -> Result<(), AeronError> {
@@ -1027,52 +988,43 @@ impl ClientConductor {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        let mut counter_to_remove: Option<i64> = None;
+        let state = self
+            .counter_by_registration_id
+            .get_mut(&registration_id)
+            .ok_or(GenericError::CounterNotFound)?;
 
-        let result = if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
-            // try to upgrade weak ptr to strong one.
-            if let Some(maybe_counter) = &state.counter {
-                // If there is counter - just return it
-                let this_arm_result = if let Some(counter) = maybe_counter.upgrade() {
-                    ttrace!(
-                        "find_counter: existing counter with registration_id {} FOUND",
-                        registration_id
-                    );
-                    Ok(counter)
-                } else {
-                    Err(GenericError::CounterAlreadyDropped.into())
-                };
-
-                state.counter_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
-
-                this_arm_result
+        // try to upgrade weak ptr to strong one.
+        if let Some(maybe_counter) = &state.counter {
+            // If there is counter - just return it
+            let this_arm_result = if let Some(counter) = maybe_counter.upgrade() {
+                ttrace!(
+                    "find_counter: existing counter with registration_id {} FOUND",
+                    registration_id
+                );
+                Ok(counter)
             } else {
-                // state.counter in None - was not set in the past
-                if RegistrationStatus::Awaiting == state.status {
-                    if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
-                    } else {
-                        Err(GenericError::CounterNotReadyYet { status: state.status }.into())
-                    }
-                } else if RegistrationStatus::Errored == state.status {
-                    counter_to_remove = Some(registration_id);
-                    Err(ClientConductor::return_registration_error(
-                        state.error_code,
-                        &state.error_message,
-                    ))
-                } else {
-                    Err(GenericError::CounterWasNotCreatedBefore { status: state.status }.into())
-                }
-            }
+                Err(GenericError::CounterAlreadyDropped.into())
+            };
+
+            state.counter_cache = None; // Clear the cache. It will decrease Arc cnt for previous subscription so it may drop.
+
+            this_arm_result
         } else {
-            Err(GenericError::CounterNotFound.into())
-        };
-
-        if let Some(id) = counter_to_remove {
-            self.counter_by_registration_id.remove(&id);
+            // state.counter in None - was not set in the past
+            if RegistrationStatus::Awaiting == state.status {
+                if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                    Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
+                } else {
+                    Err(GenericError::CounterNotReadyYet { status: state.status }.into())
+                }
+            } else if RegistrationStatus::Errored == state.status {
+                let err = ClientConductor::return_registration_error(state.error_code, &state.error_message);
+                self.counter_by_registration_id.remove(&registration_id);
+                Err(err)
+            } else {
+                Err(GenericError::CounterWasNotCreatedBefore { status: state.status }.into())
+            }
         }
-
-        result
     }
 
     pub fn release_counter(&mut self, registration_id: i64) -> Result<(), AeronError> {
@@ -1210,33 +1162,25 @@ impl ClientConductor {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        let destination_to_remove: Option<i64> = None;
+        let state = self
+            .destination_state_by_correlation_id
+            .get_mut(&correlation_id)
+            .ok_or(GenericError::UnknownCorrelationId(correlation_id))?;
 
-        let result = if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
-            match state.status {
-                RegistrationStatus::Awaiting => {
-                    if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
-                        Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
-                    } else {
-                        Ok(false)
-                    }
+        match state.status {
+            RegistrationStatus::Awaiting => {
+                if (self.epoch_clock)() > state.time_of_registration_ms + self.driver_timeout_ms {
+                    Err(DriverInteractionError::NoResponse(self.driver_timeout_ms).into())
+                } else {
+                    Ok(false)
                 }
-                RegistrationStatus::Registered => Ok(true),
-                RegistrationStatus::Errored => Err(ClientConductor::return_registration_error(
-                    state.error_code,
-                    &state.error_message,
-                )),
             }
-        } else {
-            Err(GenericError::UnknownCorrelationId(correlation_id).into())
-        };
-
-        if let Some(id) = destination_to_remove {
-            // Regardless of status remove this destination from the map
-            self.destination_state_by_correlation_id.remove(&id);
+            RegistrationStatus::Registered => Ok(true),
+            RegistrationStatus::Errored => Err(ClientConductor::return_registration_error(
+                state.error_code,
+                &state.error_message,
+            )),
         }
-
-        result
     }
 
     pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) -> Result<(), AeronError> {
@@ -1291,46 +1235,42 @@ impl ClientConductor {
 
         self.is_closed.store(true, Ordering::Release);
 
-        for pub_defn in self.publication_by_registration_id.values() {
-            if let Some(maybe_publication) = &pub_defn.publication {
-                if let Some(publication) = maybe_publication.upgrade() {
-                    publication.lock().expect("Mutex on pub poisoned").close();
-                }
-            }
-        }
-        self.publication_by_registration_id.clear();
+        self.publication_by_registration_id
+            .drain()
+            .map(|(_, v)| v)
+            .filter_map(|p| p.publication.as_ref().and_then(|p| p.upgrade()))
+            .for_each(|publication| publication.lock().expect("Mutex on pub poisoned").close());
 
-        for pub_defn in self.exclusive_publication_by_registration_id.values() {
-            if let Some(maybe_publication) = &pub_defn.publication {
-                if let Some(publication) = maybe_publication.upgrade() {
-                    publication.lock().expect("Mutex on ExPub poisoned").close();
-                }
-            }
-        }
-        self.exclusive_publication_by_registration_id.clear();
+        self.exclusive_publication_by_registration_id
+            .drain()
+            .map(|(_, v)| v)
+            .filter_map(|p| p.publication.as_ref().and_then(|p| p.upgrade()))
+            .for_each(|publication| publication.lock().expect("Mutex on pub poisoned").close());
 
         let mut subscriptions_to_hold_until_cleared: Vec<Arc<Mutex<Subscription>>> = Vec::default();
-
         let mut images_to_linger: Vec<Vec<Image>> = Vec::new();
 
-        for sub_defn in self.subscription_by_registration_id.values_mut() {
-            if let Some(maybe_subscription) = &sub_defn.subscription {
-                if let Some(subscription) = maybe_subscription.upgrade() {
-                    if let Some(mut images) = subscription.lock().expect("Mutex poisoned").close_and_remove_images() {
-                        for image in images.iter_mut() {
-                            image.close();
+        let iter = self.subscription_by_registration_id.values_mut().filter_map(|sub_defn| {
+            sub_defn
+                .subscription
+                .as_ref()
+                .and_then(|s| s.upgrade())
+                .map(|s| (sub_defn, s))
+        });
+        for (sub_defn, subscription) in iter {
+            if let Some(mut images) = subscription.lock().expect("Mutex poisoned").close_and_remove_images() {
+                for image in images.iter_mut() {
+                    image.close();
 
-                            let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                            (sub_defn.on_unavailable_image_handler)(&image);
-                        }
-                        images_to_linger.push(images);
-                    }
-
-                    if let Some(cache) = &sub_defn.subscription_cache {
-                        subscriptions_to_hold_until_cleared.push(cache.clone());
-                        sub_defn.subscription_cache = None;
-                    }
+                    let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
+                    (sub_defn.on_unavailable_image_handler)(&image);
                 }
+                images_to_linger.push(images);
+            }
+
+            if let Some(cache) = &sub_defn.subscription_cache {
+                subscriptions_to_hold_until_cleared.push(cache.clone());
+                sub_defn.subscription_cache = None;
             }
         }
 
@@ -1342,23 +1282,23 @@ impl ClientConductor {
 
         let mut counters_to_hold_until_cleared: Vec<Arc<Counter>> = Vec::default();
 
-        for cnt_defn in self.counter_by_registration_id.values_mut() {
-            if let Some(maybe_counter) = &cnt_defn.counter {
-                if let Some(counter) = maybe_counter.upgrade() {
-                    counter.close();
-                    let registration_id = counter.registration_id();
-                    let counter_id = counter.id();
+        let iter = self
+            .counter_by_registration_id
+            .values_mut()
+            .filter_map(|cnt_defn| cnt_defn.counter.as_ref().and_then(|c| c.upgrade()).map(|c| (cnt_defn, c)));
+        for (cnt_defn, counter) in iter {
+            counter.close();
+            let registration_id = counter.registration_id();
+            let counter_id = counter.id();
 
-                    for handler in &self.on_unavailable_counter_handlers {
-                        let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                        handler(&self.counters_reader, registration_id, counter_id);
-                    }
+            for handler in &self.on_unavailable_counter_handlers {
+                let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
+                handler(&self.counters_reader, registration_id, counter_id);
+            }
 
-                    if let Some(cache) = &cnt_defn.counter_cache {
-                        counters_to_hold_until_cleared.push(cache.clone());
-                        cnt_defn.counter_cache = None;
-                    }
-                }
+            if let Some(cache) = &cnt_defn.counter_cache {
+                counters_to_hold_until_cleared.push(cache.clone());
+                cnt_defn.counter_cache = None;
             }
         }
         self.counter_by_registration_id.clear();
@@ -1373,20 +1313,21 @@ impl ClientConductor {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in self.on_check_managed_resources");
 
         let mut log_buffers_to_remove: Vec<i64> = Vec::new();
-        for (id, mut entry) in &mut self.log_buffers_by_registration_id {
-            if Arc::strong_count(&entry.log_buffers) == 1 {
+        for (&id, mut entry) in &mut self.log_buffers_by_registration_id {
+            // Cannot use strong_count, because it may change at any time.
+            if let Some(_buf) = Arc::get_mut(&mut entry.log_buffers) {
                 if MAX_MOMENT == entry.time_of_last_state_change_ms {
                     entry.time_of_last_state_change_ms = now_ms;
                 } else if now_ms - self.resource_linger_timeout_ms > entry.time_of_last_state_change_ms {
-                    log_buffers_to_remove.push(*id);
+                    log_buffers_to_remove.push(id);
                 }
             }
         }
 
         // Remove marked log buffers
-        let _removed: Vec<Option<LogBuffersDefn>> = log_buffers_to_remove
+        let _removed: Vec<LogBuffersDefn> = log_buffers_to_remove
             .into_iter()
-            .map(|id| self.log_buffers_by_registration_id.remove(&id))
+            .filter_map(|id| self.log_buffers_by_registration_id.remove(&id))
             .collect();
 
         //remove outdated lingering Images
@@ -1415,7 +1356,7 @@ impl Agent for ClientConductor {
 
         let dla = self.driver_listener_adapter.take().unwrap();
         work_count += dla.receive_messages(self)?;
-        self.driver_listener_adapter.replace(dla);
+        self.driver_listener_adapter = Some(dla);
         work_count += self.on_heartbeat_check_timeouts() as usize;
         Ok(work_count as i32)
     }
@@ -1577,29 +1518,34 @@ impl DriverListener for ClientConductor {
         let mut subscription_to_remove: Vec<i64> = Vec::new();
         let mut linger_images: Vec<Vec<Image>> = Vec::new();
 
-        for (reg_id, subscr_defn) in &mut self.subscription_by_registration_id {
-            if let Some(maybe_subscription) = &subscr_defn.subscription {
-                if let Some(protected_subscription) = maybe_subscription.upgrade() {
-                    let mut subscription = protected_subscription.lock().expect("Mutex poisoned");
-                    if subscription.channel_status_id() == offending_command_correlation_id as i32 {
-                        ttrace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+        let iter = self
+            .subscription_by_registration_id
+            .iter_mut()
+            .filter_map(|entry| entry.1.subscription.as_ref().and_then(|s| s.upgrade()).map(|s| (entry, s)));
 
-                        (self.error_handler)(ChannelEndpointException(
-                            offending_command_correlation_id,
-                            String::from(error_message.to_str().expect("CString conversion error")),
-                        ));
+        for ((&reg_id, subscr_defn), sub) in iter {
+            let mut subscription = sub.lock().expect("Mutex poisoned");
+            if subscription.channel_status_id() == offending_command_correlation_id as i32 {
+                ttrace!(
+                    "on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}",
+                    offending_command_correlation_id,
+                    error_message.to_str().unwrap()
+                );
 
-                        if let Some(mut images) = subscription.close_and_remove_images() {
-                            for image in images.iter_mut() {
-                                image.close();
+                (self.error_handler)(ChannelEndpointException(
+                    offending_command_correlation_id,
+                    String::from(error_message.to_str().expect("CString conversion error")),
+                ));
 
-                                let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                                (subscr_defn.on_unavailable_image_handler)(&image);
-                            }
-                            linger_images.push(images);
-                            subscription_to_remove.push(*reg_id);
-                        }
+                if let Some(mut images) = subscription.close_and_remove_images() {
+                    for image in images.iter_mut() {
+                        image.close();
+
+                        let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
+                        (subscr_defn.on_unavailable_image_handler)(&image);
                     }
+                    linger_images.push(images);
+                    subscription_to_remove.push(reg_id);
                 }
             }
         }
@@ -1614,49 +1560,49 @@ impl DriverListener for ClientConductor {
             .collect();
 
         let mut publication_to_remove: Vec<i64> = Vec::new();
-        for (reg_id, publication_defn) in &self.publication_by_registration_id {
-            if let Some(maybe_publication) = &publication_defn.publication {
-                if let Some(publication) = maybe_publication.upgrade() {
-                    if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
-                        == offending_command_correlation_id as i32
-                    {
-                        ttrace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+        let iter = self
+            .publication_by_registration_id
+            .iter()
+            .filter_map(|(&reg_id, pubdefn)| pubdefn.publication.as_ref().and_then(|s| s.upgrade()).map(|s| (reg_id, s)));
+        for (reg_id, publication) in iter {
+            if publication.lock().expect("Mutex on pub poisoned").channel_status_id() == offending_command_correlation_id as i32 {
+                ttrace!(
+                    "on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}",
+                    offending_command_correlation_id,
+                    error_message.to_str().unwrap()
+                );
 
-                        (self.error_handler)(ChannelEndpointException(
-                            offending_command_correlation_id,
-                            String::from(error_message.to_str().expect("CString conversion error")),
-                        ));
-                        publication.lock().expect("Mutex on pub poisoned").close();
-                        publication_to_remove.push(*reg_id);
-                    }
-                }
+                (self.error_handler)(ChannelEndpointException(
+                    offending_command_correlation_id,
+                    String::from(error_message.to_str().expect("CString conversion error")),
+                ));
+                publication.lock().expect("Mutex on pub poisoned").close();
+                publication_to_remove.push(reg_id);
             }
         }
-        let _removed_pubs: Vec<Option<PublicationStateDefn>> = publication_to_remove
+        let _removed_pubs: Vec<PublicationStateDefn> = publication_to_remove
             .into_iter()
-            .map(|id| self.publication_by_registration_id.remove(&id))
+            .filter_map(|id| self.publication_by_registration_id.remove(&id))
             .collect();
 
         let mut epublication_to_remove: Vec<i64> = Vec::new();
-        for (reg_id, publication_defn) in &self.exclusive_publication_by_registration_id {
-            if let Some(maybe_publication) = &publication_defn.publication {
-                if let Some(publication) = maybe_publication.upgrade() {
-                    if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
-                        == offending_command_correlation_id as i32
-                    {
-                        (self.error_handler)(ChannelEndpointException(
-                            offending_command_correlation_id,
-                            String::from(error_message.to_str().expect("CString conversion error")),
-                        ));
-                        publication.lock().expect("Mutex on pub poisoned").close();
-                        epublication_to_remove.push(*reg_id);
-                    }
-                }
+        let iter = self
+            .exclusive_publication_by_registration_id
+            .iter()
+            .filter_map(|(&reg_id, pubdefn)| pubdefn.publication.as_ref().and_then(|s| s.upgrade()).map(|s| (reg_id, s)));
+        for (reg_id, publication) in iter {
+            if publication.lock().expect("Mutex on pub poisoned").channel_status_id() == offending_command_correlation_id as i32 {
+                (self.error_handler)(ChannelEndpointException(
+                    offending_command_correlation_id,
+                    String::from(error_message.to_str().expect("CString conversion error")),
+                ));
+                publication.lock().expect("Mutex on pub poisoned").close();
+                epublication_to_remove.push(reg_id);
             }
         }
-        let _removed_epubs: Vec<Option<ExclusivePublicationStateDefn>> = epublication_to_remove
+        let _removed_epubs: Vec<ExclusivePublicationStateDefn> = epublication_to_remove
             .into_iter()
-            .map(|id| self.exclusive_publication_by_registration_id.remove(&id))
+            .filter_map(|id| self.exclusive_publication_by_registration_id.remove(&id))
             .collect();
     }
 

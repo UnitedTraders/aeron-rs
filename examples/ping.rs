@@ -236,20 +236,19 @@ fn main() {
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
     PUBLICATION_ID.store(publication_id, Ordering::SeqCst);
 
-    let mut pong_subscription = aeron.find_subscription(subscription_id);
-    while pong_subscription.is_err() {
-        std::thread::yield_now();
-        pong_subscription = aeron.find_subscription(subscription_id);
-    }
+    let pong_subscription = loop {
+        match aeron.find_subscription(subscription_id) {
+            Ok(p) => break p,
+            Err(_) => std::thread::yield_now(),
+        }
+    };
 
-    let mut ping_publication = aeron.find_publication(publication_id);
-    while ping_publication.is_err() {
-        std::thread::yield_now();
-        ping_publication = aeron.find_publication(publication_id);
-    }
-
-    let ping_publication = ping_publication.unwrap();
-    let pong_subscription = pong_subscription.unwrap();
+    let ping_publication = loop {
+        match aeron.find_publication(publication_id) {
+            Ok(p) => break p,
+            Err(_) => std::thread::yield_now(),
+        }
+    };
 
     //while COUNT_DOWN.load(Ordering::SeqCst) > 0 {
     //    std::thread::yield_now();

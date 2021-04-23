@@ -26,18 +26,7 @@ pub fn is_power_of_two(value: Index) -> bool {
 
 /// Returns number of trailing bits which are set to 0
 pub fn number_of_trailing_zeroes(value: i32) -> i32 {
-    let table = [
-        0, 1, 2, 24, 3, 19, 6, 25, 22, 4, 20, 10, 16, 7, 12, 26, 31, 23, 18, 5, 21, 9, 15, 11, 30, 17, 8, 14, 29, 13, 28, 27,
-    ];
-
-    if value == 0 {
-        return 32;
-    }
-
-    // Use i64 inside the calculation to handle numbers close to i32::MAX without multiplication overflow
-    let index = ((value as i64 & -value as i64) * 0x04D7_651F) as u32;
-
-    table[(index >> 27) as usize]
+    value.trailing_zeros() as i32
 }
 
 pub fn find_next_power_of_two_i64(mut value: i64) -> i64 {
@@ -61,22 +50,6 @@ pub fn find_next_power_of_two_i64(mut value: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_number_of_trailing_zeroes() {
-        assert_eq!(number_of_trailing_zeroes(0), 32);
-        assert_eq!(number_of_trailing_zeroes(1), 0);
-        assert_eq!(number_of_trailing_zeroes(2), 1);
-        assert_eq!(number_of_trailing_zeroes(3), 0);
-        assert_eq!(number_of_trailing_zeroes(4), 2);
-        assert_eq!(number_of_trailing_zeroes(5), 0);
-        assert_eq!(number_of_trailing_zeroes(6), 1);
-        assert_eq!(number_of_trailing_zeroes(7), 0);
-        assert_eq!(number_of_trailing_zeroes(512), 9);
-        assert_eq!(number_of_trailing_zeroes(513), 0);
-        assert_eq!(number_of_trailing_zeroes(1_073_741_824), 30);
-        assert_eq!(number_of_trailing_zeroes(1_073_741_825), 0);
-    }
 
     #[test]
     fn test_next_power_of_two() {
