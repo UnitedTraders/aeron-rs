@@ -110,15 +110,15 @@ impl BufferBuilder {
         loop {
             let new_capacity = capacity + (capacity >> 1);
 
-            if new_capacity < capacity || new_capacity > BUFFER_BUILDER_MAX_CAPACITY {
+            capacity = if new_capacity < capacity || new_capacity > BUFFER_BUILDER_MAX_CAPACITY {
                 if capacity == BUFFER_BUILDER_MAX_CAPACITY {
                     return Err(IllegalStateError::MaxCapacityReached(BUFFER_BUILDER_MAX_CAPACITY).into());
                 }
 
-                capacity = BUFFER_BUILDER_MAX_CAPACITY;
+                BUFFER_BUILDER_MAX_CAPACITY
             } else {
-                capacity = new_capacity;
-            }
+                new_capacity
+            };
 
             if capacity >= required_capacity {
                 break;
@@ -137,7 +137,7 @@ impl BufferBuilder {
             let new_buffer = alloc_buffer_aligned(new_capacity);
 
             unsafe {
-                std::ptr::copy(self.buffer, new_buffer, self.limit as usize);
+                std::ptr::copy_nonoverlapping(self.buffer, new_buffer, self.limit as usize);
                 dealloc_buffer_aligned(self.buffer, self.capacity)
             }
 

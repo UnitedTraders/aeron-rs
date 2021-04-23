@@ -563,7 +563,7 @@ impl ExclusivePublication {
             if position < limit {
                 let resulting_offset =
                     term_appender.claim(self.term_id, self.term_offset, &self.header_writer, length, &mut buffer_claim);
-                Ok(self.new_position(resulting_offset)?)
+                self.new_position(resulting_offset)
             } else {
                 Err(self.back_pressure_status(position, length))
             }

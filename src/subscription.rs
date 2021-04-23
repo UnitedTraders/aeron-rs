@@ -109,14 +109,11 @@ impl Subscription {
             return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
-        if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
-            self.conductor
-                .lock()
-                .expect("Mutex poisoned")
-                .add_rcv_destination(self.registration_id, endpoint_channel_cstr)
-        } else {
-            Err(GenericError::StringToCStringConversionFailed.into())
-        }
+        let endpoint_channel_cstr = CString::new(endpoint_channel).map_err(|_| GenericError::StringToCStringConversionFailed)?;
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .add_rcv_destination(self.registration_id, endpoint_channel_cstr)
     }
 
     pub fn remove_destination(&self, endpoint_channel: String) -> Result<i64, AeronError> {
@@ -124,14 +121,11 @@ impl Subscription {
             return Err(IllegalStateError::SubscriptionClosed.into());
         }
 
-        if let Ok(endpoint_channel_cstr) = CString::new(endpoint_channel) {
-            self.conductor
-                .lock()
-                .expect("Mutex poisoned")
-                .remove_rcv_destination(self.registration_id, endpoint_channel_cstr)
-        } else {
-            Err(GenericError::StringToCStringConversionFailed.into())
-        }
+        let endpoint_channel_cstr = CString::new(endpoint_channel).map_err(|_| GenericError::StringToCStringConversionFailed)?;
+        self.conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .remove_rcv_destination(self.registration_id, endpoint_channel_cstr)
     }
 
     pub fn find_destination_response(&self, correlation_id: i64) -> Result<bool, AeronError> {
@@ -161,18 +155,47 @@ impl Subscription {
      */
 
     pub fn poll_end_of_streams(&self, end_of_stream_handler: EndOfStreamHandler) -> i32 {
-        let mut num_end_of_streams = 0;
+        self.image_list
+            .load()
+            .iter()
+            .filter(|i| i.is_end_of_stream())
+            .inspect(|i| end_of_stream_handler(i))
+            .count() as _
+    }
 
-        let image_list = self.image_list.load();
+    fn poll_inner(&mut self, fragment_limit: i32, mut poll_kind: impl FnMut(&mut Image, i32) -> i32) -> i32 {
+        let image_list = self.image_list.load_mut();
 
-        for image in image_list.iter() {
-            if image.is_end_of_stream() {
-                num_end_of_streams += 1;
-                end_of_stream_handler(image);
+        let starting_index = self.round_robin_index as usize;
+        self.round_robin_index += 1;
+
+        let starting_index = if starting_index >= image_list.len() {
+            self.round_robin_index = 0;
+            0
+        } else {
+            starting_index
+        };
+
+        let mut fragments_read = 0;
+        for i in starting_index..image_list.len() {
+            if fragments_read < fragment_limit {
+                fragments_read += poll_kind(
+                    image_list.get_mut(i).expect("Error getting element from Image vec"),
+                    fragments_read - fragment_limit,
+                );
             }
         }
 
-        num_end_of_streams
+        for i in 0..starting_index {
+            if fragments_read < fragment_limit {
+                fragments_read += poll_kind(
+                    image_list.get_mut(i).expect("Error getting element from Image vec"),
+                    fragments_read - fragment_limit,
+                );
+            }
+        }
+
+        fragments_read
     }
 
     /**
@@ -189,37 +212,9 @@ impl Subscription {
      */
 
     pub fn poll(&mut self, fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header), fragment_limit: i32) -> i32 {
-        let image_list = self.image_list.load_mut();
-
-        let mut fragments_read = 0;
-
-        let mut starting_index = self.round_robin_index as usize;
-        self.round_robin_index += 1;
-
-        if starting_index >= image_list.len() {
-            self.round_robin_index = 0;
-            starting_index = 0;
-        }
-
-        for i in starting_index..image_list.len() {
-            if fragments_read < fragment_limit {
-                fragments_read += image_list
-                    .get_mut(i)
-                    .expect("Error getting element from Image vec")
-                    .poll(fragment_handler, fragment_limit - fragments_read);
-            }
-        }
-
-        for i in 0..starting_index {
-            if fragments_read < fragment_limit {
-                fragments_read += image_list
-                    .get_mut(i)
-                    .expect("Error getting element from Image vec")
-                    .poll(fragment_handler, fragment_limit - fragments_read);
-            }
-        }
-
-        fragments_read
+        self.poll_inner(fragment_limit, move |image, fragments_left| {
+            image.poll(fragment_handler, fragments_left)
+        })
     }
 
     /**
@@ -242,37 +237,9 @@ impl Subscription {
         fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError> + Copy,
         fragment_limit: i32,
     ) -> i32 {
-        let image_list = self.image_list.load_mut();
-
-        let mut fragments_read = 0;
-
-        let mut starting_index = self.round_robin_index as usize;
-        self.round_robin_index += 1;
-
-        if starting_index >= image_list.len() {
-            self.round_robin_index = 0;
-            starting_index = 0;
-        }
-
-        for i in starting_index..image_list.len() {
-            if fragments_read < fragment_limit {
-                fragments_read += image_list
-                    .get_mut(i)
-                    .expect("Error getting element from Image vec")
-                    .controlled_poll(fragment_handler, fragment_limit - fragments_read);
-            }
-        }
-
-        for i in 0..starting_index {
-            if fragments_read < fragment_limit {
-                fragments_read += image_list
-                    .get_mut(i)
-                    .expect("Error getting element from Image vec")
-                    .controlled_poll(fragment_handler, fragment_limit - fragments_read);
-            }
-        }
-
-        fragments_read
+        self.poll_inner(fragment_limit, move |image, fragments_left| {
+            image.controlled_poll(fragment_handler, fragments_left)
+        })
     }
 
     /**

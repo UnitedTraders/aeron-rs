@@ -130,13 +130,12 @@ fn main() {
         .add_publication(str_to_c(&settings.channel), settings.stream_id)
         .expect("Error adding publication");
 
-    let mut publication = aeron.find_publication(publication_id);
-    while publication.is_err() {
-        std::thread::yield_now();
-        publication = aeron.find_publication(publication_id);
-    }
-
-    let publication = publication.unwrap();
+    let publication = loop {
+        match aeron.find_publication(publication_id) {
+            Ok(p) => break p,
+            Err(_) => std::thread::yield_now(),
+        }
+    };
 
     let channel_status = publication.lock().unwrap().channel_status();
 
@@ -162,12 +161,13 @@ fn main() {
         println!("offering {}/{}", i + 1, settings.number_of_messages);
         let _unused = stdout().flush();
 
-        let result = publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32);
-
-        if let Ok(code) = result {
-            println!("Sent with code {}!", code);
-        } else {
-            println!("Offer with error: {:?}", result.err());
+        match publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32) {
+            Ok(code) => {
+                println!("Sent with code {}!", code)
+            }
+            Err(err) => {
+                println!("Offer with error: {:?}", err)
+            }
         }
 
         if !publication.lock().unwrap().is_connected() {

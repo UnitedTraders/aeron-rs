@@ -169,14 +169,10 @@ fn main() {
     context.set_pre_touch_mapped_memory(true);
     //context.set_use_conductor_agent_invoker(true); // start it in one thread for debugging
 
-    let aeron = Aeron::new(context);
-
-    if aeron.is_err() {
-        println!("Error creating Aeron instance: {:?}", aeron.err());
-        return;
-    }
-
-    let mut aeron = aeron.unwrap();
+    let mut aeron = match Aeron::new(context) {
+        Ok(aeron) => aeron,
+        Err(err) => panic!("Error creating Aeron instance: {:?}", err),
+    };
 
     let subscription_id = aeron
         .add_subscription(str_to_c(&settings.channel), settings.stream_id)
@@ -188,20 +184,21 @@ fn main() {
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
     PUBLICATION_ID.store(publication_id, Ordering::SeqCst);
 
-    let mut subscription = aeron.find_subscription(subscription_id);
-    while subscription.is_err() {
-        std::thread::yield_now();
-        subscription = aeron.find_subscription(subscription_id);
-    }
+    let subscription = loop {
+        if let Ok(sub) = aeron.find_subscription(subscription_id) {
+            break sub;
+        }
 
-    let mut publication = aeron.find_publication(publication_id);
-    while publication.is_err() {
         std::thread::yield_now();
-        publication = aeron.find_publication(publication_id);
-    }
+    };
 
-    let publication = publication.unwrap();
-    let subscription = subscription.unwrap();
+    let publication = loop {
+        if let Ok(publ) = aeron.find_publication(publication_id) {
+            break publ;
+        }
+
+        std::thread::yield_now();
+    };
 
     let offer_idle_strategy = BusySpinIdleStrategy::default();
     let poll_idle_strategy = BusySpinIdleStrategy::default();

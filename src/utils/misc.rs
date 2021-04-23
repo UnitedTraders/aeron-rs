@@ -42,11 +42,8 @@ pub fn unix_time_ns() -> Moment {
 
 /// Accepts Aeron style ASCII string (without zero termination). Outputs Rust String.
 pub unsafe fn aeron_str_to_rust(raw_str: *const u8, length: i32) -> String {
-    let str_slice = std::slice::from_raw_parts(raw_str, length as usize);
-    let mut zero_terminated: Vec<u8> = Vec::with_capacity(length as usize + 1);
-    zero_terminated.extend_from_slice(str_slice);
-
-    String::from_utf8_unchecked(zero_terminated)
+    let slice = std::slice::from_raw_parts(raw_str, length as usize);
+    std::str::from_utf8_unchecked(slice).to_owned()
 }
 
 pub fn semantic_version_compose(major: i32, minor: i32, patch: i32) -> i32 {

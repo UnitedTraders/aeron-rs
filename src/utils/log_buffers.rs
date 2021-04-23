@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::ffi::OsString;
 use std::path::Path;
 
@@ -83,12 +84,7 @@ impl LogBuffers {
 
         Ok(Self {
             memory_mapped_file: Some(memory_mapped_file),
-            buffers: [
-                *buffers.get(0).expect("Log buffers get(0) failed"),
-                *buffers.get(1).expect("Log buffers get(1) failed"),
-                *buffers.get(2).expect("Log buffers get(2) failed"),
-                *buffers.get(3).expect("Log buffers get(3) failed"),
-            ],
+            buffers: buffers.try_into().unwrap(),
         })
     }
 

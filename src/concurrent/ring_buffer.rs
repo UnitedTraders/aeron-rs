@@ -500,7 +500,7 @@ mod tests {
         let size = test.ring_buffer.max_msg_len() + 1;
         let write_res = test
             .ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, size);
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, size);
 
         assert_eq!(write_res.unwrap_err(), RingBufferError::MessageTooLong { msg: 129, max: 128 });
     }
@@ -516,7 +516,7 @@ mod tests {
         let aligned_record_length: Index = align(expected_record_length, record_descriptor::ALIGNMENT);
 
         test.ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, length)
             .unwrap();
 
         let record_length = test.ab.get::<i32>(record_descriptor::length_offset(tail_index));
@@ -543,7 +543,7 @@ mod tests {
 
         let err = test
             .ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, length)
             .unwrap_err();
         assert_eq!(err, RingBufferError::InsufficientCapacity);
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), tail as i64);
@@ -563,7 +563,7 @@ mod tests {
 
         let err = test
             .ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, length)
             .unwrap_err();
         assert_eq!(err, RingBufferError::InsufficientCapacity);
         assert_eq!(test.ab.get::<i64>(TAIL_COUNTER_INDEX), tail as i64);
@@ -584,7 +584,7 @@ mod tests {
         test.ab.put::<i64>(TAIL_COUNTER_INDEX, tail as i64);
 
         test.ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, length)
             .unwrap();
 
         assert_eq!(
@@ -619,7 +619,7 @@ mod tests {
         test.ab.put::<i64>(TAIL_COUNTER_INDEX, tail as i64);
 
         test.ring_buffer
-            .write(AeronCommand::UnitTestMessageTypeID, test.src_ab, 0, length)
+            .write(AeronCommand::UnitTestMessageTypeId, test.src_ab, 0, length)
             .unwrap();
 
         assert_eq!(
@@ -1003,7 +1003,7 @@ mod tests {
                 for i in 0..NUM_MESSAGES_PER_PUBLISHER {
                     src_ab.put::<i32>(message_num_offset, i as i32);
                     while ring_buffer
-                        .write(AeronCommand::UnitTestMessageTypeID, src_ab, 0, message_length)
+                        .write(AeronCommand::UnitTestMessageTypeId, src_ab, 0, message_length)
                         .is_err()
                     {
                         std::thread::yield_now();
@@ -1019,7 +1019,7 @@ mod tests {
             let message_number = buffer.get::<i32>(4);
 
             assert_eq!(buffer.capacity(), 4 + 4);
-            assert_eq!(command, AeronCommand::UnitTestMessageTypeID);
+            assert_eq!(command, AeronCommand::UnitTestMessageTypeId);
 
             let mut counts = COUNTS.lock().unwrap();
             assert_eq!(counts[id], message_number);
