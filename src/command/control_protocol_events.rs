@@ -49,7 +49,7 @@ pub enum AeronCommand {
     ResponseOnClientTimeout = 0xF0A,
 
     #[cfg(test)]
-    UnitTestMessageTypeID = 0x65,
+    UnitTestMessageTypeId = 0x65,
 }
 
 impl AeronCommand {
@@ -84,7 +84,7 @@ impl AeronCommand {
             0xF0A => Self::ResponseOnClientTimeout,
 
             #[cfg(test)]
-            0x65 => Self::UnitTestMessageTypeID,
+            0x65 => Self::UnitTestMessageTypeId,
             _ => unreachable!("Unexpected control protocol event: {:x}", command_id),
         }
     }
