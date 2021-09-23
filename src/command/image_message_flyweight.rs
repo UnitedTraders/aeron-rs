@@ -13,12 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use std::ffi::CString;
-
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
 use crate::utils::types::Index;
 
 /**
@@ -45,7 +41,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct ImageMessageDefn {
+pub(crate) struct ImageMessageDefn {
     correlation_id: i64,
     subscription_registration_id: i64,
     stream_id: i32,
@@ -53,7 +49,7 @@ pub struct ImageMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub struct ImageMessageFlyweight {
+pub(crate) struct ImageMessageFlyweight {
     flyweight: Flyweight<ImageMessageDefn>,
 }
 
@@ -74,48 +70,5 @@ impl ImageMessageFlyweight {
     #[inline]
     pub fn subscription_registration_id(&self) -> i64 {
         unsafe { (*self.flyweight.m_struct).subscription_registration_id }
-    }
-
-    #[inline]
-    pub fn stream_id(&self) -> i32 {
-        unsafe { (*self.flyweight.m_struct).stream_id }
-    }
-
-    #[inline]
-    pub fn channel(&self) -> CString {
-        self.flyweight.string_get(offset_of!(ImageMessageDefn, channel_length))
-    }
-
-    #[inline]
-    pub fn length(&self) -> Index {
-        unsafe { offset_of!(ImageMessageDefn, channel_data) + (*self.flyweight.m_struct).channel_length as Index }
-    }
-
-    // Setters
-
-    #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).correlation_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_subscription_registration_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).subscription_registration_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).stream_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_channel(&mut self, value: &[u8]) {
-        self.flyweight.string_put(offset_of!(ImageMessageDefn, channel_length), value);
     }
 }

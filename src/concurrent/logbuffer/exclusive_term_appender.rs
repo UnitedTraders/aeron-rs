@@ -124,7 +124,6 @@ impl ExclusiveTermAppender {
         resulting_offset
     }
 
-    //TODO: Not sure that its used! Port it if actually used or remove from here!
     pub fn append_unfragmented_message_bulk(
         &mut self,
         term_id: i32,
@@ -244,91 +243,6 @@ impl ExclusiveTermAppender {
 
         resulting_offset
     }
-
-    /* TODO: Not sure that its used! Port it if actually used or remove from here!
-    template <class BufferIterator> std::int32_t appendFragmentedMessage(
-    std::int32_t term_id,
-    std::int32_t term_offset,
-    const &HeaderWriter header,
-    BufferIterator bufferIt,
-    util::index_t length,
-    util::index_t max_payload_length,
-    const on_reserved_value_supplier_t& reserved_value_supplier)
-    {
-    const int num_max_payloads = length / max_payload_length;
-    const util::index_t remaining_payload = length % max_payload_length;
-    const util::index_t last_frame_length = (remaining_payload > 0) ?
-    util::BitUtil::align(remaining_payload + data_frame_header::LENGTH, frame_descriptor::FRAME_ALIGNMENT) : 0;
-    const util::index_t required_length =
-    (num_max_payloads * (max_payload_length + data_frame_header::LENGTH)) + last_frame_length;
-
-    const std::int32_t term_length = self.term_buffer.capacity();
-
-    std::int32_t resulting_offset = term_offset + required_length;
-    put_raw_tail_ordered(term_id, resulting_offset);
-
-    if (resulting_offset > term_length)
-    {
-    resulting_offset = handleEndOfLogCondition(self.term_buffer, term_id, term_offset, header, term_length);
-    }
-    else
-    {
-    std::uint8_t flags = frame_descriptor::BEGIN_FRAG;
-    util::index_t remaining = length;
-    std::int32_t offset = static_cast<std::int32_t>(term_offset);
-    util::index_t currentBufferOffset = 0;
-
-    do
-    {
-    const util::index_t bytes_to_write = std::min(remaining, max_payload_length);
-    const util::index_t frame_length = bytes_to_write + data_frame_header::LENGTH;
-    const util::index_t aligned_length = util::BitUtil::align(frame_length, frame_descriptor::FRAME_ALIGNMENT);
-
-    header.write(self.term_buffer, offset, frame_length, term_id);
-
-    util::index_t bytesWritten = 0;
-    util::index_t payloadOffset = offset + data_frame_header::LENGTH;
-    do
-    {
-    const util::index_t currentBufferRemaining = bufferIt->capacity() - currentBufferOffset;
-    const util::index_t numBytes = std::min(bytes_to_write - bytesWritten, currentBufferRemaining);
-
-    self.term_buffer.putBytes(payloadOffset, *bufferIt, currentBufferOffset, numBytes);
-
-    bytesWritten += numBytes;
-    payloadOffset += numBytes;
-    currentBufferOffset += numBytes;
-
-    if (currentBufferRemaining <= numBytes)
-    {
-    ++bufferIt;
-    currentBufferOffset = 0;
-    }
-    }
-    while (bytesWritten < bytes_to_write);
-
-    if (remaining <= max_payload_length)
-    {
-    flags |= frame_descriptor::END_FRAG;
-    }
-
-    frame_descriptor::frameFlags(self.term_buffer, offset, flags);
-
-    const std::int64_t reservedValue = reserved_value_supplier(self.term_buffer, offset, frame_length);
-    self.term_buffer.putInt64(offset + data_frame_header::RESERVED_VALUE_FIELD_OFFSET, reservedValue);
-
-    frame_descriptor::frame_lengthOrdered(self.term_buffer, offset, frame_length);
-
-    flags = 0;
-    offset += aligned_length;
-    remaining -= bytes_to_write;
-    }
-    while (remaining > 0);
-    }
-
-    return resulting_offset;
-    }
-    */
 
     fn handle_end_of_log_condition(
         term_buffer: &AtomicBuffer,

@@ -212,7 +212,7 @@ fn test_unfragmented_msg() {
         idle_strategy.idle_opt(fragments_read);
     }
 
-    assert_eq!(ON_NEW_FRAGMENT_CALLED.load(Ordering::SeqCst), true);
+    assert!(ON_NEW_FRAGMENT_CALLED.load(Ordering::SeqCst));
 
     common::stop_aeron_md(md);
 }

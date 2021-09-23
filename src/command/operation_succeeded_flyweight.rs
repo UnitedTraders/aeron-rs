@@ -31,13 +31,13 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct OperationSucceededDefn {
+pub(crate) struct OperationSucceededDefn {
     correlation_id: i64,
 }
 
 pub const OPERATION_SUCCEEDED_LENGTH: Index = std::mem::size_of::<OperationSucceededDefn>() as Index;
 
-pub struct OperationSucceededFlyweight {
+pub(crate) struct OperationSucceededFlyweight {
     flyweight: Flyweight<OperationSucceededDefn>,
 }
 
@@ -51,12 +51,5 @@ impl OperationSucceededFlyweight {
     #[inline]
     pub fn correlation_id(&self) -> i64 {
         unsafe { (*self.flyweight.m_struct).correlation_id }
-    }
-
-    #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).correlation_id = value;
-        }
     }
 }

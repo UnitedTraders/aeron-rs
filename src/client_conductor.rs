@@ -961,7 +961,7 @@ impl ClientConductor {
                 image.close();
 
                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                (subscription.on_unavailable_image_handler)(&image);
+                (subscription.on_unavailable_image_handler)(image);
             }
         } else {
             ttrace!(
@@ -1321,7 +1321,7 @@ impl ClientConductor {
                             image.close();
 
                             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                            (sub_defn.on_unavailable_image_handler)(&image);
+                            (sub_defn.on_unavailable_image_handler)(image);
                         }
                         images_to_linger.push(images);
                     }
@@ -1594,7 +1594,7 @@ impl DriverListener for ClientConductor {
                                 image.close();
 
                                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                                (subscr_defn.on_unavailable_image_handler)(&image);
+                                (subscr_defn.on_unavailable_image_handler)(image);
                             }
                             linger_images.push(images);
                             subscription_to_remove.push(*reg_id);

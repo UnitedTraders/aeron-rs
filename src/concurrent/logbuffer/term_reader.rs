@@ -43,7 +43,7 @@ pub type ErrorHandler = fn(AeronError);
  * @param error that has occurred.
  */
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ReadOutcome {
     pub offset: Index,
     pub fragments_read: i32,

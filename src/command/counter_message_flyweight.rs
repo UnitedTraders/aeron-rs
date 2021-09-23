@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#[cfg(test)]
 use std::ffi::CString;
 
 use crate::{
@@ -50,14 +51,14 @@ use crate::{
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct CounterMessageDefn {
+pub(crate) struct CounterMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     type_id: i32,
 }
 
 pub const COUNTER_MESSAGE_LENGTH: Index = std::mem::size_of::<CounterMessageDefn>() as Index;
 
-pub struct CounterMessageFlyweight {
+pub(crate) struct CounterMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut CounterMessageDefn, // This is actually part of above field memory space
 }
@@ -72,7 +73,7 @@ impl CounterMessageFlyweight {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn type_id(&self) -> i32 {
         unsafe { (*self.m_struct).type_id }
     }
@@ -82,13 +83,6 @@ impl CounterMessageFlyweight {
         unsafe {
             (*self.m_struct).type_id = value;
         }
-    }
-
-    #[inline]
-    pub fn key_buffer(&self) -> *mut u8 {
-        self.correlated_message_flyweight
-            .flyweight
-            .bytes_at(self.key_length_offset() + I32_SIZE)
     }
 
     #[inline]
@@ -125,7 +119,7 @@ impl CounterMessageFlyweight {
             .string_get_length(self.label_length_offset())
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn label(&self) -> CString {
         self.correlated_message_flyweight
             .flyweight
@@ -146,12 +140,7 @@ impl CounterMessageFlyweight {
 
     // Parent Getters
 
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.correlated_message_flyweight.client_id()
-    }
-
-    #[inline]
+    #[cfg(test)]
     pub fn correlation_id(&self) -> i64 {
         self.correlated_message_flyweight.correlation_id()
     }

@@ -17,7 +17,6 @@
 use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
 use crate::utils::{bit_utils, memory_mapped_file::MemoryMappedFile, misc, types::Index};
 
 /**
@@ -94,7 +93,7 @@ lazy_static! {
 pub fn cnc_version_volatile(cnc_file: &MemoryMappedFile) -> i32 {
     let meta_data_buffer = cnc_file.atomic_buffer(0, cnc_file.memory_size());
 
-    meta_data_buffer.get_volatile::<i32>(offset_of!(MetaDataDefn, cnc_version))
+    meta_data_buffer.get_volatile::<i32>(offset_of!(MetaDataDefn, cnc_version) as Index)
 }
 
 pub fn create_to_driver_buffer(cnc_file: &MemoryMappedFile) -> AtomicBuffer {

@@ -60,11 +60,11 @@ fn main() {
 
     println!("OBSERVATION_COUNT, TOTAL_BYTES_LOST, FIRST_OBSERVATION, LAST_OBSERVATION, SESSION_ID, STREAM_ID, CHANNEL, SOURCE");
 
-    let entries_read = reports::read(&buffer, |observation_count, loss_report_entry, channel, source| unsafe {
+    let entries_read = reports::read(&buffer, |observation_count, loss_report_entry, channel, source| {
         println!(
             "{},{},{},{},{},{},{:#?},{:#?}",
             observation_count,
-            loss_report_entry.total_bytes_lost,
+            { loss_report_entry.total_bytes_lost },
             format_date(loss_report_entry.first_observation_timestamp),
             format_date(loss_report_entry.last_observation_timestamp),
             loss_report_entry.session_id,

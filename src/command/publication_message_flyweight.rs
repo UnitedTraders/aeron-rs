@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#[cfg(test)]
 use std::ffi::CString;
 
 use crate::{
     command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
     concurrent::atomic_buffer::AtomicBuffer,
-    offset_of,
     utils::types::Index,
 };
 
@@ -48,14 +47,14 @@ use crate::{
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct PublicationMessageDefn {
+pub(crate) struct PublicationMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     stream_id: i32,
     channel_length: i32,
     channel_data: [i8; 1],
 }
 
-pub struct PublicationMessageFlyweight {
+pub(crate) struct PublicationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut PublicationMessageDefn, // This is actually part of above field memory space
 }
@@ -72,7 +71,7 @@ impl PublicationMessageFlyweight {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn stream_id(&self) -> i32 {
         unsafe { (*self.m_struct).stream_id }
     }
@@ -84,33 +83,27 @@ impl PublicationMessageFlyweight {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn channel(&self) -> CString {
         self.correlated_message_flyweight
             .flyweight
-            .string_get(offset_of!(PublicationMessageDefn, channel_length))
+            .string_get(offset_of!(PublicationMessageDefn, channel_length) as Index)
     }
 
     #[inline]
     pub fn set_channel(&mut self, value: &[u8]) {
         self.correlated_message_flyweight
             .flyweight
-            .string_put(offset_of!(PublicationMessageDefn, channel_length), value);
+            .string_put(offset_of!(PublicationMessageDefn, channel_length) as Index, value);
     }
 
     #[inline]
     pub fn length(&self) -> Index {
-        unsafe { offset_of!(PublicationMessageDefn, channel_data) + (*self.m_struct).channel_length as Index }
+        unsafe { offset_of!(PublicationMessageDefn, channel_data) as Index + (*self.m_struct).channel_length as Index }
     }
 
     // Parent Getters
-
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.correlated_message_flyweight.client_id()
-    }
-
-    #[inline]
+    #[cfg(test)]
     pub fn correlation_id(&self) -> i64 {
         self.correlated_message_flyweight.correlation_id()
     }

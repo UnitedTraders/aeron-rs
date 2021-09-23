@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::ttrace;
 use crate::utils::errors::IllegalStateError;
 use crate::{
     concurrent::{
@@ -136,6 +137,7 @@ impl TermAppender {
         let mut resulting_offset = term_offset + aligned_length as i64;
 
         if resulting_offset > term_length as i64 {
+            ttrace!("append_unfragmented_message: end of log condition detected");
             resulting_offset =
                 TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
@@ -243,6 +245,7 @@ impl TermAppender {
         let mut resulting_offset = term_offset + required_length as i64;
 
         if resulting_offset > term_length as i64 {
+            ttrace!("append_fragmented_message: end of log condition detected");
             resulting_offset =
                 TermAppender::handle_end_of_log_condition(&self.term_buffer, term_offset, header, term_length, term_id) as i64;
         } else {
@@ -267,6 +270,7 @@ impl TermAppender {
                 if remaining <= max_payload_length {
                     flags |= frame_descriptor::END_FRAG;
                 }
+                ttrace!("append_fragmented_message: writing fragment with flags {:x}", flags);
 
                 frame_descriptor::set_frame_flags(&self.term_buffer, frame_offset, flags);
 

@@ -37,6 +37,7 @@ use crate::{
         position::{ReadablePosition, UnsafeBufferPosition},
         status::status_indicator_reader,
     },
+    ttrace,
     utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
 };
 
@@ -361,6 +362,7 @@ impl Publication {
 
             if position < limit {
                 let resulting_offset = if length <= self.max_payload_length {
+                    ttrace!("Appending unfragmented message on publication {}", self.registration_id);
                     term_appender.append_unfragmented_message(
                         &self.header_writer,
                         &buffer,
@@ -371,6 +373,7 @@ impl Publication {
                     )
                 } else {
                     self.check_max_message_length(length)?;
+                    ttrace!("Appending fragmented message on publication {}", self.registration_id);
                     term_appender.append_fragmented_message(
                         &self.header_writer,
                         &buffer,
@@ -390,9 +393,17 @@ impl Publication {
                     resulting_offset.expect("Something wrong with resulting offset"),
                 )?)
             } else {
+                ttrace!(
+                    "Current stream position is out of limit on publication {}",
+                    self.registration_id
+                );
                 Err(self.back_pressure_status(position, length))
             }
         } else {
+            ttrace!(
+                "Unsuccessful attempt to publish a message via closed publication {}",
+                self.registration_id
+            );
             Err(AeronError::PublicationClosed)
         }
     }

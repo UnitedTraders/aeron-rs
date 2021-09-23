@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // TODO: Eliminate later
 #![allow(clippy::missing_safety_doc)]
+
+#[macro_use]
+extern crate memoffset;
 
 pub mod aeron;
 pub mod buffer_builder;

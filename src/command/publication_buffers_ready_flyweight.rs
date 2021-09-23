@@ -18,7 +18,6 @@ use std::ffi::CString;
 
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
 use crate::utils::types::Index;
 
 /**
@@ -52,7 +51,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone, Debug)]
-pub struct PublicationBuffersReadyDefn {
+pub(crate) struct PublicationBuffersReadyDefn {
     correlation_id: i64,
     registration_id: i64,
     session_id: i32,
@@ -63,7 +62,7 @@ pub struct PublicationBuffersReadyDefn {
     log_file_data: [i8; 1],
 }
 
-pub struct PublicationBuffersReadyFlyweight {
+pub(crate) struct PublicationBuffersReadyFlyweight {
     flyweight: Flyweight<PublicationBuffersReadyDefn>,
 }
 
@@ -106,66 +105,10 @@ impl PublicationBuffersReadyFlyweight {
         unsafe { (*self.flyweight.m_struct).channel_status_indicator_id }
     }
 
-    // Setters
-
-    #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).correlation_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_registration_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).registration_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_session_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).session_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).stream_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_position_limit_counter_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).position_limit_counter_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_channel_status_indicator_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).channel_status_indicator_id = value;
-        }
-    }
-
     // Interaction with Flyweight methods
-
     #[inline]
     pub fn log_file_name(&self) -> CString {
         self.flyweight
-            .string_get(offset_of!(PublicationBuffersReadyDefn, log_file_length))
-    }
-
-    #[inline]
-    pub fn set_log_file_name(&mut self, value: &[u8]) {
-        self.flyweight
-            .string_put(offset_of!(PublicationBuffersReadyDefn, log_file_length), value);
-    }
-
-    #[inline]
-    pub fn length(&self) -> Index {
-        unsafe { offset_of!(PublicationBuffersReadyDefn, log_file_data) + (*self.flyweight.m_struct).log_file_length as Index }
+            .string_get(offset_of!(PublicationBuffersReadyDefn, log_file_length) as Index)
     }
 }

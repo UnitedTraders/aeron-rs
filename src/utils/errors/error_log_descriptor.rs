@@ -16,7 +16,6 @@
 
 use lazy_static::lazy_static;
 
-use crate::offset_of;
 use crate::utils::types::{Index, I64_SIZE};
 
 /**
@@ -61,10 +60,11 @@ pub struct ErrorLogEntryDefn {
 }
 
 lazy_static! {
-    pub static ref LENGTH_OFFSET: Index = offset_of!(ErrorLogEntryDefn, length);
-    pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(ErrorLogEntryDefn, observation_count);
-    pub static ref LAST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, last_observation_timestamp);
-    pub static ref FIRST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, first_observation_timestamp);
+    pub static ref LENGTH_OFFSET: Index = offset_of!(ErrorLogEntryDefn, length) as Index;
+    pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(ErrorLogEntryDefn, observation_count) as Index;
+    pub static ref LAST_OBSERVATION_TIMESTAMP_OFFSET: Index = offset_of!(ErrorLogEntryDefn, last_observation_timestamp) as Index;
+    pub static ref FIRST_OBSERVATION_TIMESTAMP_OFFSET: Index =
+        offset_of!(ErrorLogEntryDefn, first_observation_timestamp) as Index;
 }
 
 pub const ENCODED_ERROR_OFFSET: Index = std::mem::size_of::<ErrorLogEntryDefn>() as Index;

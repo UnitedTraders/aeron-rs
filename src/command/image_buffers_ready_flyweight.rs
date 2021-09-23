@@ -56,7 +56,7 @@ use crate::utils::{bit_utils, types::Index, types::I32_SIZE};
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct ImageBuffersReadyDefn {
+pub(crate) struct ImageBuffersReadyDefn {
     correlation_id: i64,
     session_id: i32,
     stream_id: i32,
@@ -66,7 +66,7 @@ pub struct ImageBuffersReadyDefn {
 
 pub const IMAGE_BUFFERS_READY_LENGTH: Index = std::mem::size_of::<ImageBuffersReadyDefn>() as Index;
 
-pub struct ImageBuffersReadyFlyweight {
+pub(crate) struct ImageBuffersReadyFlyweight {
     flyweight: Flyweight<ImageBuffersReadyDefn>,
 }
 
@@ -90,11 +90,6 @@ impl ImageBuffersReadyFlyweight {
     }
 
     #[inline]
-    pub fn stream_id(&self) -> i32 {
-        unsafe { (*self.flyweight.m_struct).stream_id }
-    }
-
-    #[inline]
     pub fn subscription_registration_id(&self) -> i64 {
         unsafe { (*self.flyweight.m_struct).subscription_registration_id }
     }
@@ -102,43 +97,6 @@ impl ImageBuffersReadyFlyweight {
     #[inline]
     pub fn subscriber_position_id(&self) -> i32 {
         unsafe { (*self.flyweight.m_struct).subscriber_position_id }
-    }
-
-    // Setters
-
-    #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).correlation_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_session_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).session_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_stream_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).stream_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_subscription_registration_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).subscription_registration_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_subscriber_position_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).subscriber_position_id = value;
-        }
     }
 
     // Interaction with Flyweight methods
@@ -149,24 +107,8 @@ impl ImageBuffersReadyFlyweight {
     }
 
     #[inline]
-    pub fn set_log_file_name(&mut self, value: &[u8]) {
-        self.flyweight.string_put(self.log_file_name_offset(), value);
-    }
-
-    #[inline]
     pub fn source_identity(&self) -> CString {
         self.flyweight.string_get(self.source_identity_offset())
-    }
-
-    #[inline]
-    pub fn set_source_identity(&mut self, value: &[u8]) {
-        self.flyweight.string_put(self.source_identity_offset(), value);
-    }
-
-    #[inline]
-    pub fn length(&self) -> Index {
-        let start_of_source_identity = self.source_identity_offset();
-        start_of_source_identity + self.flyweight.string_get_length(start_of_source_identity) + I32_SIZE
     }
 }
 

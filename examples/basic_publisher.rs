@@ -62,7 +62,7 @@ impl Settings {
             number_of_warmup_messages: 0,
             number_of_messages: 10,
             message_length: DEFAULT_MESSAGE_LENGTH.parse().unwrap(),
-            linger_timeout_ms: 100,
+            linger_timeout_ms: 10000,
         }
     }
 }

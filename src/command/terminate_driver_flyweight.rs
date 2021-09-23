@@ -39,14 +39,14 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct TerminateDriverDefn {
+pub(crate) struct TerminateDriverDefn {
     correlated_message: CorrelatedMessageDefn,
     token_length: i32,
 }
 
 pub const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
 
-pub struct TerminateDriverFlyweight {
+pub(crate) struct TerminateDriverFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut TerminateDriverDefn, // This is actually part of above field memory space
 }
@@ -64,16 +64,6 @@ impl TerminateDriverFlyweight {
     }
 
     #[inline]
-    pub fn token_buffer(&self) -> *mut u8 {
-        self.correlated_message_flyweight.flyweight.bytes_at(TERMINATE_DRIVER_LENGTH)
-    }
-
-    #[inline]
-    pub fn token_length(&self) -> i32 {
-        unsafe { (*self.m_struct).token_length }
-    }
-
-    #[inline]
     pub unsafe fn set_token_buffer(&mut self, token_buffer: *const u8, token_length: Index) {
         (*self.m_struct).token_length = token_length;
         if token_length > 0 {
@@ -87,18 +77,6 @@ impl TerminateDriverFlyweight {
     #[inline]
     pub fn length(&self) -> Index {
         unsafe { TERMINATE_DRIVER_LENGTH + (*self.m_struct).token_length as Index }
-    }
-
-    // Parent Getters
-
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.correlated_message_flyweight.client_id()
-    }
-
-    #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.correlated_message_flyweight.correlation_id()
     }
 
     // Parent Setters

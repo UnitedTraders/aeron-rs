@@ -36,27 +36,8 @@ pub const U32_SIZE: Index = std::mem::size_of::<u32>() as Index;
 pub const I64_SIZE: Index = std::mem::size_of::<i64>() as Index;
 pub const U64_SIZE: Index = std::mem::size_of::<u64>() as Index;
 
-#[macro_export]
-macro_rules! offset_of {
-    ($Struct:path, $field:ident) => {{
-        // Using a separate function to minimize unhygienic hazards
-        // (e.g. unsafety of #[repr(packed)] field borrows).
-        fn offset() -> usize {
-            let u = core::mem::MaybeUninit::<$Struct>::uninit();
-            // Use pattern-matching to avoid accidentally going through Deref.
-            unsafe {
-                let &$Struct { $field: ref f, .. } = &*u.as_ptr();
-                (f as *const _ as usize).wrapping_sub(&u as *const _ as usize)
-            }
-        }
-        offset() as Index
-    }};
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::utils::types::Index;
-
     #[repr(C, packed(4))]
     struct Foo {
         a: u8,

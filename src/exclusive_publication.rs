@@ -477,68 +477,6 @@ impl ExclusivePublication {
     //}
 
     /**
-     * Non-blocking publish of array of buffers containing a message.
-     *
-     * @param buffers containing parts of the message.
-     * @param reservedValueSupplier for the frame.
-     * @return The new stream position, otherwise {@link #NOT_CONNECTED}, {@link #BACK_PRESSURED},
-     * {@link #ADMIN_ACTION} or {@link #CLOSED}.
-     */
-    pub fn offer_bulk(
-        &mut self,
-        buffers: Vec<AtomicBuffer>,
-        reserved_value_supplier: OnReservedValueSupplier,
-    ) -> Result<i64, AeronError> {
-        let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
-
-        if length == std::i32::MAX {
-            return Err(IllegalStateError::LengthOverflow(length).into());
-        }
-
-        if !self.is_closed() {
-            let limit = self.publication_limit.get_volatile();
-            let term_appender = &mut self.appenders[self.active_partition_index as usize];
-            let position = self.term_begin_position + self.term_offset as i64;
-
-            if position < limit {
-                let resulting_offset = if length <= self.max_payload_length {
-                    term_appender.append_unfragmented_message_bulk(
-                        self.term_id,
-                        self.term_offset,
-                        &self.header_writer,
-                        buffers,
-                        length,
-                        reserved_value_supplier,
-                    )
-                } else {
-                    if length > self.max_message_length {
-                        return Err(IllegalArgumentError::EncodedMessageExceedsMaxMessageLength {
-                            length,
-                            max_message_length: self.max_message_length,
-                        }
-                        .into());
-                    }
-
-                    term_appender.append_unfragmented_message_bulk(
-                        self.term_id,
-                        self.term_offset,
-                        &self.header_writer,
-                        buffers,
-                        length,
-                        reserved_value_supplier,
-                    )
-                };
-
-                Ok(self.new_position(resulting_offset)?)
-            } else {
-                Err(self.back_pressure_status(position, length as Index))
-            }
-        } else {
-            Err(AeronError::PublicationClosed)
-        }
-    }
-
-    /**
      * Try to claim a range in the publication log into which a message can be written with zero copy semantics.
      * Once the message has been written then {@link BufferClaim#commit()} should be called thus making it available.
      * <p>
