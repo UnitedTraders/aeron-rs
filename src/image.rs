@@ -337,7 +337,9 @@ impl Image {
                 self.exception_handler,
             );
 
-            ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
+            if read_outcome.fragments_read > 0 {
+                ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
+            }
 
             let new_position = position + (read_outcome.offset - term_offset) as i64;
             if new_position > position {
