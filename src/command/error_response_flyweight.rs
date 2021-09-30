@@ -18,7 +18,6 @@ use std::ffi::CString;
 
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::offset_of;
 use crate::utils::types::Index;
 
 /**
@@ -42,7 +41,7 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct ErrorResponseDefn {
+pub(crate) struct ErrorResponseDefn {
     offending_command_correlation_id: i64,
     error_code: i32,
     error_message_length: i32,
@@ -84,11 +83,14 @@ impl ErrorResponseFlyweight {
 
     #[inline]
     pub fn error_message(&self) -> CString {
-        self.flyweight.string_get(offset_of!(ErrorResponseDefn, error_message_length))
+        self.flyweight
+            .string_get(offset_of!(ErrorResponseDefn, error_message_length) as Index)
     }
 
     #[inline]
     pub fn length(&self) -> Index {
-        unsafe { offset_of!(ErrorResponseDefn, error_message_data) + (*self.flyweight.m_struct).error_message_length as Index }
+        unsafe {
+            offset_of!(ErrorResponseDefn, error_message_data) as Index + (*self.flyweight.m_struct).error_message_length as Index
+        }
     }
 }

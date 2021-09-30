@@ -19,7 +19,6 @@ use lazy_static::lazy_static;
 use crate::utils::errors::IllegalStateError;
 use crate::{
     concurrent::atomic_buffer::AtomicBuffer,
-    offset_of,
     utils::{
         bit_utils::is_power_of_two,
         errors::AeronError,
@@ -126,16 +125,17 @@ pub struct LogMetaDataDefn {
 }
 
 lazy_static! {
-    pub static ref TERM_TAIL_COUNTER_OFFSET: Index = offset_of!(LogMetaDataDefn, term_tail_counters);
-    pub static ref LOG_ACTIVE_TERM_COUNT_OFFSET: Index = offset_of!(LogMetaDataDefn, active_term_count);
-    pub static ref LOG_END_OF_STREAM_POSITION_OFFSET: Index = offset_of!(LogMetaDataDefn, end_of_stream_position);
-    pub static ref LOG_IS_CONNECTED_OFFSET: Index = offset_of!(LogMetaDataDefn, is_connected);
-    pub static ref LOG_ACTIVE_TRANSPORT_COUNT: Index = offset_of!(LogMetaDataDefn, active_transport_count);
-    pub static ref LOG_INITIAL_TERM_ID_OFFSET: Index = offset_of!(LogMetaDataDefn, initial_term_id);
-    pub static ref LOG_DEFAULT_FRAME_HEADER_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, default_frame_header_length);
-    pub static ref LOG_MTU_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, mtu_length);
-    pub static ref LOG_TERM_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, term_length);
-    pub static ref LOG_PAGE_SIZE_OFFSET: Index = offset_of!(LogMetaDataDefn, page_size);
+    pub static ref TERM_TAIL_COUNTER_OFFSET: Index = offset_of!(LogMetaDataDefn, term_tail_counters) as Index;
+    pub static ref LOG_ACTIVE_TERM_COUNT_OFFSET: Index = offset_of!(LogMetaDataDefn, active_term_count) as Index;
+    pub static ref LOG_END_OF_STREAM_POSITION_OFFSET: Index = offset_of!(LogMetaDataDefn, end_of_stream_position) as Index;
+    pub static ref LOG_IS_CONNECTED_OFFSET: Index = offset_of!(LogMetaDataDefn, is_connected) as Index;
+    pub static ref LOG_ACTIVE_TRANSPORT_COUNT: Index = offset_of!(LogMetaDataDefn, active_transport_count) as Index;
+    pub static ref LOG_INITIAL_TERM_ID_OFFSET: Index = offset_of!(LogMetaDataDefn, initial_term_id) as Index;
+    pub static ref LOG_DEFAULT_FRAME_HEADER_LENGTH_OFFSET: Index =
+        offset_of!(LogMetaDataDefn, default_frame_header_length) as Index;
+    pub static ref LOG_MTU_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, mtu_length) as Index;
+    pub static ref LOG_TERM_LENGTH_OFFSET: Index = offset_of!(LogMetaDataDefn, term_length) as Index;
+    pub static ref LOG_PAGE_SIZE_OFFSET: Index = offset_of!(LogMetaDataDefn, page_size) as Index;
 }
 
 pub const LOG_DEFAULT_FRAME_HEADER_OFFSET: Index = std::mem::size_of::<LogMetaDataDefn>() as Index;

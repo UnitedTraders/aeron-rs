@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::fmt;
+
 /**
 * List of event types used in the control protocol between the media driver and the core.
 */
@@ -50,6 +52,14 @@ pub enum AeronCommand {
 
     #[cfg(test)]
     UnitTestMessageTypeID = 0x65,
+}
+
+impl fmt::LowerHex for AeronCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let val = *self as u8;
+
+        fmt::LowerHex::fmt(&val, f)
+    }
 }
 
 impl AeronCommand {

@@ -16,7 +16,6 @@
 
 use lazy_static::lazy_static;
 
-use crate::offset_of;
 use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
@@ -34,15 +33,15 @@ pub struct DataFrameHeaderDefn {
 }
 
 lazy_static! {
-    pub static ref FRAME_LENGTH_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_length);
-    pub static ref VERSION_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, version);
-    pub static ref FLAGS_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, flags);
-    pub static ref TYPE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_type);
-    pub static ref TERM_OFFSET_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_offset);
-    pub static ref SESSION_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, session_id);
-    pub static ref STREAM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, stream_id);
-    pub static ref TERM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_id);
-    pub static ref RESERVED_VALUE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, reserved_value);
+    pub static ref FRAME_LENGTH_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_length) as Index;
+    pub static ref VERSION_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, version) as Index;
+    pub static ref FLAGS_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, flags) as Index;
+    pub static ref TYPE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_type) as Index;
+    pub static ref TERM_OFFSET_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_offset) as Index;
+    pub static ref SESSION_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, session_id) as Index;
+    pub static ref STREAM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, stream_id) as Index;
+    pub static ref TERM_ID_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, term_id) as Index;
+    pub static ref RESERVED_VALUE_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, reserved_value) as Index;
 }
 
 pub const DATA_OFFSET: Index = std::mem::size_of::<DataFrameHeaderDefn>() as Index;

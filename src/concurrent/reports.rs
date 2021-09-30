@@ -20,7 +20,6 @@ use lazy_static::lazy_static;
 
 use crate::{
     concurrent::{atomic_buffer::AtomicBuffer, reports::loss_report_descriptor::LossReportEntryDefn},
-    offset_of,
     utils::{
         bit_utils,
         misc::CACHE_LINE_LENGTH,
@@ -87,7 +86,7 @@ pub mod loss_report_descriptor {
 }
 
 lazy_static! {
-    pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(LossReportEntryDefn, observation_count);
+    pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(LossReportEntryDefn, observation_count) as Index;
     pub static ref ENTRY_ALIGNMENT: Index = std::mem::size_of_val(&CACHE_LINE_LENGTH) as Index;
 }
 

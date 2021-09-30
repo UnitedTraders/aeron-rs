@@ -38,14 +38,14 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct RemoveMessageDefn {
+pub(crate) struct RemoveMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     registration_id: i64,
 }
 
 pub const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as Index;
 
-pub struct RemoveMessageFlyweight {
+pub(crate) struct RemoveMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut RemoveMessageDefn, // This is actually part of above field memory space
 }
@@ -60,7 +60,7 @@ impl RemoveMessageFlyweight {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn registration_id(&self) -> i64 {
         unsafe { (*self.m_struct).registration_id }
     }
@@ -77,20 +77,7 @@ impl RemoveMessageFlyweight {
         REMOVE_MESSAGE_LENGTH
     }
 
-    // Parent Getters
-
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.correlated_message_flyweight.client_id()
-    }
-
-    #[inline]
-    pub fn correlation_id(&self) -> i64 {
-        self.correlated_message_flyweight.correlation_id()
-    }
-
     // Parent Setters
-
     #[inline]
     pub fn set_client_id(&mut self, value: i64) {
         self.correlated_message_flyweight.set_client_id(value);

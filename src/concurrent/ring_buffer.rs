@@ -918,7 +918,7 @@ mod tests {
 
         test.ab.put_ordered::<i32>(message_length * 2, 0);
 
-        assert_eq!(test.ring_buffer.unblock(), false);
+        assert!(!test.ring_buffer.unblock());
     }
 
     // Can't be implemented without Mock framework

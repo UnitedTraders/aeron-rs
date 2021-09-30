@@ -28,7 +28,7 @@ use aeron_rs::{
         status::status_indicator_reader::channel_status_to_str,
     },
     context::Context,
-    example_config::{DEFAULT_CHANNEL, DEFAULT_MESSAGE_LENGTH, DEFAULT_STREAM_ID},
+    example_config::{DEFAULT_CHANNEL, DEFAULT_STREAM_ID},
     utils::errors::AeronError,
 };
 use lazy_static::lazy_static;
@@ -47,9 +47,7 @@ struct Settings {
     dir_prefix: String,
     channel: String,
     stream_id: i32,
-    number_of_warmup_messages: i64,
     number_of_messages: i64,
-    message_length: i32,
     linger_timeout_ms: u64,
 }
 
@@ -59,10 +57,8 @@ impl Settings {
             dir_prefix: String::new(),
             channel: String::from(DEFAULT_CHANNEL),
             stream_id: DEFAULT_STREAM_ID.parse().unwrap(),
-            number_of_warmup_messages: 0,
             number_of_messages: 10,
-            message_length: DEFAULT_MESSAGE_LENGTH.parse().unwrap(),
-            linger_timeout_ms: 100,
+            linger_timeout_ms: 10000,
         }
     }
 }

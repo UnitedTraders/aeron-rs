@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#[cfg(test)]
 use std::ffi::CString;
 
 use crate::{
     command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
     concurrent::atomic_buffer::AtomicBuffer,
-    offset_of,
     utils::types::Index,
 };
 
@@ -50,7 +49,7 @@ use crate::{
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct SubscriptionMessageDefn {
+pub(crate) struct SubscriptionMessageDefn {
     correlated_message: CorrelatedMessageDefn,
     registration_correlation_id: i64,
     stream_id: i32,
@@ -58,7 +57,7 @@ pub struct SubscriptionMessageDefn {
     channel_data: [i8; 1],
 }
 
-pub struct SubscriptionMessageFlyweight {
+pub(crate) struct SubscriptionMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut SubscriptionMessageDefn,
 }
@@ -75,12 +74,7 @@ impl SubscriptionMessageFlyweight {
         }
     }
 
-    #[inline]
-    pub fn registration_correlation_id(&self) -> i64 {
-        unsafe { (*self.m_struct).registration_correlation_id }
-    }
-
-    #[inline]
+    #[cfg(test)]
     pub fn stream_id(&self) -> i32 {
         unsafe { (*self.m_struct).stream_id }
     }
@@ -99,33 +93,27 @@ impl SubscriptionMessageFlyweight {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub fn channel(&self) -> CString {
         self.correlated_message_flyweight
             .flyweight
-            .string_get(offset_of!(SubscriptionMessageDefn, channel_length))
+            .string_get(offset_of!(SubscriptionMessageDefn, channel_length) as Index)
     }
 
     #[inline]
     pub fn set_channel(&mut self, value: &[u8]) {
         self.correlated_message_flyweight
             .flyweight
-            .string_put(offset_of!(SubscriptionMessageDefn, channel_length), value);
+            .string_put(offset_of!(SubscriptionMessageDefn, channel_length) as Index, value);
     }
 
     #[inline]
     pub fn length(&self) -> Index {
-        unsafe { offset_of!(SubscriptionMessageDefn, channel_data) + (*self.m_struct).channel_length as Index }
+        unsafe { offset_of!(SubscriptionMessageDefn, channel_data) as Index + (*self.m_struct).channel_length as Index }
     }
 
     // Parent Getters
-
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        self.correlated_message_flyweight.client_id()
-    }
-
-    #[inline]
+    #[cfg(test)]
     pub fn correlation_id(&self) -> i64 {
         self.correlated_message_flyweight.correlation_id()
     }

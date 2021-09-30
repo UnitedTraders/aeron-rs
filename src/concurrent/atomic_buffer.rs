@@ -102,7 +102,7 @@ impl AtomicBuffer {
     }
 
     //TODO: check that len is ok and ptr is aligned
-    pub fn new(ptr: *mut u8, len: Index) -> AtomicBuffer {
+    pub(crate) fn new(ptr: *mut u8, len: Index) -> AtomicBuffer {
         AtomicBuffer { ptr, len }
     }
 

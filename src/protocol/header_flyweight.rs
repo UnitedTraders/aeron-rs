@@ -32,7 +32,7 @@ pub struct HeaderDefn {
     h_type: i16,
 }
 
-pub struct HeaderFlyweight {
+pub(crate) struct HeaderFlyweight {
     pub flyweight: Flyweight<HeaderDefn>,
 }
 
@@ -42,76 +42,4 @@ impl HeaderFlyweight {
             flyweight: Flyweight::new(buffer, offset),
         }
     }
-
-    // Getters
-    #[inline]
-    pub fn frame_length(&self) -> i32 {
-        unsafe { (*self.flyweight.m_struct).frame_length }
-    }
-
-    #[inline]
-    pub fn version(&self) -> i8 {
-        unsafe { (*self.flyweight.m_struct).version }
-    }
-
-    #[inline]
-    pub fn flags(&self) -> i8 {
-        unsafe { (*self.flyweight.m_struct).flags }
-    }
-
-    #[inline]
-    pub fn h_type(&self) -> i16 {
-        unsafe { (*self.flyweight.m_struct).h_type }
-    }
-
-    // Setters
-    #[inline]
-    pub fn set_frame_length(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).frame_length = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_version(&mut self, value: i8) {
-        unsafe {
-            (*self.flyweight.m_struct).version = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_flags(&mut self, value: i8) {
-        unsafe {
-            (*self.flyweight.m_struct).flags = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_h_type(&mut self, value: i16) {
-        unsafe {
-            (*self.flyweight.m_struct).h_type = value;
-        }
-    }
-
-    #[inline]
-    pub const fn header_length() -> Index {
-        HEADER_DEFN_SIZE
-    }
-
-    /** header type PAD */
-    pub const HDR_TYPE_PAD: i32 = 0x00;
-    /** header type DATA */
-    pub const HDR_TYPE_DATA: i32 = 0x01;
-    /** header type NAK */
-    pub const HDR_TYPE_NAK: i32 = 0x02;
-    /** header type SM */
-    pub const HDR_TYPE_SM: i32 = 0x03;
-    /** header type ERR */
-    pub const HDR_TYPE_ERR: i32 = 0x04;
-    /** header type SETUP */
-    pub const HDR_TYPE_SETUP: i32 = 0x05;
-    /** header type EXT */
-    pub const HDR_TYPE_EXT: i32 = 0xFFFF;
-
-    pub const CURRENT_VERSION: i8 = 0x0;
 }

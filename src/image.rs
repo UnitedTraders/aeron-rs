@@ -34,6 +34,7 @@ use crate::concurrent::{
     },
     position::{ReadablePosition, UnsafeBufferPosition},
 };
+use crate::ttrace;
 use crate::utils::errors::IllegalArgumentError;
 use crate::utils::{
     bit_utils::{align, number_of_trailing_zeroes},
@@ -335,6 +336,10 @@ impl Image {
                 &mut self.header,
                 self.exception_handler,
             );
+
+            if read_outcome.fragments_read > 0 {
+                ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
+            }
 
             let new_position = position + (read_outcome.offset - term_offset) as i64;
             if new_position > position {
@@ -867,7 +872,7 @@ mod tests {
 
     impl ImageTest {
         pub fn new(log_buf: &AlignedBuffer, src_buf: &AlignedBuffer, cnt_buf: &AlignedBuffer) -> Self {
-            let counters_buffer = AtomicBuffer::from_aligned(&cnt_buf);
+            let counters_buffer = AtomicBuffer::from_aligned(cnt_buf);
 
             let l_log_buffers = unsafe { Arc::new(LogBuffers::new(log_buf.ptr, log_buf.len as isize, TERM_LENGTH)) };
 
@@ -878,7 +883,7 @@ mod tests {
                     l_log_buffers.atomic_buffer(2),
                 ],
                 log_meta_data_buffer: l_log_buffers.atomic_buffer(log_buffer_descriptor::LOG_META_DATA_SECTION_INDEX),
-                src_buffer: AtomicBuffer::from_aligned(&src_buf),
+                src_buffer: AtomicBuffer::from_aligned(src_buf),
                 counter_values_buffer: counters_buffer,
                 log_buffers: l_log_buffers,
                 subscriber_position: UnsafeBufferPosition::new(counters_buffer, SUBSCRIBER_POSITION_ID),

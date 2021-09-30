@@ -1,6 +1,6 @@
 [package]
 name = "aeron-rs"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Denis Komissarov <denisxor@gmail.com>", "Kirill Karbushev <kiriosk@yandex.ru>", "Alexander Ostrovskiy <alexander.ostrovskiy@gmail.com>",]
 license = "Apache-2.0"
 description = "Aeron client library - fast messaging over UDP on Rust"
@@ -21,6 +21,7 @@ log = "0.4"
 pretty_env_logger = "0.4"
 galvanic-assert = "0.8"
 chrono = "0.4"
+memoffset = "0.6.4"
 
 [dev-dependencies]
 tempfile = "3.1"

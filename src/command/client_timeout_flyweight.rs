@@ -31,13 +31,13 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct ClientTimeoutDefn {
+pub(crate) struct ClientTimeoutDefn {
     client_id: i64,
 }
 
 pub const CLIENT_TIMEOUT_LENGTH: Index = std::mem::size_of::<ClientTimeoutDefn>() as Index;
 
-pub struct ClientTimeoutFlyweight {
+pub(crate) struct ClientTimeoutFlyweight {
     flyweight: Flyweight<ClientTimeoutDefn>,
 }
 
@@ -51,12 +51,5 @@ impl ClientTimeoutFlyweight {
     #[inline]
     pub fn client_id(&self) -> i64 {
         unsafe { (*self.flyweight.m_struct).client_id }
-    }
-
-    #[inline]
-    pub fn set_client_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).client_id = value;
-        }
     }
 }

@@ -22,7 +22,6 @@ use lazy_static::lazy_static;
 
 use crate::{
     concurrent::atomic_buffer::AtomicBuffer,
-    offset_of,
     utils::{
         errors::*,
         misc::CACHE_LINE_LENGTH,
@@ -773,9 +772,7 @@ mod tests {
                 labels[num_counters]
             );
 
-            unsafe {
-                assert_eq!(counter.type_id, type_ids[num_counters]);
-            }
+            assert_eq!(counter.type_id, type_ids[num_counters]);
 
             // I know that there should be i64 value
             let key = &counter.key.key[0] as *const u8 as *const i64;

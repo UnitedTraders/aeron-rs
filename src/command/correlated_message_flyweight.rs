@@ -32,14 +32,14 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct CorrelatedMessageDefn {
+pub(crate) struct CorrelatedMessageDefn {
     client_id: i64,
     correlation_id: i64,
 }
 
 pub const CORRELATED_MESSAGE_LENGTH: Index = std::mem::size_of::<CorrelatedMessageDefn>() as Index;
 
-pub struct CorrelatedMessageFlyweight {
+pub(crate) struct CorrelatedMessageFlyweight {
     pub flyweight: Flyweight<CorrelatedMessageDefn>,
 }
 
@@ -52,12 +52,7 @@ impl CorrelatedMessageFlyweight {
 
     // Getters
 
-    #[inline]
-    pub fn client_id(&self) -> i64 {
-        unsafe { (*self.flyweight.m_struct).client_id }
-    }
-
-    #[inline]
+    #[cfg(test)]
     pub fn correlation_id(&self) -> i64 {
         unsafe { (*self.flyweight.m_struct).correlation_id }
     }

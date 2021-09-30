@@ -33,14 +33,14 @@ use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
-pub struct CounterUpdateDefn {
+pub(crate) struct CounterUpdateDefn {
     correlation_id: i64,
     counter_id: i32,
 }
 
 pub const COUNTER_READY_LENGTH: Index = std::mem::size_of::<CounterUpdateDefn>() as Index;
 
-pub struct CounterUpdateFlyweight {
+pub(crate) struct CounterUpdateFlyweight {
     flyweight: Flyweight<CounterUpdateDefn>,
 }
 
@@ -61,21 +61,5 @@ impl CounterUpdateFlyweight {
     #[inline]
     pub fn counter_id(&self) -> i32 {
         unsafe { (*self.flyweight.m_struct).counter_id }
-    }
-
-    // Setters
-
-    #[inline]
-    pub fn set_correlation_id(&mut self, value: i64) {
-        unsafe {
-            (*self.flyweight.m_struct).correlation_id = value;
-        }
-    }
-
-    #[inline]
-    pub fn set_counter_id(&mut self, value: i32) {
-        unsafe {
-            (*self.flyweight.m_struct).counter_id = value;
-        }
     }
 }

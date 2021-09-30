@@ -19,7 +19,7 @@ use std::ffi::CString;
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::utils::types::Index;
 
-pub struct Flyweight<T> {
+pub(crate) struct Flyweight<T> {
     pub m_struct: *mut T,
     buffer: AtomicBuffer,
     base_offset: Index,
@@ -50,21 +50,6 @@ impl<T: Copy> Flyweight<T> {
     }
 
     #[inline]
-    pub fn string_put_without_length(&mut self, offset: Index, value: &[u8]) -> Index {
-        self.buffer.put_string_without_length(offset, value)
-    }
-
-    #[inline]
-    pub fn string_get_without_length(&self, offset: Index, length: Index) -> CString {
-        self.buffer.get_string_without_length(offset, length)
-    }
-
-    #[inline]
-    pub fn bytes_at(&self, offset: Index) -> *mut u8 {
-        unsafe { self.buffer.buffer().offset((self.base_offset + offset) as isize) }
-    }
-
-    #[inline]
     pub fn put_bytes(&self, offset: Index, src: &[u8]) {
         self.buffer.put_bytes(self.base_offset + offset, src)
     }
@@ -72,11 +57,6 @@ impl<T: Copy> Flyweight<T> {
     #[inline]
     pub fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
         self.buffer.get_bytes(self.base_offset + offset, dest, length);
-    }
-
-    #[inline]
-    pub fn get<U: Copy>(&self, offset: Index) -> U {
-        self.buffer.get::<U>(self.base_offset + offset)
     }
 
     #[inline]
