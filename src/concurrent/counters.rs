@@ -169,9 +169,9 @@ impl CountersReader {
         }
     }
 
-    pub fn for_each<F>(&self, on_counters_metadata: F)
+    pub fn for_each<F>(&self, mut on_counters_metadata: F)
     where
-        F: Fn(i32, i32, &AtomicBuffer, CString),
+        F: FnMut(i32, i32, &AtomicBuffer, CString),
     {
         for (id, i) in (0..self.metadata_buffer.capacity())
             .step_by(METADATA_LENGTH as usize)
