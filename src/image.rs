@@ -77,10 +77,11 @@ pub enum ControlledPollAction {
  * @param header representing the meta data for the data.
  * @return The action to be taken with regard to the stream position after the callback.
  */
+#[derive(Clone)]
 pub struct Image {
     source_identity: CString,
     log_buffers: Arc<LogBuffers>,
-    exception_handler: Box<dyn ErrorHandler>,
+    exception_handler: Box<dyn ErrorHandler + Send>,
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
@@ -93,28 +94,6 @@ pub struct Image {
     final_position: i64,
     subscription_registration_id: i64,
     correlation_id: i64,
-}
-
-impl Clone for Image {
-    fn clone(&self) -> Self {
-        Self {
-            source_identity: self.source_identity.clone(),
-            log_buffers: self.log_buffers.clone(),
-            exception_handler: dyn_clone::clone_box(&*self.exception_handler),
-            term_buffers: self.term_buffers.clone(),
-            subscriber_position: self.subscriber_position.clone(),
-            header: self.header.clone(),
-            is_closed: self.is_closed.clone(),
-            is_eos: self.is_eos,
-            term_length_mask: self.term_length_mask,
-            position_bits_to_shift: self.position_bits_to_shift,
-            session_id: self.session_id,
-            join_position: self.join_position,
-            final_position: self.final_position,
-            subscription_registration_id: self.subscription_registration_id,
-            correlation_id: self.correlation_id,
-        }
-    }
 }
 
 unsafe impl Send for Image {}
@@ -131,7 +110,7 @@ impl Image {
         source_identity: CString,
         subscriber_position: &UnsafeBufferPosition,
         log_buffers: Arc<LogBuffers>,
-        exception_handler: Box<dyn ErrorHandler>,
+        exception_handler: Box<dyn ErrorHandler + Send>,
     ) -> Image {
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(

@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use dyn_clone::DynClone;
 
 use crate::{
     concurrent::{
@@ -26,16 +25,26 @@ use crate::{
     utils::{bit_utils, errors::AeronError, types::Index},
 };
 
-pub trait ErrorHandler: DynClone {
+pub trait ErrorHandler {
     fn call(&self, error: AeronError);
+    fn clone_box(&self) -> Box<dyn ErrorHandler + Send>;
+}
+
+impl Clone for Box<dyn ErrorHandler + Send> {
+    fn clone(&self) -> Box<dyn ErrorHandler + Send> {
+        self.clone_box()
+    }
 }
 
 impl<F> ErrorHandler for F
 where
-    F: Fn(AeronError) + Clone + Send,
+    F: Fn(AeronError) + Clone + Send + 'static,
 {
     fn call(&self, error: AeronError) {
         self(error)
+    }
+    fn clone_box(&self) -> Box<dyn ErrorHandler + Send> {
+        Box::new(self.clone())
     }
 }
 

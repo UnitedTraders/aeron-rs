@@ -18,8 +18,6 @@ use std::env;
 use std::ffi::CString;
 use std::sync::Arc;
 
-use dyn_clone::DynClone;
-
 use crate::utils::errors::GenericError;
 use crate::{
     cnc_file_descriptor,
@@ -53,16 +51,27 @@ pub const NULL_VALUE: i32 = -1; // TODO replace on Option
  *
  * @param image that has become available.
  */
-pub trait OnAvailableImage: DynClone {
+pub trait OnAvailableImage {
     fn call(&self, image: &Image);
+    fn clone_box(&self) -> Box<dyn OnAvailableImage>;
 }
 
-impl<F> OnAvailableImage for F
+impl<T> OnAvailableImage for T
 where
-    F: Fn(&Image) + Clone,
+    T: Fn(&Image) + Clone + 'static,
 {
+    fn clone_box(&self) -> Box<dyn OnAvailableImage> {
+        Box::new(self.clone())
+    }
+
     fn call(&self, image: &Image) {
         self(image)
+    }
+}
+
+impl Clone for Box<dyn OnAvailableImage> {
+    fn clone(&self) -> Box<dyn OnAvailableImage> {
+        self.clone_box()
     }
 }
 
@@ -76,16 +85,27 @@ where
  *
  * @param image that has become unavailable
  */
-pub trait OnUnavailableImage: DynClone {
+pub trait OnUnavailableImage {
     fn call(&self, image: &Image);
+    fn clone_box(&self) -> Box<dyn OnUnavailableImage>;
+}
+
+impl Clone for Box<dyn OnUnavailableImage> {
+    fn clone(&self) -> Box<dyn OnUnavailableImage> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnUnavailableImage for F
 where
-    F: Fn(&Image) + Clone,
+    F: Fn(&Image) + Clone + 'static,
 {
     fn call(&self, image: &Image) {
         self(image)
+    }
+
+    fn clone_box(&self) -> Box<dyn OnUnavailableImage> {
+        Box::new(self.clone())
     }
 }
 
@@ -100,16 +120,27 @@ where
  * @param session_id of the Publication
  * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::add_publication
  */
-pub trait OnNewPublication: DynClone {
+pub trait OnNewPublication {
     fn call(&self, channel: CString, stream_id: i32, session_id: i32, correlation_id: i64);
+    fn clone_box(&self) -> Box<dyn OnNewPublication>;
+}
+
+impl Clone for Box<dyn OnNewPublication> {
+    fn clone(&self) -> Box<dyn OnNewPublication> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnNewPublication for F
 where
-    F: Fn(CString, i32, i32, i64) + Clone,
+    F: Fn(CString, i32, i32, i64) + Clone + 'static,
 {
     fn call(&self, channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
         self(channel, stream_id, session_id, correlation_id)
+    }
+
+    fn clone_box(&self) -> Box<dyn OnNewPublication> {
+        Box::new(self.clone())
     }
 }
 
@@ -123,16 +154,27 @@ where
  * @param stream_id within the channel of the Subscription
  * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::add_subscription
  */
-pub trait OnNewSubscription: DynClone {
+pub trait OnNewSubscription {
     fn call(&self, channel: CString, stream_id: i32, correlation_id: i64);
+    fn clone_box(&self) -> Box<dyn OnNewSubscription>;
+}
+
+impl Clone for Box<dyn OnNewSubscription> {
+    fn clone(&self) -> Box<dyn OnNewSubscription> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnNewSubscription for F
 where
-    F: Fn(CString, i32, i64) + Clone,
+    F: Fn(CString, i32, i64) + Clone + 'static,
 {
     fn call(&self, channel: CString, stream_id: i32, correlation_id: i64) {
         self(channel, stream_id, correlation_id)
+    }
+
+    fn clone_box(&self) -> Box<dyn OnNewSubscription> {
+        Box::new(self.clone())
     }
 }
 
@@ -146,16 +188,27 @@ where
  * @param registration_id for the counter.
  * @param counter_id      that is available.
  */
-pub trait OnAvailableCounter: DynClone {
+pub trait OnAvailableCounter {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+    fn clone_box(&self) -> Box<dyn OnAvailableCounter>;
+}
+
+impl Clone for Box<dyn OnAvailableCounter> {
+    fn clone(&self) -> Box<dyn OnAvailableCounter> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnAvailableCounter for F
 where
-    F: Fn(&CountersReader, i64, i32) + Clone,
+    F: Fn(&CountersReader, i64, i32) + Clone + 'static,
 {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32) {
         self(counters_reader, registration_id, counter_id)
+    }
+
+    fn clone_box(&self) -> Box<dyn OnAvailableCounter> {
+        Box::new(self.clone())
     }
 }
 
@@ -169,16 +222,27 @@ where
  * @param registration_id for the counter.
  * @param counter_id      that is unavailable.
  */
-pub trait OnUnavailableCounter: DynClone {
+pub trait OnUnavailableCounter {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32);
+    fn clone_box(&self) -> Box<dyn OnUnavailableCounter>;
+}
+
+impl Clone for Box<dyn OnUnavailableCounter> {
+    fn clone(&self) -> Box<dyn OnUnavailableCounter> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnUnavailableCounter for F
 where
-    F: Fn(&CountersReader, i64, i32) + Clone,
+    F: Fn(&CountersReader, i64, i32) + Clone + 'static,
 {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32) {
         self(counters_reader, registration_id, counter_id)
+    }
+
+    fn clone_box(&self) -> Box<dyn OnUnavailableCounter> {
+        Box::new(self.clone())
     }
 }
 
@@ -186,16 +250,26 @@ where
  * Function called when the Aeron client is closed to notify that the client or any of it associated resources
  * should not be used after this event.
  */
-pub trait OnCloseClient: DynClone {
+pub trait OnCloseClient {
     fn call(&self);
+    fn clone_box(&self) -> Box<dyn OnCloseClient>;
+}
+
+impl Clone for Box<dyn OnCloseClient> {
+    fn clone(&self) -> Box<dyn OnCloseClient> {
+        self.clone_box()
+    }
 }
 
 impl<F> OnCloseClient for F
 where
-    F: Fn() + Clone,
+    F: Fn() + Clone + 'static,
 {
     fn call(&self) {
         self()
+    }
+    fn clone_box(&self) -> Box<dyn OnCloseClient> {
+        Box::new(self.clone())
     }
 }
 
@@ -235,6 +309,7 @@ fn default_on_close_client_handler() {}
  * It can also set up error handling as well as application callbacks for connection information from the
  * Media Driver.
  */
+#[derive(Clone)]
 pub struct Context {
     dir_name: String,
     error_handler: Box<dyn ErrorHandler + Send>,
@@ -252,29 +327,6 @@ pub struct Context {
     is_on_new_exclusive_publication_handler_set: bool,
     pre_touch_mapped_memory: bool,
     agent_name: String,
-}
-
-impl Clone for Context {
-    fn clone(&self) -> Self {
-        Self {
-            dir_name: self.dir_name.clone(),
-            error_handler: dyn_clone::clone_box(&*self.error_handler),
-            on_new_publication_handler: dyn_clone::clone_box(&*self.on_new_publication_handler),
-            on_new_exclusive_publication_handler: dyn_clone::clone_box(&*self.on_new_exclusive_publication_handler),
-            on_new_subscription_handler: dyn_clone::clone_box(&*self.on_new_subscription_handler),
-            on_available_image_handler: dyn_clone::clone_box(&*self.on_available_image_handler),
-            on_unavailable_image_handler: dyn_clone::clone_box(&*self.on_unavailable_image_handler),
-            on_available_counter_handler: dyn_clone::clone_box(&*self.on_available_counter_handler),
-            on_unavailable_counter_handler: dyn_clone::clone_box(&*self.on_unavailable_counter_handler),
-            on_close_client_handler: dyn_clone::clone_box(&*self.on_close_client_handler),
-            media_driver_timeout: self.media_driver_timeout,
-            resource_linger_timeout: self.resource_linger_timeout,
-            use_conductor_agent_invoker: self.use_conductor_agent_invoker,
-            is_on_new_exclusive_publication_handler_set: self.is_on_new_exclusive_publication_handler_set,
-            pre_touch_mapped_memory: self.pre_touch_mapped_memory,
-            agent_name: self.agent_name.clone(),
-        }
-    }
 }
 
 impl Default for Context {
@@ -307,7 +359,7 @@ impl Context {
 
     pub fn conclude(&mut self) -> &Self {
         if !self.is_on_new_exclusive_publication_handler_set {
-            self.on_new_exclusive_publication_handler = dyn_clone::clone_box(&*self.on_new_publication_handler);
+            self.on_new_exclusive_publication_handler = self.on_new_publication_handler.clone_box();
         }
 
         self
@@ -358,8 +410,8 @@ impl Context {
         self
     }
 
-    pub fn error_handler(&self) -> Box<dyn ErrorHandler + std::marker::Send> {
-        dyn_clone::clone_box(&*self.error_handler)
+    pub fn error_handler(&self) -> Box<dyn ErrorHandler + Send + 'static> {
+        self.error_handler.clone()
     }
 
     /**
@@ -374,7 +426,7 @@ impl Context {
     }
 
     pub fn new_publication_handler(&self) -> Box<dyn OnNewPublication> {
-        dyn_clone::clone_box(&*self.on_new_publication_handler)
+        self.on_new_publication_handler.clone_box()
     }
 
     /**
@@ -392,7 +444,7 @@ impl Context {
     }
 
     pub fn new_exclusive_publication_handler(&self) -> Box<dyn OnNewPublication> {
-        dyn_clone::clone_box(&*self.on_new_exclusive_publication_handler)
+        self.on_new_exclusive_publication_handler.clone_box()
     }
 
     /**
@@ -407,7 +459,7 @@ impl Context {
     }
 
     pub fn new_subscription_handler(&self) -> Box<dyn OnNewSubscription> {
-        dyn_clone::clone_box(&*self.on_new_subscription_handler)
+        self.on_new_subscription_handler.clone_box()
     }
 
     /**
@@ -422,7 +474,7 @@ impl Context {
     }
 
     pub fn available_image_handler(&self) -> Box<dyn OnAvailableImage> {
-        dyn_clone::clone_box(&*self.on_available_image_handler)
+        self.on_available_image_handler.clone_box()
     }
 
     /**
@@ -437,7 +489,7 @@ impl Context {
     }
 
     pub fn unavailable_image_handler(&self) -> Box<dyn OnUnavailableImage> {
-        dyn_clone::clone_box(&*self.on_unavailable_image_handler)
+        self.on_unavailable_image_handler.clone_box()
     }
 
     /**
@@ -452,7 +504,7 @@ impl Context {
     }
 
     pub fn available_counter_handler(&self) -> Box<dyn OnAvailableCounter> {
-        dyn_clone::clone_box(&*self.on_available_counter_handler)
+        self.on_available_counter_handler.clone_box()
     }
 
     /**
@@ -467,7 +519,7 @@ impl Context {
     }
 
     pub fn unavailable_counter_handler(&self) -> Box<dyn OnUnavailableCounter> {
-        dyn_clone::clone_box(&*self.on_unavailable_counter_handler)
+        self.on_unavailable_counter_handler.clone_box()
     }
 
     /**
@@ -482,7 +534,7 @@ impl Context {
     }
 
     pub fn close_client_handler(&self) -> Box<dyn OnCloseClient> {
-        dyn_clone::clone_box(&*self.on_close_client_handler)
+        self.on_close_client_handler.clone_box()
     }
 
     /**

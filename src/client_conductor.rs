@@ -1791,7 +1791,7 @@ impl DriverListener for ClientConductor {
                         source_identity,
                         &subscriber_position,
                         log_buffers.unwrap(),
-                        dyn_clone::clone_box(&*self.error_handler),
+                        self.error_handler.clone_box(),
                     );
 
                     let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
