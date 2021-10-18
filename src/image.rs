@@ -77,12 +77,10 @@ pub enum ControlledPollAction {
  * @param header representing the meta data for the data.
  * @return The action to be taken with regard to the stream position after the callback.
  */
-
-#[derive(Clone)]
 pub struct Image {
     source_identity: CString,
     log_buffers: Arc<LogBuffers>,
-    exception_handler: ErrorHandler,
+    exception_handler: Box<dyn ErrorHandler>,
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
@@ -95,6 +93,28 @@ pub struct Image {
     final_position: i64,
     subscription_registration_id: i64,
     correlation_id: i64,
+}
+
+impl Clone for Image {
+    fn clone(&self) -> Self {
+        Self {
+            source_identity: self.source_identity.clone(),
+            log_buffers: self.log_buffers.clone(),
+            exception_handler: dyn_clone::clone_box(&*self.exception_handler),
+            term_buffers: self.term_buffers.clone(),
+            subscriber_position: self.subscriber_position.clone(),
+            header: self.header.clone(),
+            is_closed: self.is_closed.clone(),
+            is_eos: self.is_eos,
+            term_length_mask: self.term_length_mask,
+            position_bits_to_shift: self.position_bits_to_shift,
+            session_id: self.session_id,
+            join_position: self.join_position,
+            final_position: self.final_position,
+            subscription_registration_id: self.subscription_registration_id,
+            correlation_id: self.correlation_id,
+        }
+    }
 }
 
 unsafe impl Send for Image {}
@@ -111,7 +131,7 @@ impl Image {
         source_identity: CString,
         subscriber_position: &UnsafeBufferPosition,
         log_buffers: Arc<LogBuffers>,
-        exception_handler: ErrorHandler,
+        exception_handler: Box<dyn ErrorHandler>,
     ) -> Image {
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(
@@ -328,14 +348,8 @@ impl Image {
             assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let term_buffer = self.term_buffers[index as usize];
 
-            let read_outcome: ReadOutcome = term_reader::read(
-                term_buffer,
-                term_offset,
-                fragment_handler,
-                fragment_limit,
-                &mut self.header,
-                self.exception_handler,
-            );
+            let read_outcome: ReadOutcome =
+                term_reader::read(term_buffer, term_offset, fragment_handler, fragment_limit, &mut self.header);
 
             if read_outcome.fragments_read > 0 {
                 ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
@@ -978,7 +992,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image.initial_term_id(), INITIAL_TERM_ID);
@@ -1008,7 +1022,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image.term_buffer_length(), TERM_LENGTH);
@@ -1042,7 +1056,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1084,7 +1098,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1126,7 +1140,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1167,7 +1181,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         image.close();
@@ -1198,7 +1212,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         image.close();
@@ -1230,7 +1244,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1270,7 +1284,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1310,7 +1324,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1344,7 +1358,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1378,7 +1392,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1417,7 +1431,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1452,7 +1466,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1493,7 +1507,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1531,7 +1545,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1573,7 +1587,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1615,7 +1629,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1658,7 +1672,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1698,7 +1712,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1738,7 +1752,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1773,7 +1787,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1808,7 +1822,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use dyn_clone::DynClone;
 
 use crate::{
     concurrent::{
@@ -25,7 +26,18 @@ use crate::{
     utils::{bit_utils, errors::AeronError, types::Index},
 };
 
-pub type ErrorHandler = fn(AeronError);
+pub trait ErrorHandler: DynClone {
+    fn call(&self, error: AeronError);
+}
+
+impl<F> ErrorHandler for F
+where
+    F: Fn(AeronError) + Clone + Send,
+{
+    fn call(&self, error: AeronError) {
+        self(error)
+    }
+}
 
 /**
  * Fn(&AtomicBuffer, Index, Index, &Header) -> Result<(), AeronError>;
@@ -55,7 +67,6 @@ pub fn read(
     data_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header),
     fragments_limit: i32,
     header: &mut Header,
-    _exception_handler: impl Fn(AeronError),
 ) -> ReadOutcome {
     let mut outcome = ReadOutcome {
         offset: term_offset,
@@ -118,10 +129,6 @@ mod tests {
         };
     }
 
-    fn error_handler(error: AeronError) {
-        println!("Error in term reader test: {:?}", error);
-    }
-
     fn data_handler(_buf: &AtomicBuffer, offset: Index, length: Index, _header: &Header) {
         println!("Data of length={} received at offset={}", length, offset);
     }
@@ -140,14 +147,7 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length), 0);
 
-        let read_outcome = term_reader::read(
-            log,
-            term_offset,
-            &mut data_handler,
-            INT_MAX,
-            &mut fragment_header,
-            error_handler,
-        );
+        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, aligned_frame_length);
         assert_eq!(read_outcome.fragments_read, 1);
@@ -161,14 +161,7 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(0), 0);
 
-        let read_outcome = term_reader::read(
-            log,
-            term_offset,
-            &mut data_handler,
-            INT_MAX,
-            &mut fragment_header,
-            error_handler,
-        );
+        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, term_offset);
         assert_eq!(read_outcome.fragments_read, 0);
@@ -187,7 +180,7 @@ mod tests {
 
         log.put::<u16>(frame_descriptor::type_offset(0), data_frame_header::HDR_TYPE_DATA);
 
-        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, 1, &mut fragment_header, error_handler);
+        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, 1, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, aligned_frame_length);
         assert_eq!(read_outcome.fragments_read, 1);
@@ -213,14 +206,7 @@ mod tests {
 
         log.put_ordered::<i32>(frame_descriptor::length_offset(aligned_frame_length * 2), 0);
 
-        let read_outcome = term_reader::read(
-            log,
-            term_offset,
-            &mut data_handler,
-            INT_MAX,
-            &mut fragment_header,
-            error_handler,
-        );
+        let read_outcome = term_reader::read(log, term_offset, &mut data_handler, INT_MAX, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, aligned_frame_length * 2);
         assert_eq!(read_outcome.fragments_read, 2);
@@ -241,14 +227,7 @@ mod tests {
             data_frame_header::HDR_TYPE_DATA,
         );
 
-        let read_outcome = term_reader::read(
-            log,
-            start_of_message,
-            &mut data_handler,
-            INT_MAX,
-            &mut fragment_header,
-            error_handler,
-        );
+        let read_outcome = term_reader::read(log, start_of_message, &mut data_handler, INT_MAX, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, LOG_BUFFER_CAPACITY);
         assert_eq!(read_outcome.fragments_read, 1);
@@ -269,14 +248,7 @@ mod tests {
             data_frame_header::HDR_TYPE_PAD,
         );
 
-        let read_outcome = term_reader::read(
-            log,
-            start_of_message,
-            &mut data_handler,
-            INT_MAX,
-            &mut fragment_header,
-            error_handler,
-        );
+        let read_outcome = term_reader::read(log, start_of_message, &mut data_handler, INT_MAX, &mut fragment_header);
 
         assert_eq!(read_outcome.offset, LOG_BUFFER_CAPACITY);
         assert_eq!(read_outcome.fragments_read, 0);

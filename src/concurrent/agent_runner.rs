@@ -58,7 +58,7 @@ pub struct AgentRunner<
 > {
     agent: Arc<Mutex<A>>, // need mutable Agent here as AgentRunner will change Agent state while running it
     idle_strategy: Arc<I>,
-    exception_handler: ErrorHandler,
+    exception_handler: Box<dyn ErrorHandler + std::marker::Send>,
     name: String,
 }
 
@@ -67,7 +67,12 @@ impl<
         I: 'static + std::marker::Send + std::marker::Sync + Strategy,
     > AgentRunner<A, I>
 {
-    pub fn new(agent: Arc<Mutex<A>>, idle_strategy: Arc<I>, exception_handler: ErrorHandler, name: &str) -> Self {
+    pub fn new(
+        agent: Arc<Mutex<A>>,
+        idle_strategy: Arc<I>,
+        exception_handler: Box<dyn ErrorHandler + std::marker::Send>,
+        name: &str,
+    ) -> Self {
         Self {
             agent,
             idle_strategy,
@@ -114,7 +119,7 @@ impl<
      */
     pub fn run(&mut self, stop_rx: Receiver<bool>) {
         if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_start() {
-            (self.exception_handler)(error);
+            self.exception_handler.call(error);
         }
 
         loop {
@@ -127,12 +132,12 @@ impl<
 
             match self.agent.lock().expect("Mutex poisoned").do_work() {
                 Ok(work_cnt) => self.idle_strategy.idle_opt(work_cnt),
-                Err(error) => (self.exception_handler)(error),
+                Err(error) => self.exception_handler.call(error),
             }
         }
 
         if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_close() {
-            (self.exception_handler)(error);
+            self.exception_handler.call(error);
         }
     }
 }

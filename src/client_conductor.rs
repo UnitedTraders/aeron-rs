@@ -145,8 +145,8 @@ struct SubscriptionStateDefn {
     error_message: CString,
     subscription_cache: Option<Arc<Mutex<Subscription>>>,
     subscription: Option<Weak<Mutex<Subscription>>>,
-    on_available_image_handler: OnAvailableImage,
-    on_unavailable_image_handler: OnUnavailableImage,
+    on_available_image_handler: Box<dyn OnAvailableImage>,
+    on_unavailable_image_handler: Box<dyn OnUnavailableImage>,
     channel: CString,
     registration_id: i64,
     time_of_registration_ms: Moment,
@@ -161,8 +161,8 @@ impl SubscriptionStateDefn {
         registration_id: i64,
         stream_id: i32,
         now_ms: Moment,
-        on_available_image_handler: OnAvailableImage,
-        on_unavailable_image_handler: OnUnavailableImage,
+        on_available_image_handler: Box<dyn OnAvailableImage>,
+        on_unavailable_image_handler: Box<dyn OnUnavailableImage>,
     ) -> Self {
         Self {
             error_message: CString::new("").unwrap(),
@@ -276,14 +276,14 @@ pub struct ClientConductor {
     counters_reader: Arc<CountersReader>,
     counter_values_buffer: AtomicBuffer,
 
-    on_new_publication_handler: OnNewPublication,
-    on_new_exclusive_publication_handler: OnNewPublication,
-    on_new_subscription_handler: OnNewSubscription,
-    error_handler: ErrorHandler,
+    on_new_publication_handler: Box<dyn OnNewPublication>,
+    on_new_exclusive_publication_handler: Box<dyn OnNewPublication>,
+    on_new_subscription_handler: Box<dyn OnNewSubscription>,
+    error_handler: Box<dyn ErrorHandler>,
 
-    on_available_counter_handlers: Vec<OnAvailableCounter>,
-    on_unavailable_counter_handlers: Vec<OnUnavailableCounter>,
-    on_close_client_handlers: Vec<OnCloseClient>,
+    on_available_counter_handlers: Vec<Box<dyn OnAvailableCounter>>,
+    on_unavailable_counter_handlers: Vec<Box<dyn OnUnavailableCounter>>,
+    on_close_client_handlers: Vec<Box<dyn OnCloseClient>>,
 
     epoch_clock: Box<dyn Fn() -> Moment>,
     driver_timeout_ms: Moment,
@@ -313,13 +313,13 @@ impl ClientConductor {
         broadcast_receiver: Arc<Mutex<CopyBroadcastReceiver>>,
         counter_metadata_buffer: AtomicBuffer,
         counter_values_buffer: AtomicBuffer,
-        on_new_publication_handler: OnNewPublication,
-        on_new_exclusive_publication_handler: OnNewPublication,
-        on_new_subscription_handler: OnNewSubscription,
-        error_handler: ErrorHandler,
-        on_available_counter_handler: OnAvailableCounter,
-        on_unavailable_counter_handler: OnUnavailableCounter,
-        on_close_client_handler: OnCloseClient,
+        on_new_publication_handler: Box<dyn OnNewPublication>,
+        on_new_exclusive_publication_handler: Box<dyn OnNewPublication>,
+        on_new_subscription_handler: Box<dyn OnNewSubscription>,
+        error_handler: Box<dyn ErrorHandler>,
+        on_available_counter_handler: Box<dyn OnAvailableCounter>,
+        on_unavailable_counter_handler: Box<dyn OnUnavailableCounter>,
+        on_close_client_handler: Box<dyn OnCloseClient>,
         driver_timeout_ms: Moment,
         resource_linger_timeout_ms: Moment,
         inter_service_timeout_ns: Moment,
@@ -378,23 +378,23 @@ impl ClientConductor {
         self.epoch_clock = new_provider;
     }
 
-    pub fn set_error_handler(&mut self, new_handler: ErrorHandler) {
+    pub fn set_error_handler(&mut self, new_handler: Box<dyn ErrorHandler>) {
         self.error_handler = new_handler;
     }
 
-    pub fn set_on_new_publication_handler(&mut self, new_handler: OnNewPublication) {
+    pub fn set_on_new_publication_handler(&mut self, new_handler: Box<dyn OnNewPublication>) {
         self.on_new_publication_handler = new_handler;
     }
 
-    pub fn set_on_new_subscription_handler(&mut self, new_handler: OnNewSubscription) {
+    pub fn set_on_new_subscription_handler(&mut self, new_handler: Box<dyn OnNewSubscription>) {
         self.on_new_subscription_handler = new_handler;
     }
 
-    pub fn add_on_available_counter_handler(&mut self, handler: OnAvailableCounter) {
+    pub fn add_on_available_counter_handler(&mut self, handler: Box<dyn OnAvailableCounter>) {
         self.on_available_counter_handlers.push(handler);
     }
 
-    pub fn add_on_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
+    pub fn add_on_unavailable_counter_handler(&mut self, handler: Box<dyn OnUnavailableCounter>) {
         self.on_unavailable_counter_handlers.push(handler);
     }
 
@@ -441,7 +441,7 @@ impl ClientConductor {
 
             ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
-            (self.error_handler)(err);
+            self.error_handler.call(err);
         }
 
         self.time_of_last_do_work_ms = now_ms;
@@ -460,7 +460,7 @@ impl ClientConductor {
 
                 ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
-                (self.error_handler)(err);
+                self.error_handler.call(err);
             }
 
             let client_id = self.driver_proxy.client_id();
@@ -479,7 +479,7 @@ impl ClientConductor {
 
                     ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
 
-                    (self.error_handler)(err);
+                    self.error_handler.call(err);
                 }
             } else {
                 let counter_id = heartbeat_timestamp::find_counter_id_by_registration_id(
@@ -519,14 +519,14 @@ impl ClientConductor {
     pub fn verify_driver_is_active_via_error_handler(&self) {
         if !self.driver_active.load(Ordering::SeqCst) {
             let err = DriverInteractionError::Inactive.into();
-            (self.error_handler)(err);
+            self.error_handler.call(err);
         }
     }
 
     pub fn ensure_not_reentrant(&self) {
         if self.is_in_callback {
             let err = AeronError::ReentrantException;
-            (self.error_handler)(err);
+            self.error_handler.call(err);
         }
     }
 
@@ -858,8 +858,8 @@ impl ClientConductor {
         &mut self,
         channel: CString,
         stream_id: i32,
-        on_available_image_handler: OnAvailableImage,
-        on_unavailable_image_handler: OnUnavailableImage,
+        on_available_image_handler: Box<dyn OnAvailableImage>,
+        on_unavailable_image_handler: Box<dyn OnUnavailableImage>,
     ) -> Result<i64, AeronError> {
         ttrace!(
             "add_subscription: on channel:{} stream:{}",
@@ -961,7 +961,7 @@ impl ClientConductor {
                 image.close();
 
                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                (subscription.on_unavailable_image_handler)(image);
+                subscription.on_unavailable_image_handler.call(image);
             }
         } else {
             ttrace!(
@@ -1239,7 +1239,7 @@ impl ClientConductor {
         result
     }
 
-    pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) -> Result<(), AeronError> {
+    pub fn add_available_counter_handler(&mut self, handler: Box<dyn OnAvailableCounter>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1247,7 +1247,7 @@ impl ClientConductor {
         Ok(())
     }
 
-    pub fn remove_available_counter_handler(&mut self, _handler: OnAvailableCounter) -> Result<(), AeronError> {
+    pub fn remove_available_counter_handler(&mut self, _handler: Box<dyn OnAvailableCounter>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1255,7 +1255,7 @@ impl ClientConductor {
         Ok(())
     }
 
-    pub fn add_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) -> Result<(), AeronError> {
+    pub fn add_unavailable_counter_handler(&mut self, handler: Box<dyn OnUnavailableCounter>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1263,14 +1263,14 @@ impl ClientConductor {
         Ok(())
     }
 
-    pub fn remove_unavailable_counter_handler(&mut self, _handler: OnUnavailableCounter) -> Result<(), AeronError> {
+    pub fn remove_unavailable_counter_handler(&mut self, _handler: Box<dyn OnUnavailableCounter>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
         //self.on_unavailable_counter_handlers.retain(|item| item != handler); FIXME
         Ok(())
     }
 
-    pub fn add_close_client_handler(&mut self, handler: OnCloseClient) -> Result<(), AeronError> {
+    pub fn add_close_client_handler(&mut self, handler: Box<dyn OnCloseClient>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1278,7 +1278,7 @@ impl ClientConductor {
         Ok(())
     }
 
-    pub fn remove_close_client_handler(&mut self, _handler: OnCloseClient) -> Result<(), AeronError> {
+    pub fn remove_close_client_handler(&mut self, _handler: Box<dyn OnCloseClient>) -> Result<(), AeronError> {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
@@ -1321,7 +1321,7 @@ impl ClientConductor {
                             image.close();
 
                             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                            (sub_defn.on_unavailable_image_handler)(image);
+                            sub_defn.on_unavailable_image_handler.call(image);
                         }
                         images_to_linger.push(images);
                     }
@@ -1351,7 +1351,7 @@ impl ClientConductor {
 
                     for handler in &self.on_unavailable_counter_handlers {
                         let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                        handler(&self.counters_reader, registration_id, counter_id);
+                        handler.call(&self.counters_reader, registration_id, counter_id);
                     }
 
                     if let Some(cache) = &cnt_defn.counter_cache {
@@ -1365,7 +1365,7 @@ impl ClientConductor {
 
         for handler in &self.on_close_client_handlers {
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            handler();
+            handler.call();
         }
     }
 
@@ -1480,7 +1480,8 @@ impl DriverListener for ClientConductor {
             state.original_registration_id = original_registration_id;
 
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            (self.on_new_publication_handler)(state.channel.clone(), stream_id, session_id, registration_id);
+            self.on_new_publication_handler
+                .call(state.channel.clone(), stream_id, session_id, registration_id);
         }
     }
 
@@ -1534,7 +1535,8 @@ impl DriverListener for ClientConductor {
             state.buffers = log_buffers;
 
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            (self.on_new_exclusive_publication_handler)(state.channel.clone(), stream_id, session_id, registration_id);
+            self.on_new_exclusive_publication_handler
+                .call(state.channel.clone(), stream_id, session_id, registration_id);
         }
     }
 
@@ -1559,7 +1561,8 @@ impl DriverListener for ClientConductor {
             state.subscription = Some(Arc::downgrade(&subscr));
 
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            (self.on_new_subscription_handler)(state.channel.clone(), state.stream_id, registration_id);
+            self.on_new_subscription_handler
+                .call(state.channel.clone(), state.stream_id, registration_id);
         }
     }
 
@@ -1584,7 +1587,7 @@ impl DriverListener for ClientConductor {
                     if subscription.channel_status_id() == offending_command_correlation_id as i32 {
                         ttrace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
-                        (self.error_handler)(ChannelEndpointException(
+                        self.error_handler.call(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
                         ));
@@ -1594,7 +1597,7 @@ impl DriverListener for ClientConductor {
                                 image.close();
 
                                 let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                                (subscr_defn.on_unavailable_image_handler)(image);
+                                subscr_defn.on_unavailable_image_handler.call(image);
                             }
                             linger_images.push(images);
                             subscription_to_remove.push(*reg_id);
@@ -1622,7 +1625,7 @@ impl DriverListener for ClientConductor {
                     {
                         ttrace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
-                        (self.error_handler)(ChannelEndpointException(
+                        self.error_handler.call(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
                         ));
@@ -1644,7 +1647,7 @@ impl DriverListener for ClientConductor {
                     if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
                         == offending_command_correlation_id as i32
                     {
-                        (self.error_handler)(ChannelEndpointException(
+                        self.error_handler.call(ChannelEndpointException(
                             offending_command_correlation_id,
                             String::from(error_message.to_str().expect("CString conversion error")),
                         ));
@@ -1788,11 +1791,11 @@ impl DriverListener for ClientConductor {
                         source_identity,
                         &subscriber_position,
                         log_buffers.unwrap(),
-                        self.error_handler,
+                        dyn_clone::clone_box(&*self.error_handler),
                     );
 
                     let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                    (subscr_defn.on_available_image_handler)(&image);
+                    subscr_defn.on_available_image_handler.call(&image);
 
                     linger_images = Some(subscription.lock().expect("Mutex poisoned").add_image(image));
                 }
@@ -1823,9 +1826,9 @@ impl DriverListener for ClientConductor {
                         subscription.lock().expect("Mutex poisoned").remove_image(correlation_id)
                     {
                         let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-                        (subscr_defn.on_unavailable_image_handler)(
-                            old_image_array.get(index as usize).expect("Bug in image handling"),
-                        );
+                        subscr_defn
+                            .on_unavailable_image_handler
+                            .call(old_image_array.get(index as usize).expect("Bug in image handling"));
                         linger_images = Some(old_image_array);
                     }
                 }
@@ -1862,7 +1865,7 @@ impl DriverListener for ClientConductor {
         // Handler are called for all counters (not only those created by this Aeron client)
         for handler in &self.on_available_counter_handlers {
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            handler(&self.counters_reader, registration_id, counter_id);
+            handler.call(&self.counters_reader, registration_id, counter_id);
         }
     }
 
@@ -1875,7 +1878,7 @@ impl DriverListener for ClientConductor {
 
         for handler in &self.on_unavailable_counter_handlers {
             let _callback_guard = CallbackGuard::new(&mut self.is_in_callback);
-            handler(&self.counters_reader, registration_id, counter_id);
+            handler.call(&self.counters_reader, registration_id, counter_id);
         }
     }
 
@@ -1884,7 +1887,7 @@ impl DriverListener for ClientConductor {
             ttrace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
 
             self.close_all_resources((self.epoch_clock)());
-            (self.error_handler)(AeronError::ClientTimeoutException);
+            self.error_handler.call(AeronError::ClientTimeoutException);
         }
     }
 }
@@ -2027,13 +2030,13 @@ mod tests {
                 local_copy_broadcast_receiver,
                 counters_metadata_buffer,
                 counters_values_buffer,
-                on_new_publication_handler,
-                on_new_exclusive_publication_handler,
-                on_new_subscription_handler,
-                error_handler,
-                on_available_counter_handler,
-                on_unavailable_counter_handler,
-                on_close_client_handler,
+                Box::new(on_new_publication_handler),
+                Box::new(on_new_exclusive_publication_handler),
+                Box::new(on_new_subscription_handler),
+                Box::new(error_handler),
+                Box::new(on_available_counter_handler),
+                Box::new(on_unavailable_counter_handler),
+                Box::new(on_close_client_handler),
                 DRIVER_TIMEOUT_MS,
                 RESOURCE_LINGER_TIMEOUT_MS,
                 INTER_SERVICE_TIMEOUT_NS,
@@ -2640,8 +2643,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2662,8 +2665,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2694,8 +2697,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2724,8 +2727,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2768,8 +2771,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let id2 = test
@@ -2779,8 +2782,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2798,8 +2801,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2827,8 +2830,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let id2 = test
@@ -2838,8 +2841,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2871,8 +2874,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2897,8 +2900,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2926,8 +2929,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -2961,7 +2964,7 @@ mod tests {
     fn should_call_error_handler_when_inter_service_timeout_exceeded() {
         let test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler1);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(error_handler1));
         test.conductor
             .lock()
             .unwrap()
@@ -2991,7 +2994,7 @@ mod tests {
     fn should_call_error_handler_when_driver_inactive_on_idle() {
         let mut test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler3);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(error_handler3));
 
         test.do_work_until_driver_timeout();
 
@@ -3012,7 +3015,7 @@ mod tests {
     fn should_exception_when_add_publication_after_driver_inactive() {
         let mut test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler4);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(error_handler4));
 
         test.do_work_until_driver_timeout();
 
@@ -3037,7 +3040,7 @@ mod tests {
     fn should_exception_when_release_publication_after_driver_inactive() {
         let mut test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler5);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(error_handler5));
 
         test.do_work_until_driver_timeout();
         let called: bool = ERR_HANDLER_CALLED5.load(Ordering::SeqCst);
@@ -3061,7 +3064,7 @@ mod tests {
     fn should_exception_when_add_subscription_after_driver_inactive() {
         let mut test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler6);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(error_handler6));
 
         test.do_work_until_driver_timeout();
         let called: bool = ERR_HANDLER_CALLED6.load(Ordering::SeqCst);
@@ -3070,15 +3073,10 @@ mod tests {
         let result = test.conductor.lock().unwrap().add_subscription(
             str_to_c(CHANNEL),
             STREAM_ID,
-            on_available_image_handler,
-            on_unavailable_image_handler,
+            Box::new(on_available_image_handler),
+            Box::new(on_unavailable_image_handler),
         );
         assert_that!(&result.err().unwrap(), has_structure!(AeronError::DriverTimeout[any_value()]));
-    }
-
-    fn error_handler7(error: AeronError) {
-        ERR_HANDLER_CALLED7.store(true, Ordering::SeqCst);
-        assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
     }
 
     lazy_static! {
@@ -3089,7 +3087,10 @@ mod tests {
     fn should_exception_when_release_subscription_after_driver_inactive() {
         let mut test = ClientConductorTest::new();
 
-        test.conductor.lock().unwrap().set_error_handler(error_handler7);
+        test.conductor.lock().unwrap().set_error_handler(Box::new(|error| {
+            ERR_HANDLER_CALLED7.store(true, Ordering::SeqCst);
+            assert_that!(&error, has_structure!(AeronError::DriverTimeout[any_value()]));
+        }));
 
         test.do_work_until_driver_timeout();
         let called: bool = ERR_HANDLER_CALLED7.load(Ordering::SeqCst);
@@ -3125,7 +3126,7 @@ mod tests {
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_publication_handler(on_new_publication_handler1);
+            .set_on_new_publication_handler(Box::new(on_new_publication_handler1));
 
         test.conductor.lock().unwrap().on_new_publication(
             id,
@@ -3163,15 +3164,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler1);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler1));
 
         test.conductor
             .lock()
@@ -3210,8 +3211,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler2,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler2),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let correlation_id = id + 1;
@@ -3219,7 +3220,7 @@ mod tests {
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler2);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler2));
 
         test.conductor
             .lock()
@@ -3272,15 +3273,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler3,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler3),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler3);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler3));
 
         // must be able to handle newImage even if find_subscription not called
         test.conductor.lock().unwrap().on_available_image(
@@ -3328,15 +3329,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler4,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler4),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler4);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler4));
 
         test.conductor
             .lock()
@@ -3394,15 +3395,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler5,
-                on_unavailable_image_handler5,
+                Box::new(on_available_image_handler5),
+                Box::new(on_unavailable_image_handler5),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler5);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler5));
 
         test.conductor
             .lock()
@@ -3460,15 +3461,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler6,
-                on_unavailable_image_handler6,
+                Box::new(on_available_image_handler6),
+                Box::new(on_unavailable_image_handler6),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler6);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler6));
 
         // must be able to handle newImage even if find_subscription not called
         test.conductor.lock().unwrap().on_available_image(
@@ -3521,15 +3522,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler7,
-                on_unavailable_image_handler7,
+                Box::new(on_available_image_handler7),
+                Box::new(on_unavailable_image_handler7),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler7);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler7));
 
         test.conductor
             .lock()
@@ -3588,15 +3589,15 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler8,
-                on_unavailable_image_handler8,
+                Box::new(on_available_image_handler8),
+                Box::new(on_unavailable_image_handler8),
             )
             .unwrap();
         let correlation_id = id + 1;
         test.conductor
             .lock()
             .unwrap()
-            .set_on_new_subscription_handler(on_new_subscription_handler8);
+            .set_on_new_subscription_handler(Box::new(on_new_subscription_handler8));
 
         test.conductor
             .lock()
@@ -3699,8 +3700,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -3744,8 +3745,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
 
@@ -3804,8 +3805,8 @@ mod tests {
             .add_subscription(
                 str_to_c(CHANNEL),
                 STREAM_ID,
-                on_available_image_handler,
-                on_unavailable_image_handler,
+                Box::new(on_available_image_handler),
+                Box::new(on_unavailable_image_handler),
             )
             .unwrap();
         let correlation_id = id + 1;
@@ -3911,7 +3912,7 @@ mod tests {
         test.conductor
             .lock()
             .unwrap()
-            .add_on_available_counter_handler(on_available_counter1);
+            .add_on_available_counter_handler(Box::new(on_available_counter1));
 
         let no_key_buffer = Vec::with_capacity(1);
         let id = test
@@ -4042,7 +4043,7 @@ mod tests {
         test.conductor
             .lock()
             .unwrap()
-            .add_on_available_counter_handler(on_available_counter2);
+            .add_on_available_counter_handler(Box::new(on_available_counter2));
         test.conductor.lock().unwrap().on_available_counter(id1, COUNTER_ID);
         test.conductor.lock().unwrap().on_available_counter(id2, COUNTER_ID);
 
@@ -4142,7 +4143,7 @@ mod tests {
         test.conductor
             .lock()
             .unwrap()
-            .add_on_unavailable_counter_handler(on_unavailable_counter1);
+            .add_on_unavailable_counter_handler(Box::new(on_unavailable_counter1));
 
         test.conductor.lock().unwrap().on_unavailable_counter(id, COUNTER_ID);
 
