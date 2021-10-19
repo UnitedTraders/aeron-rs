@@ -405,8 +405,8 @@ impl Context {
      *
      * @see default_error_handler for how the default behavior is handled
      */
-    pub fn set_error_handler(&mut self, handler: Box<dyn ErrorHandler + Send>) -> &Self {
-        self.error_handler = handler;
+    pub fn set_error_handler(&mut self, handler: impl ErrorHandler + Send + 'static) -> &Self {
+        self.error_handler = Box::new(handler);
         self
     }
 
@@ -420,8 +420,8 @@ impl Context {
      * @param handler called when add is completed successfully
      * @return reference to this Context instance
      */
-    pub fn set_new_publication_handler(&mut self, handler: Box<dyn OnNewPublication>) -> &Self {
-        self.on_new_publication_handler = handler;
+    pub fn set_new_publication_handler(&mut self, handler: impl OnNewPublication + 'static) -> &Self {
+        self.on_new_publication_handler = Box::new(handler);
         self
     }
 
@@ -453,8 +453,8 @@ impl Context {
      * @param handler called when add is completed successfully
      * @return reference to this Context instance
      */
-    pub fn set_new_subscription_handler(&mut self, handler: Box<dyn OnNewSubscription>) -> &Self {
-        self.on_new_subscription_handler = handler;
+    pub fn set_new_subscription_handler(&mut self, handler: impl OnNewSubscription + 'static) -> &Self {
+        self.on_new_subscription_handler = Box::new(handler);
         self
     }
 
@@ -468,8 +468,8 @@ impl Context {
      * @param handler called when event occurs
      * @return reference to this Context instance
      */
-    pub fn set_available_image_handler(&mut self, handler: Box<dyn OnAvailableImage>) -> &Self {
-        self.on_available_image_handler = handler;
+    pub fn set_available_image_handler(&mut self, handler: impl OnAvailableImage + 'static) -> &Self {
+        self.on_available_image_handler = Box::new(handler);
         self
     }
 
@@ -483,8 +483,8 @@ impl Context {
      * @param handler called when event occurs
      * @return reference to this Context instance
      */
-    pub fn set_unavailable_image_handler(&mut self, handler: Box<dyn OnUnavailableImage>) -> &Self {
-        self.on_unavailable_image_handler = handler;
+    pub fn set_unavailable_image_handler(&mut self, handler: impl OnUnavailableImage + 'static) -> &Self {
+        self.on_unavailable_image_handler = Box::new(handler);
         self
     }
 
@@ -498,8 +498,8 @@ impl Context {
      * @param handler called when event occurs
      * @return reference to this Context instance
      */
-    pub fn set_available_counter_handler(&mut self, handler: Box<dyn OnAvailableCounter>) -> &Self {
-        self.on_available_counter_handler = handler;
+    pub fn set_available_counter_handler(&mut self, handler: impl OnAvailableCounter + 'static) -> &Self {
+        self.on_available_counter_handler = Box::new(handler);
         self
     }
 
@@ -513,8 +513,8 @@ impl Context {
      * @param handler called when event occurs
      * @return reference to this Context instance
      */
-    pub fn set_unavailable_counter_handler(&mut self, handler: Box<dyn OnUnavailableCounter>) -> &Self {
-        self.on_unavailable_counter_handler = handler;
+    pub fn set_unavailable_counter_handler(&mut self, handler: impl OnUnavailableCounter + 'static) -> &Self {
+        self.on_unavailable_counter_handler = Box::new(handler);
         self
     }
 
@@ -528,8 +528,8 @@ impl Context {
      * @param handler to be called when the Aeron client is closed.
      * @return reference to this Context instance.
      */
-    pub fn set_close_client_handler(&mut self, handler: Box<dyn OnCloseClient>) -> &Self {
-        self.on_close_client_handler = handler;
+    pub fn set_close_client_handler(&mut self, handler: impl OnCloseClient + 'static) -> &Self {
+        self.on_close_client_handler = Box::new(handler);
         self
     }
 
