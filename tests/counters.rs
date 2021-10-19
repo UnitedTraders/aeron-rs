@@ -94,12 +94,12 @@ fn test_counter_create() {
     let mut context_b = Context::new();
 
     context_a.set_agent_name("Client A");
-    context_a.set_available_counter_handler(counter_handler_a);
-    context_a.set_unavailable_counter_handler(gone_counter_handler_a);
+    context_a.set_available_counter_handler(Box::new(counter_handler_a));
+    context_a.set_unavailable_counter_handler(Box::new(gone_counter_handler_a));
 
     context_b.set_agent_name("Client B");
-    context_b.set_available_counter_handler(counter_handler_b);
-    context_b.set_unavailable_counter_handler(gone_counter_handler_b);
+    context_b.set_available_counter_handler(Box::new(counter_handler_b));
+    context_b.set_unavailable_counter_handler(Box::new(gone_counter_handler_b));
 
     let mut aeron_a = Aeron::new(context_a).expect("Error creating Aeron A instance");
     let aeron_b = Aeron::new(context_b).expect("Error creating Aeron B instance");

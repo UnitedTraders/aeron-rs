@@ -77,12 +77,11 @@ pub enum ControlledPollAction {
  * @param header representing the meta data for the data.
  * @return The action to be taken with regard to the stream position after the callback.
  */
-
 #[derive(Clone)]
 pub struct Image {
     source_identity: CString,
     log_buffers: Arc<LogBuffers>,
-    exception_handler: ErrorHandler,
+    exception_handler: Box<dyn ErrorHandler + Send>,
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
@@ -111,7 +110,7 @@ impl Image {
         source_identity: CString,
         subscriber_position: &UnsafeBufferPosition,
         log_buffers: Arc<LogBuffers>,
-        exception_handler: ErrorHandler,
+        exception_handler: Box<dyn ErrorHandler + Send>,
     ) -> Image {
         let header = Header::new(
             log_buffer_descriptor::initial_term_id(
@@ -328,14 +327,8 @@ impl Image {
             assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
             let term_buffer = self.term_buffers[index as usize];
 
-            let read_outcome: ReadOutcome = term_reader::read(
-                term_buffer,
-                term_offset,
-                fragment_handler,
-                fragment_limit,
-                &mut self.header,
-                self.exception_handler,
-            );
+            let read_outcome: ReadOutcome =
+                term_reader::read(term_buffer, term_offset, fragment_handler, fragment_limit, &mut self.header);
 
             if read_outcome.fragments_read > 0 {
                 ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
@@ -978,7 +971,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image.initial_term_id(), INITIAL_TERM_ID);
@@ -1008,7 +1001,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image.term_buffer_length(), TERM_LENGTH);
@@ -1042,7 +1035,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1084,7 +1077,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1126,7 +1119,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1167,7 +1160,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         image.close();
@@ -1198,7 +1191,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         image.close();
@@ -1230,7 +1223,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1270,7 +1263,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1310,7 +1303,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1344,7 +1337,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1378,7 +1371,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1417,7 +1410,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1452,7 +1445,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1493,7 +1486,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1531,7 +1524,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1573,7 +1566,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1615,7 +1608,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1658,7 +1651,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1698,7 +1691,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1738,7 +1731,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1773,7 +1766,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);
@@ -1808,7 +1801,7 @@ mod tests {
             CString::new(SOURCE_IDENTITY).unwrap(),
             &image_test.subscriber_position,
             image_test.log_buffers.clone(),
-            error_handler,
+            Box::new(error_handler),
         );
 
         assert_eq!(image_test.subscriber_position.get(), initial_position);

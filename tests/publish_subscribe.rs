@@ -66,8 +66,8 @@ fn test_publication_create() {
 
     let mut context = Context::new();
 
-    context.set_new_publication_handler(on_new_publication_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_publication_handler(Box::new(on_new_publication_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");
@@ -100,8 +100,8 @@ fn test_subscription_create() {
 
     let mut context = Context::new();
 
-    context.set_new_subscription_handler(on_new_subscription_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_subscription_handler(Box::new(on_new_subscription_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");
@@ -149,8 +149,8 @@ fn test_unfragmented_msg() {
 
     let mut context = Context::new();
 
-    context.set_new_subscription_handler(on_new_subscription_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_subscription_handler(Box::new(on_new_subscription_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");
@@ -230,8 +230,8 @@ fn test_fragmented_msg() {
 
     let mut context = Context::new();
 
-    context.set_new_subscription_handler(on_new_subscription_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_subscription_handler(Box::new(on_new_subscription_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");
@@ -344,8 +344,8 @@ fn test_sequential_consistency() {
 
     let mut context = Context::new();
 
-    context.set_new_subscription_handler(on_new_subscription_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_subscription_handler(Box::new(on_new_subscription_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");

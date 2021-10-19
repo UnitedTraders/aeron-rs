@@ -309,8 +309,8 @@ impl Aeron {
         &mut self,
         channel: CString,
         stream_id: i32,
-        on_available_image_handler: OnAvailableImage,
-        on_unavailable_image_handler: OnUnavailableImage,
+        on_available_image_handler: Box<dyn OnAvailableImage>,
+        on_unavailable_image_handler: Box<dyn OnUnavailableImage>,
     ) -> Result<i64, AeronError> {
         self.conductor.lock().expect("Mutex poisoned").add_subscription(
             channel,
@@ -401,7 +401,7 @@ impl Aeron {
      *
      * @param handler to be added to the available counters list.
      */
-    pub fn add_available_counter_handler(&mut self, handler: OnAvailableCounter) {
+    pub fn add_available_counter_handler(&mut self, handler: Box<dyn OnAvailableCounter>) {
         let _ignored = self
             .conductor
             .lock()
@@ -414,7 +414,7 @@ impl Aeron {
      *
      * @param handler to be removed from the available counters list.
      */
-    pub fn remove_available_counter_handler(&mut self, handler: OnAvailableCounter) {
+    pub fn remove_available_counter_handler(&mut self, handler: Box<dyn OnAvailableCounter>) {
         let _ignored = self
             .conductor
             .lock()
@@ -427,7 +427,7 @@ impl Aeron {
      *
      * @param handler to be added to the unavailable counters list.
      */
-    pub fn add_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
+    pub fn add_unavailable_counter_handler(&mut self, handler: Box<dyn OnUnavailableCounter>) {
         let _ignored = self
             .conductor
             .lock()
@@ -440,7 +440,7 @@ impl Aeron {
      *
      * @param handler to be removed from the unavailable counters list.
      */
-    pub fn remove_unavailable_counter_handler(&mut self, handler: OnUnavailableCounter) {
+    pub fn remove_unavailable_counter_handler(&mut self, handler: Box<dyn OnUnavailableCounter>) {
         let _ignored = self
             .conductor
             .lock()
@@ -453,7 +453,7 @@ impl Aeron {
      *
      * @param handler to be added to the close client handlers list.
      */
-    pub fn add_close_client_handler(&mut self, handler: OnCloseClient) {
+    pub fn add_close_client_handler(&mut self, handler: Box<dyn OnCloseClient>) {
         let _ignored = self
             .conductor
             .lock()
@@ -466,7 +466,7 @@ impl Aeron {
      *
      * @param handler to be removed from the close client handlers list.
      */
-    pub fn remove_close_client_handler(&mut self, handler: OnCloseClient) {
+    pub fn remove_close_client_handler(&mut self, handler: Box<dyn OnCloseClient>) {
         let _ignored = self
             .conductor
             .lock()

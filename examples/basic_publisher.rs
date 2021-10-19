@@ -108,8 +108,8 @@ fn main() {
 
     println!("Using CnC file: {}", context.cnc_file_name());
 
-    context.set_new_publication_handler(on_new_publication_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_publication_handler(Box::new(on_new_publication_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let aeron = Aeron::new(context);

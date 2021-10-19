@@ -19,14 +19,14 @@ use crate::concurrent::{agent_runner::Agent, logbuffer::term_reader::ErrorHandle
 
 pub struct AgentInvoker<T: Agent> {
     agent: Arc<Mutex<T>>,
-    exception_handler: ErrorHandler,
+    exception_handler: Box<dyn ErrorHandler>,
     is_started: bool,
     is_running: bool,
     is_closed: bool,
 }
 
 impl<T: Agent> AgentInvoker<T> {
-    pub fn new(agent: Arc<Mutex<T>>, exception_handler: ErrorHandler) -> Self {
+    pub fn new(agent: Arc<Mutex<T>>, exception_handler: Box<dyn ErrorHandler>) -> Self {
         Self {
             agent,
             exception_handler,
@@ -73,7 +73,7 @@ impl<T: Agent> AgentInvoker<T> {
             self.is_started = true;
             let on_start_result = self.agent.lock().expect("Mutex poisoned").on_start();
             if let Err(error) = on_start_result {
-                (self.exception_handler)(error);
+                self.exception_handler.call(error);
                 self.close();
             } else {
                 self.is_running = true;
@@ -93,7 +93,7 @@ impl<T: Agent> AgentInvoker<T> {
 
         if self.is_running {
             match self.agent.lock().expect("Mutex poisoned").do_work() {
-                Err(error) => (self.exception_handler)(error),
+                Err(error) => self.exception_handler.call(error),
                 Ok(wrk_cnt) => work_count = wrk_cnt,
             }
         }
@@ -111,7 +111,7 @@ impl<T: Agent> AgentInvoker<T> {
             self.is_running = false;
             self.is_closed = true;
             if let Err(error) = self.agent.lock().expect("Mutex poisoned").on_close() {
-                (self.exception_handler)(error);
+                self.exception_handler.call(error);
             }
         }
     }

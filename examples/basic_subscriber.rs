@@ -65,10 +65,6 @@ fn parse_cmd_line() -> Settings {
     Settings::new()
 }
 
-fn on_new_subscription_handler(channel: CString, stream_id: i32, correlation_id: i64) {
-    println!("Subscription: {} {} {}", channel.to_str().unwrap(), stream_id, correlation_id);
-}
-
 fn available_image_handler(image: &Image) {
     println!(
         "Available image correlation_id={} session_id={} at position={} from {}",
@@ -132,10 +128,12 @@ fn main() {
 
     println!("Using CnC file: {}", context.cnc_file_name());
 
-    context.set_new_subscription_handler(on_new_subscription_handler);
-    context.set_available_image_handler(available_image_handler);
-    context.set_unavailable_image_handler(unavailable_image_handler);
-    context.set_error_handler(error_handler);
+    context.set_new_subscription_handler(Box::new(|channel: CString, stream_id: i32, correlation_id: i64| {
+        println!("Subscription: {} {} {}", channel.to_str().unwrap(), stream_id, correlation_id)
+    }));
+    context.set_available_image_handler(Box::new(available_image_handler));
+    context.set_unavailable_image_handler(Box::new(unavailable_image_handler));
+    context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
     let aeron = Aeron::new(context);
