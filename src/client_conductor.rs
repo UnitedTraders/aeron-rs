@@ -45,9 +45,9 @@ use crate::{
     exclusive_publication::ExclusivePublication,
     heartbeat_timestamp,
     image::Image,
+    log,
     publication::Publication,
     subscription::Subscription,
-    ttrace,
     utils::{
         errors::AeronError::{self, ChannelEndpointException},
         log_buffers::LogBuffers,
@@ -439,7 +439,7 @@ impl ClientConductor {
 
             let err = GenericError::TimeoutBetweenServiceCallsOverTimeout(self.inter_service_timeout_ms).into();
 
-            ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
+            log!(trace, "on_heartbeat_check_timeouts: {:?}", &err);
 
             self.error_handler.call(err);
         }
@@ -458,7 +458,7 @@ impl ClientConductor {
 
                 let err = DriverInteractionError::WasInactive(self.driver_timeout_ms).into();
 
-                ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
+                log!(trace, "on_heartbeat_check_timeouts: {:?}", &err);
 
                 self.error_handler.call(err);
             }
@@ -477,7 +477,7 @@ impl ClientConductor {
 
                     let err = GenericError::ClientHeartbeatNotActive.into();
 
-                    ttrace!("on_heartbeat_check_timeouts: {:?}", &err);
+                    log!(trace, "on_heartbeat_check_timeouts: {:?}", &err);
 
                     self.error_handler.call(err);
                 }
@@ -578,7 +578,8 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in add_publication");
             */
-        ttrace!(
+        log!(
+            trace,
             "add_publication: on channel:{} stream:{}",
             channel.to_str().unwrap(),
             stream_id
@@ -595,7 +596,11 @@ impl ClientConductor {
             PublicationStateDefn::new(channel, registration_id, stream_id, (self.epoch_clock)()),
         );
 
-        ttrace!("add_publication: publication ADDED with registration_id {}", registration_id);
+        log!(
+            trace,
+            "add_publication: publication ADDED with registration_id {}",
+            registration_id
+        );
 
         Ok(registration_id)
     }
@@ -607,7 +612,7 @@ impl ClientConductor {
             .lock()
             .expect("Failed to obtain admin_lock in find_publication");
             */
-        ttrace!("find_publication: with registration_id {}", registration_id);
+        log!(trace, "find_publication: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -619,7 +624,8 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    ttrace!(
+                    log!(
+                        trace,
                         "find_publication: existing publication with registration_id {} FOUND",
                         registration_id
                     );
@@ -657,7 +663,8 @@ impl ClientConductor {
 
                             let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
-                            ttrace!(
+                            log!(
+                                trace,
                                 "find_publication: publication with registration_id {} CREATED",
                                 registration_id
                             );
@@ -697,30 +704,32 @@ impl ClientConductor {
     }
 
     pub fn release_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
-        ttrace!("release_publication: with registration_id {}", registration_id);
+        log!(trace, "release_publication: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.publication_by_registration_id.get(&registration_id) {
-            let _result = self.driver_proxy.remove_publication(registration_id);
+            self.driver_proxy.remove_publication(registration_id)?;
             self.publication_by_registration_id.remove(&registration_id);
-            ttrace!(
+            log!(
+                trace,
                 "release_publication: publication with registration_id {} RELEASED",
                 registration_id
             );
+            Ok(())
         } else {
-            ttrace!(
+            log!(
+                trace,
                 "release_publication: publication with registration_id {} not found",
                 registration_id
             );
-            return Err(GenericError::UnknownRegistrationId(registration_id).into());
+            Err(GenericError::UnknownRegistrationId(registration_id).into())
         }
-
-        Ok(())
     }
 
     pub fn add_exclusive_publication(&mut self, channel: CString, stream_id: i32) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "add_exclusive_publication: on channel:{} stream:{}",
             channel.to_str().unwrap(),
             stream_id
@@ -737,7 +746,8 @@ impl ClientConductor {
             ExclusivePublicationStateDefn::new(channel, registration_id, stream_id, (self.epoch_clock)()),
         );
 
-        ttrace!(
+        log!(
+            trace,
             "add_exclusive_publication: exclusive publication ADDED with registration_id {}",
             registration_id
         );
@@ -749,7 +759,7 @@ impl ClientConductor {
         &mut self,
         registration_id: i64,
     ) -> Result<Arc<Mutex<ExclusivePublication>>, AeronError> {
-        ttrace!("find_exclusive_publication: with registration_id {}", registration_id);
+        log!(trace, "find_exclusive_publication: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -760,7 +770,8 @@ impl ClientConductor {
             if let Some(maybe_publication) = &state.publication {
                 // If there is publication - just return it
                 if let Some(publication) = maybe_publication.upgrade() {
-                    ttrace!(
+                    log!(
+                        trace,
                         "find_exclusive_publication: existing exclusive publication with registration_id {} FOUND",
                         registration_id
                     );
@@ -797,7 +808,8 @@ impl ClientConductor {
                             let new_pub = Arc::new(Mutex::new(publication));
                             state.publication = Some(Arc::downgrade(&new_pub));
 
-                            ttrace!(
+                            log!(
+                                trace,
                                 "find_exclusive_publication: exclusive publication with registration_id {} CREATED",
                                 registration_id
                             );
@@ -833,19 +845,25 @@ impl ClientConductor {
     }
 
     pub fn release_exclusive_publication(&mut self, registration_id: i64) -> Result<(), AeronError> {
-        ttrace!("release_exclusive_publication: with registration_id {}", registration_id);
+        log!(
+            trace,
+            "release_exclusive_publication: with registration_id {}",
+            registration_id
+        );
 
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(_publication) = self.exclusive_publication_by_registration_id.get(&registration_id) {
             let _result = self.driver_proxy.remove_publication(registration_id);
             self.exclusive_publication_by_registration_id.remove(&registration_id);
-            ttrace!(
+            log!(
+                trace,
                 "release_exclusive_publication: exclusive publication with registration_id {} RELEASED",
                 registration_id
             );
         } else {
-            ttrace!(
+            log!(
+                trace,
                 "release_exclusive_publication: exclusive publication with registration_id {} not found",
                 registration_id
             );
@@ -861,7 +879,8 @@ impl ClientConductor {
         on_available_image_handler: Box<dyn OnAvailableImage>,
         on_unavailable_image_handler: Box<dyn OnUnavailableImage>,
     ) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "add_subscription: on channel:{} stream:{}",
             channel.to_str().unwrap(),
             stream_id
@@ -885,7 +904,8 @@ impl ClientConductor {
             ),
         );
 
-        ttrace!(
+        log!(
+            trace,
             "add_subscription: subscription ADDED with registration_id {}",
             registration_id
         );
@@ -894,7 +914,7 @@ impl ClientConductor {
     }
 
     pub fn find_subscription(&mut self, registration_id: i64) -> Result<Arc<Mutex<Subscription>>, AeronError> {
-        ttrace!("find_subscription: with registration_id {}", registration_id);
+        log!(trace, "find_subscription: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -907,7 +927,8 @@ impl ClientConductor {
             if let Some(maybe_subscription) = &state.subscription {
                 // If there is subscription - just return it
                 let this_arm_result = if let Some(subscription) = maybe_subscription.upgrade() {
-                    ttrace!(
+                    log!(
+                        trace,
                         "find_subscription: existing subscription with registration_id {} FOUND",
                         registration_id
                     );
@@ -949,14 +970,14 @@ impl ClientConductor {
     }
 
     pub fn release_subscription(&mut self, registration_id: i64, mut images: Vec<Image>) -> Result<(), AeronError> {
-        ttrace!("release_subscription: with registration_id {}", registration_id);
+        log!(trace, "release_subscription: with registration_id {}", registration_id);
 
         self.verify_driver_is_active_via_error_handler();
 
         if let Some(subscription) = self.subscription_by_registration_id.get(&registration_id) {
             let _result = self.driver_proxy.remove_subscription(registration_id);
 
-            for image in images.iter_mut() {
+            for image in &mut images {
                 // close the image
                 image.close();
 
@@ -964,7 +985,8 @@ impl ClientConductor {
                 subscription.on_unavailable_image_handler.call(image);
             }
         } else {
-            ttrace!(
+            log!(
+                trace,
                 "release_subscription: subscription with registration_id {} not found",
                 registration_id
             );
@@ -973,7 +995,8 @@ impl ClientConductor {
 
         self.linger_all_resources((self.epoch_clock)(), images);
         self.subscription_by_registration_id.remove(&registration_id);
-        ttrace!(
+        log!(
+            trace,
             "release_subscription: subscription with registration_id {} RELEASED together with its images",
             registration_id
         );
@@ -982,7 +1005,7 @@ impl ClientConductor {
     }
 
     pub fn add_counter(&mut self, type_id: i32, key_buffer: &[u8], label: &str) -> Result<i64, AeronError> {
-        ttrace!("add_counter: with type_id:{} label:{}", type_id, label);
+        log!(trace, "add_counter: with type_id:{} label:{}", type_id, label);
 
         self.verify_driver_is_active()?;
         self.ensure_not_reentrant();
@@ -1011,7 +1034,8 @@ impl ClientConductor {
         self.counter_by_registration_id
             .insert(registration_id, CounterStateDefn::new(registration_id, (self.epoch_clock)()));
 
-        ttrace!(
+        log!(
+            trace,
             "add_counter: counter type_id:{} label:{} ADDED with registration_id {}",
             type_id,
             label,
@@ -1022,7 +1046,7 @@ impl ClientConductor {
     }
 
     pub fn find_counter(&mut self, registration_id: i64) -> Result<Arc<Counter>, AeronError> {
-        ttrace!("find_counter: with registration_id {}", registration_id);
+        log!(trace, "find_counter: with registration_id {}", registration_id);
 
         self.ensure_not_reentrant();
         self.ensure_open()?;
@@ -1034,7 +1058,8 @@ impl ClientConductor {
             if let Some(maybe_counter) = &state.counter {
                 // If there is counter - just return it
                 let this_arm_result = if let Some(counter) = maybe_counter.upgrade() {
-                    ttrace!(
+                    log!(
+                        trace,
                         "find_counter: existing counter with registration_id {} FOUND",
                         registration_id
                     );
@@ -1081,9 +1106,17 @@ impl ClientConductor {
         if let Some(_counter) = self.counter_by_registration_id.get(&registration_id) {
             self.driver_proxy.remove_counter(registration_id)?;
             self.counter_by_registration_id.remove(&registration_id);
-            ttrace!("release_counter: counter with registration_id {} RELEASED", registration_id);
+            log!(
+                trace,
+                "release_counter: counter with registration_id {} RELEASED",
+                registration_id
+            );
         } else {
-            ttrace!("release_counter: counter with registration_id {} not found", registration_id);
+            log!(
+                trace,
+                "release_counter: counter with registration_id {} not found",
+                registration_id
+            );
             return Err(GenericError::UnknownRegistrationId(registration_id).into());
         }
 
@@ -1091,7 +1124,8 @@ impl ClientConductor {
     }
 
     pub fn add_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "add_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
             endpoint_channel.to_str().unwrap()
@@ -1110,13 +1144,18 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, publication_registration_id, (self.epoch_clock)()),
         );
 
-        ttrace!("add_destination: destination ADDED with correlation_id {}", correlation_id);
+        log!(
+            trace,
+            "add_destination: destination ADDED with correlation_id {}",
+            correlation_id
+        );
 
         Ok(correlation_id)
     }
 
     pub fn remove_destination(&mut self, publication_registration_id: i64, endpoint_channel: CString) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "remove_destination: with publication_registration_id:{} channel: {}",
             publication_registration_id,
             endpoint_channel.to_str().unwrap()
@@ -1137,7 +1176,11 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, publication_registration_id, (self.epoch_clock)()),
         );
 
-        ttrace!("remove_destination: destination REMOVED correlation_id:{}", correlation_id);
+        log!(
+            trace,
+            "remove_destination: destination REMOVED correlation_id:{}",
+            correlation_id
+        );
 
         Ok(correlation_id)
     }
@@ -1147,7 +1190,8 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "add_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
             endpoint_channel.to_str().unwrap()
@@ -1166,7 +1210,8 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, subscription_registration_id, (self.epoch_clock)()),
         );
 
-        ttrace!(
+        log!(
+            trace,
             "add_rcv_destination: rcv destination ADDED with correlation_id {}",
             correlation_id
         );
@@ -1179,7 +1224,8 @@ impl ClientConductor {
         subscription_registration_id: i64,
         endpoint_channel: CString,
     ) -> Result<i64, AeronError> {
-        ttrace!(
+        log!(
+            trace,
             "remove_rcv_destination: with subscription_registration_id:{} channel: {}",
             subscription_registration_id,
             endpoint_channel.to_str().unwrap()
@@ -1198,7 +1244,8 @@ impl ClientConductor {
             DestinationStateDefn::new(correlation_id, subscription_registration_id, (self.epoch_clock)()),
         );
 
-        ttrace!(
+        log!(
+            trace,
             "remove_rcv_destination: rcv destination REMOVED correlation_id:{}",
             correlation_id
         );
@@ -1287,7 +1334,7 @@ impl ClientConductor {
     }
 
     pub fn close_all_resources(&mut self, now_ms: Moment) {
-        ttrace!("close_all_resources: closing all resources");
+        log!(trace, "close_all_resources: closing all resources");
 
         self.is_closed.store(true, Ordering::Release);
 
@@ -1406,7 +1453,7 @@ impl ClientConductor {
 
 impl Agent for ClientConductor {
     fn on_start(&mut self) -> Result<(), AeronError> {
-        ttrace!("on_start: started as agent");
+        log!(trace, "on_start: started as agent");
         Ok(())
     }
 
@@ -1421,7 +1468,7 @@ impl Agent for ClientConductor {
     }
 
     fn on_close(&mut self) -> Result<(), AeronError> {
-        ttrace!("on_close: stopping as agent");
+        log!(trace, "on_close: stopping as agent");
         if !self.is_closed.load(Ordering::SeqCst) {
             self.close_all_resources((self.epoch_clock)());
         }
@@ -1445,7 +1492,7 @@ impl DriverListener for ClientConductor {
         let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.publication_by_registration_id.get(&registration_id) {
-            ttrace!("on_new_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
+            log!(trace, "on_new_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
                 registration_id,
                 original_registration_id,
                 stream_id,
@@ -1501,7 +1548,7 @@ impl DriverListener for ClientConductor {
         let mut maybe_channel: Option<CString> = None;
 
         if let Some(state) = self.exclusive_publication_by_registration_id.get(&registration_id) {
-            ttrace!("on_new_exclusive_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
+            log!(trace, "on_new_exclusive_publication: registration_id {}, original_registration_id {}, stream_id {}, session_id {}, publication_limit_counter_id {}, channel_status_indicator_id {}, log_file_name \"{}\"",
                 registration_id,
                 original_registration_id,
                 stream_id,
@@ -1542,7 +1589,8 @@ impl DriverListener for ClientConductor {
 
     fn on_subscription_ready(&mut self, registration_id: i64, channel_status_id: i32) {
         if let Some(state) = self.subscription_by_registration_id.get_mut(&registration_id) {
-            ttrace!(
+            log!(
+                trace,
                 "on_subscription_ready: registration_id {}, channel_status_id {}",
                 registration_id,
                 channel_status_id
@@ -1568,7 +1616,7 @@ impl DriverListener for ClientConductor {
 
     fn on_operation_success(&mut self, correlation_id: i64) {
         if let Some(state) = self.destination_state_by_correlation_id.get_mut(&correlation_id) {
-            ttrace!("on_operation_success: correlation_id {}", correlation_id);
+            log!(trace, "on_operation_success: correlation_id {}", correlation_id);
 
             if state.status == RegistrationStatus::Awaiting {
                 state.status = RegistrationStatus::Registered;
@@ -1585,7 +1633,7 @@ impl DriverListener for ClientConductor {
                 if let Some(protected_subscription) = maybe_subscription.upgrade() {
                     let mut subscription = protected_subscription.lock().expect("Mutex poisoned");
                     if subscription.channel_status_id() == offending_command_correlation_id as i32 {
-                        ttrace!("on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+                        log!(trace, "on_channel_endpoint_error_response: for subscription, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
                         self.error_handler.call(ChannelEndpointException(
                             offending_command_correlation_id,
@@ -1623,7 +1671,7 @@ impl DriverListener for ClientConductor {
                     if publication.lock().expect("Mutex on pub poisoned").channel_status_id()
                         == offending_command_correlation_id as i32
                     {
-                        ttrace!("on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
+                        log!(trace, "on_channel_endpoint_error_response: for publication, offending_command_correlation_id {}, error_message {}", offending_command_correlation_id, error_message.to_str().unwrap());
 
                         self.error_handler.call(ChannelEndpointException(
                             offending_command_correlation_id,
@@ -1668,7 +1716,8 @@ impl DriverListener for ClientConductor {
             .subscription_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            ttrace!(
+            log!(
+                trace,
                 "on_error_response: for subscription, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1681,7 +1730,8 @@ impl DriverListener for ClientConductor {
         }
 
         if let Some(publication) = self.publication_by_registration_id.get_mut(&offending_command_correlation_id) {
-            ttrace!(
+            log!(
+                trace,
                 "on_error_response: for publication, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1697,7 +1747,7 @@ impl DriverListener for ClientConductor {
             .exclusive_publication_by_registration_id
             .get_mut(&offending_command_correlation_id)
         {
-            ttrace!("on_error_response: for exclusive publication, offending_command_correlation_id {}, error_code {}, error_message {}", offending_command_correlation_id, error_code, error_message.to_str().unwrap());
+            log!(trace, "on_error_response: for exclusive publication, offending_command_correlation_id {}, error_code {}, error_message {}", offending_command_correlation_id, error_code, error_message.to_str().unwrap());
             publication.status = RegistrationStatus::Errored;
             publication.error_code = error_code;
             publication.error_message = error_message;
@@ -1705,7 +1755,8 @@ impl DriverListener for ClientConductor {
         }
 
         if let Some(counter) = self.counter_by_registration_id.get_mut(&offending_command_correlation_id) {
-            ttrace!(
+            log!(
+                trace,
                 "on_error_response: for counter, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1721,7 +1772,8 @@ impl DriverListener for ClientConductor {
             .destination_state_by_correlation_id
             .get_mut(&offending_command_correlation_id)
         {
-            ttrace!(
+            log!(
+                trace,
                 "on_error_response: for destination, offending_command_correlation_id {}, error_code {}, error_message {}",
                 offending_command_correlation_id,
                 error_code,
@@ -1752,7 +1804,7 @@ impl DriverListener for ClientConductor {
                 if let Some(_subscription) = maybe_subscription.upgrade() {
                     maybe_channel = Some(subscr_defn.channel.clone());
 
-                    ttrace!(
+                    log!(trace,
                         "on_available_image correlation_id {}, session_id {}, subscriber_position_id {}, subscription_registration_id {}, log_filename {}, source_identity {}",
                         correlation_id,
                         session_id,
@@ -1813,7 +1865,8 @@ impl DriverListener for ClientConductor {
         let mut linger_images: Option<Vec<Image>> = None;
 
         if let Some(subscr_defn) = self.subscription_by_registration_id.get(&subscription_registration_id) {
-            ttrace!(
+            log!(
+                trace,
                 "on_unavailable_image correlation_id {}, subscription_registration_id {}",
                 correlation_id,
                 subscription_registration_id,
@@ -1842,7 +1895,8 @@ impl DriverListener for ClientConductor {
 
     fn on_available_counter(&mut self, registration_id: i64, counter_id: i32) {
         if let Some(state) = self.counter_by_registration_id.get_mut(&registration_id) {
-            ttrace!(
+            log!(
+                trace,
                 "on_available_counter registration_id {}, counter_id {}",
                 registration_id,
                 counter_id,
@@ -1870,7 +1924,8 @@ impl DriverListener for ClientConductor {
     }
 
     fn on_unavailable_counter(&mut self, registration_id: i64, counter_id: i32) {
-        ttrace!(
+        log!(
+            trace,
             "on_unavailable_counter registration_id {}, counter_id {}",
             registration_id,
             counter_id,
@@ -1884,7 +1939,7 @@ impl DriverListener for ClientConductor {
 
     fn on_client_timeout(&mut self, client_id: i64) {
         if self.driver_proxy.client_id() == client_id && !self.is_closed() {
-            ttrace!("on_client_timeout client_id {}. Closing all resources.", client_id,);
+            log!(trace, "on_client_timeout client_id {}. Closing all resources.", client_id,);
 
             self.close_all_resources((self.epoch_clock)());
             self.error_handler.call(AeronError::ClientTimeoutException);

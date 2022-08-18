@@ -392,9 +392,8 @@ impl Subscription {
     /// Returns None if subscription is closed.
     pub fn close_and_remove_images(&mut self) -> Option<Vec<Image>> {
         if !self.is_closed.swap(true, Ordering::SeqCst) {
-            let image_list = self.image_list.load_val();
-            self.image_list.store(Vec::new());
-            Some(image_list)
+            let images = self.image_list.take();
+            Some(images)
         } else {
             None
         }
@@ -403,13 +402,13 @@ impl Subscription {
 
 impl Drop for Subscription {
     fn drop(&mut self) {
-        let list = self.image_list.load();
+        let list = self.image_list.take();
 
         let _unused = self
             .conductor
             .lock()
             .expect("Mutex poisoned")
-            .release_subscription(self.registration_id, list.clone());
+            .release_subscription(self.registration_id, list);
     }
 }
 

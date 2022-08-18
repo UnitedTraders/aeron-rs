@@ -31,7 +31,7 @@ use crate::{
         subscription_ready_flyweight::SubscriptionReadyFlyweight,
     },
     concurrent::{atomic_buffer::AtomicBuffer, broadcast::copy_broadcast_receiver::CopyBroadcastReceiver},
-    ttrace,
+    log,
     utils::{errors::AeronError, types::Index},
 };
 
@@ -103,7 +103,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
 
     pub fn receive_messages(&self, this_driver_listener: &mut ClientConductor) -> Result<usize, AeronError> {
         let receive_handler = |msg: AeronCommand, buffer: AtomicBuffer, offset: Index, _length: Index| {
-            ttrace!("Message arrived of type {:x}", msg as i32);
+            log!(trace, "Message arrived of type {:x}", msg as i32);
 
             match msg {
                 AeronCommand::ResponseOnPublicationReady => {

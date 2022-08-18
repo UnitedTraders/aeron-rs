@@ -8,6 +8,7 @@ Cargo.lock
 
 # IDEA
 /.idea/*
+*.iml
 
 # OS X
 .DS_Store

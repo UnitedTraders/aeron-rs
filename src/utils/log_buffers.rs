@@ -6,7 +6,7 @@ use crate::{
         atomic_buffer::AtomicBuffer,
         logbuffer::log_buffer_descriptor::{self, check_page_size, check_term_length, page_size, term_length, PARTITION_COUNT},
     },
-    ttrace,
+    log,
     utils::{errors::AeronError, memory_mapped_file::MemoryMappedFile, types::Index},
 };
 
@@ -44,7 +44,7 @@ impl LogBuffers {
     ) -> Result<Self, AeronError> {
         assert_eq!(log_buffer_descriptor::PARTITION_COUNT, 3);
 
-        ttrace!("from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
+        log!(trace, "from_existing: file_path {}, pre_touch {}", &file_path, pre_touch);
 
         let log_len = MemoryMappedFile::get_file_size(&file_path)?;
 
@@ -79,7 +79,7 @@ impl LogBuffers {
 
         buffers.push(meta_buffer);
 
-        ttrace!("from_existing: file mapped successfully, term_length {}", term_length);
+        log!(trace, "from_existing: file mapped successfully, term_length {}", term_length);
 
         Ok(Self {
             memory_mapped_file: Some(memory_mapped_file),

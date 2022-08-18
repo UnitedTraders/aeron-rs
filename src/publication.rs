@@ -22,7 +22,6 @@ use std::{
     },
 };
 
-use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
 use crate::{
     client_conductor::ClientConductor,
     concurrent::{
@@ -37,8 +36,13 @@ use crate::{
         position::{ReadablePosition, UnsafeBufferPosition},
         status::status_indicator_reader,
     },
-    ttrace,
-    utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
+    log,
+    utils::{
+        bit_utils::number_of_trailing_zeroes,
+        errors::{AeronError, IllegalArgumentError, IllegalStateError},
+        log_buffers::LogBuffers,
+        types::Index,
+    },
 };
 
 pub trait BulkPubSize {
@@ -362,7 +366,11 @@ impl Publication {
 
             if position < limit {
                 let resulting_offset = if length <= self.max_payload_length {
-                    ttrace!("Appending unfragmented message on publication {}", self.registration_id);
+                    log!(
+                        trace,
+                        "Appending unfragmented message on publication {}",
+                        self.registration_id
+                    );
                     term_appender.append_unfragmented_message(
                         &self.header_writer,
                         &buffer,
@@ -373,7 +381,7 @@ impl Publication {
                     )
                 } else {
                     self.check_max_message_length(length)?;
-                    ttrace!("Appending fragmented message on publication {}", self.registration_id);
+                    log!(trace, "Appending fragmented message on publication {}", self.registration_id);
                     term_appender.append_fragmented_message(
                         &self.header_writer,
                         &buffer,
@@ -393,14 +401,16 @@ impl Publication {
                     resulting_offset.expect("Something wrong with resulting offset"),
                 )?)
             } else {
-                ttrace!(
+                log!(
+                    trace,
                     "Current stream position is out of limit on publication {}",
                     self.registration_id
                 );
                 Err(self.back_pressure_status(position, length))
             }
         } else {
-            ttrace!(
+            log!(
+                trace,
                 "Unsuccessful attempt to publish a message via closed publication {}",
                 self.registration_id
             );
@@ -662,6 +672,18 @@ impl Publication {
         self.is_closed.store(true, Ordering::Release);
     }
 
+    pub fn release(&self) {
+        self.is_closed.store(true, Ordering::Release);
+        if let Err(err) = self
+            .conductor
+            .lock()
+            .expect("Mutex poisoned")
+            .release_publication(self.registration_id)
+        {
+            log!(error, "Release publication error: {:?}", err);
+        }
+    }
+
     fn new_position(
         &self,
         term_count: Index,
@@ -727,12 +749,7 @@ impl Publication {
 
 impl Drop for Publication {
     fn drop(&mut self) {
-        self.is_closed.store(true, Ordering::Release);
-        let _unused = self
-            .conductor
-            .lock()
-            .expect("Mutex poisoned")
-            .release_publication(self.registration_id);
+        self.release();
     }
 }
 

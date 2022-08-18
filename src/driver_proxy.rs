@@ -30,7 +30,7 @@ use crate::{
         terminate_driver_flyweight::TerminateDriverFlyweight,
     },
     concurrent::{atomic_buffer::AtomicBuffer, ring_buffer::ManyToOneRingBuffer},
-    ttrace,
+    log,
     utils::{errors::AeronError, types::Index},
 };
 
@@ -322,11 +322,11 @@ impl DriverProxy {
         let msg_type = filler(buffer, &mut length)?;
 
         if self.to_driver_command_buffer.write(msg_type, buffer, 0, length).is_err() {
-            ttrace!("Driver command {:#x} failed", msg_type);
+            log!(trace, "Driver command {:#x} failed", msg_type);
             return Err(IllegalStateError::CouldNotWriteCommandToDriver.into());
         }
 
-        ttrace!("Successfully written driver command: {:#x}", msg_type);
+        log!(trace, "Successfully written driver command: {:#x}", msg_type);
 
         Ok(())
     }

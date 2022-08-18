@@ -23,24 +23,25 @@ use std::{
     },
 };
 
-use crate::concurrent::{
-    atomic_buffer::AtomicBuffer,
-    logbuffer::{
-        data_frame_header, frame_descriptor,
-        header::Header,
-        log_buffer_descriptor,
-        term_reader::{self, ErrorHandler, ReadOutcome},
-        term_scan::{scan, BlockHandler},
+use crate::{
+    concurrent::{
+        atomic_buffer::AtomicBuffer,
+        logbuffer::{
+            data_frame_header, frame_descriptor,
+            header::Header,
+            log_buffer_descriptor,
+            term_reader::{self, ErrorHandler, ReadOutcome},
+            term_scan::{scan, BlockHandler},
+        },
+        position::{ReadablePosition, UnsafeBufferPosition},
     },
-    position::{ReadablePosition, UnsafeBufferPosition},
-};
-use crate::ttrace;
-use crate::utils::errors::IllegalArgumentError;
-use crate::utils::{
-    bit_utils::{align, number_of_trailing_zeroes},
-    errors::AeronError,
-    log_buffers::LogBuffers,
-    types::Index,
+    log,
+    utils::{
+        bit_utils::{align, number_of_trailing_zeroes},
+        errors::{AeronError, IllegalArgumentError},
+        log_buffers::LogBuffers,
+        types::Index,
+    },
 };
 
 #[derive(Eq, PartialEq)]
@@ -85,7 +86,7 @@ pub struct Image {
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
-    is_closed: Arc<AtomicBool>, // to make Image clonable
+    is_closed: Arc<AtomicBool>, // to make Image cloneable
     is_eos: bool,
     term_length_mask: Index,
     position_bits_to_shift: i32,
@@ -331,7 +332,7 @@ impl Image {
                 term_reader::read(term_buffer, term_offset, fragment_handler, fragment_limit, &mut self.header);
 
             if read_outcome.fragments_read > 0 {
-                ttrace!("Image {} poll returned: {:?}", self.correlation_id, read_outcome);
+                log!(trace, "Image {} poll returned: {:?}", self.correlation_id, read_outcome);
             }
 
             let new_position = position + (read_outcome.offset - term_offset) as i64;

@@ -14,20 +14,23 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{fence, AtomicI64, Ordering};
+use std::{
+    mem,
+    sync::atomic::{fence, AtomicI64, Ordering},
+};
 
 use crate::utils::types::Index;
 
 /// AtomicVec stores elements of type T and provides thread safe operations on Vec.
 /// Atomic behavior provided on AtomicVec as a whole.
 #[derive(Default)]
-pub struct AtomicVec<T: Clone> {
+pub struct AtomicVec<T> {
     buf: Vec<T>,
     begin_change: AtomicI64,
     end_change: AtomicI64,
 }
 
-impl<T: Clone> AtomicVec<T> {
+impl<T> AtomicVec<T> {
     pub fn new() -> Self {
         Self {
             buf: vec![],
@@ -62,6 +65,38 @@ impl<T: Clone> AtomicVec<T> {
         }
     }
 
+    pub fn store(&mut self, new_value: Vec<T>) {
+        // Compute next change seq number
+        let seq_no = self.begin_change.load(Ordering::Acquire).wrapping_add(1);
+        self.begin_change.store(seq_no, Ordering::Release);
+
+        self.buf = new_value;
+
+        self.end_change.store(seq_no, Ordering::Release);
+    }
+
+    pub fn take(&mut self) -> Vec<T> {
+        loop {
+            let change_number = self.end_change.load(Ordering::Acquire);
+
+            fence(Ordering::Acquire);
+
+            if change_number == self.begin_change.load(Ordering::Acquire) {
+                let seq_no = self.begin_change.load(Ordering::Acquire).wrapping_add(1);
+                self.begin_change.store(seq_no, Ordering::Release);
+
+                let buf = mem::take(&mut self.buf);
+                *self = Self::new();
+
+                self.end_change.store(seq_no, Ordering::Release);
+
+                return buf;
+            }
+        }
+    }
+}
+
+impl<T: Clone> AtomicVec<T> {
     pub fn load_val(&mut self) -> Vec<T> {
         loop {
             let change_number = self.end_change.load(Ordering::Acquire);
@@ -73,21 +108,6 @@ impl<T: Clone> AtomicVec<T> {
                 return tmp_vec;
             }
         }
-    }
-
-    pub fn store(&mut self, new_value: Vec<T>) {
-        // Compute next change seq number
-        let mut seq_no: i64 = self.begin_change.load(Ordering::Acquire) + 1;
-
-        if seq_no == std::i64::MAX {
-            seq_no = 0;
-        }
-
-        self.begin_change.store(seq_no, Ordering::Release);
-
-        self.buf = new_value;
-
-        self.end_change.store(seq_no, Ordering::Release);
     }
 
     pub fn add(&mut self, item: T) -> Vec<T> {
