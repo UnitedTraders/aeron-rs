@@ -23,6 +23,7 @@ use std::{
     thread,
     time::Duration,
 };
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use aeron_rs::{
     aeron::Aeron,
@@ -42,13 +43,19 @@ use aeron_rs::{
 };
 use lazy_static::lazy_static;
 use structopt::StructOpt;
+use aeron_rs::concurrent::atomic_buffer::AlignedBuffer;
+use hdrhistogram::Histogram;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
     pub static ref PRINTING_ACTIVE: AtomicBool = AtomicBool::from(true);
     pub static ref SUBSCRIPTION_ID: AtomicI64 = AtomicI64::new(-1);
     pub static ref PUBLICATION_ID: AtomicI64 = AtomicI64::new(-1);
+    pub static ref HISTOGRAMM: Arc<Mutex<Histogram::<u64>>> = Arc::new(Mutex::new(
+        Histogram::<u64>::new_with_bounds(1, 10 * 1000 * 1000 * 1000, 3).unwrap()
+    ));
 }
+
 
 fn sig_int_handler() {
     RUNNING.store(false, Ordering::SeqCst);
@@ -182,7 +189,8 @@ fn main() {
         .add_subscription(str_to_c(&settings.channel), settings.stream_id)
         .expect("Error adding subscription");
     let publication_id = aeron
-        .add_publication(str_to_c(&settings.channel), settings.stream_id)
+        .add_exclusive_publication(str_to_c(&settings.channel), settings.stream_id)
+        // .add_publication(str_to_c(&settings.channel), settings.stream_id)
         .expect("Error adding publication");
 
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
@@ -191,13 +199,17 @@ fn main() {
     let mut subscription = aeron.find_subscription(subscription_id);
     while subscription.is_err() {
         std::thread::yield_now();
+        println!("Subscription error");
         subscription = aeron.find_subscription(subscription_id);
     }
 
-    let mut publication = aeron.find_publication(publication_id);
+    let mut publication = aeron.find_exclusive_publication(publication_id);
+    //let mut publication = aeron.find_publication(publication_id);
     while publication.is_err() {
         std::thread::yield_now();
-        publication = aeron.find_publication(publication_id);
+        println!("Publication error");
+        // publication = aeron.find_publication(publication_id);
+        publication = aeron.find_exclusive_publication(publication_id);
     }
 
     let publication = publication.unwrap();
@@ -240,6 +252,10 @@ fn main() {
         .expect("Can't start poll thread");
 
     while RUNNING.load(Ordering::SeqCst) {
+
+        let buffer = AlignedBuffer::with_capacity(settings.message_length);
+        let src_buffer = AtomicBuffer::from_aligned(&buffer);
+
         let mut buffer_claim = BufferClaim::default();
         let mut back_pressure_count = 0;
 
@@ -249,12 +265,18 @@ fn main() {
             rate_reporter.lock().unwrap().reset();
         }
 
+
         for i in 0..settings.number_of_messages {
             if !RUNNING.load(Ordering::SeqCst) {
                 break;
             }
 
             offer_idle_strategy.reset();
+
+            // let offer_start = SystemTime::now()
+            //     .duration_since(UNIX_EPOCH)
+            //     .unwrap()
+            //     .as_nanos() as u64;
 
             while let Err(AeronError::BackPressured) = publication
                 .lock()
@@ -267,16 +289,35 @@ fn main() {
 
             buffer_claim.buffer().put::<i64>(buffer_claim.offset(), i);
             buffer_claim.commit();
+
+            // let offer_end = SystemTime::now()
+            //     .duration_since(UNIX_EPOCH)
+            //     .unwrap()
+            //     .as_nanos() as u64;
+            // let difference = offer_end - offer_start;
+            // let _ignored = HISTOGRAMM.lock().unwrap().record(difference/1000);
+            // let b: [u8; 8] = i.to_le_bytes();
+            // src_buffer.put_bytes(0, &b);
+            // while let Err(AeronError::BackPressured) = publication
+            //     .lock()
+            //     .unwrap()
+            //     .offer_part(src_buffer, 0, settings.message_length)
+            // {
+            //     back_pressure_count += 1;
+            //     offer_idle_strategy.idle();
+            // }
         }
 
         if rate_reporter_thread.is_none() {
             // Don't have dedicated reporting thread thus report here
             rate_reporter.lock().unwrap().report();
+            let histogram = HISTOGRAMM.lock().unwrap();
+            println!("Mean: {}", histogram.mean());
         }
 
         println!(
             "Done streaming. Back pressure ratio {}",
-            back_pressure_count / settings.number_of_messages
+            back_pressure_count as f64 / settings.number_of_messages as f64
         );
 
         if RUNNING.load(Ordering::SeqCst) && settings.linger_timeout_ms > 0 {
