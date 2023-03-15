@@ -490,7 +490,7 @@ impl ExclusivePublication {
      * @see BufferClaim::commit
      * @see BufferClaim::abort
      */
-    pub fn try_claim(&mut self, length: Index, mut buffer_claim: BufferClaim) -> Result<i64, AeronError> {
+    pub fn try_claim(&mut self, length: Index, buffer_claim: &mut BufferClaim) -> Result<i64, AeronError> {
         self.check_payload_length(length)?;
 
         if !self.is_closed() {
@@ -500,7 +500,7 @@ impl ExclusivePublication {
 
             if position < limit {
                 let resulting_offset =
-                    term_appender.claim(self.term_id, self.term_offset, &self.header_writer, length, &mut buffer_claim);
+                    term_appender.claim(self.term_id, self.term_offset, &self.header_writer, length, buffer_claim);
                 Ok(self.new_position(resulting_offset)?)
             } else {
                 Err(self.back_pressure_status(position, length))
