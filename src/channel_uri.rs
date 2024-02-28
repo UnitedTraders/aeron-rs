@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Display, Formatter},
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::sync::{Arc, Mutex};
 
 use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
 
@@ -168,7 +166,7 @@ impl ChannelUri {
                         media = builder.clone();
                         builder.clear();
                         state = State::ParamsKey;
-                    }
+                    },
                     '=' | '|' | ':' => {
                         return Err(IllegalStateError::EncounteredCharacterWithinMediaDefinition {
                             c,
@@ -176,7 +174,7 @@ impl ChannelUri {
                             uri: uri.to_string(),
                         }
                         .into());
-                    }
+                    },
                     _ => builder.push(c),
                 },
                 State::ParamsKey => {
@@ -201,7 +199,7 @@ impl ChannelUri {
                         }
                         builder.push(c);
                     }
-                }
+                },
                 State::ParamsValue => {
                     if c == '|' {
                         params.insert(key.clone(), builder.clone());
@@ -210,7 +208,7 @@ impl ChannelUri {
                     } else {
                         builder.push(c);
                     }
-                }
+                },
             }
         }
 
@@ -220,13 +218,13 @@ impl ChannelUri {
                 if media != IPC_MEDIA && media != UDP_MEDIA {
                     return Err(IllegalArgumentError::UnknownMedia(media).into());
                 }
-            }
+            },
             State::ParamsValue => {
                 params.insert(key, builder);
-            }
+            },
             _ => {
                 return Err(IllegalArgumentError::NoMoreInputFound { state }.into());
-            }
+            },
         }
 
         Ok(Arc::new(Mutex::new(ChannelUri::new(String::from(prefix), media, params))))

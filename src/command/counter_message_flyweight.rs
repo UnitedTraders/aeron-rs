@@ -17,14 +17,10 @@
 #[cfg(test)]
 use std::ffi::CString;
 
-use crate::{
-    command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
-    concurrent::atomic_buffer::AtomicBuffer,
-    utils::{
-        bit_utils,
-        types::{Index, I32_SIZE},
-    },
-};
+use crate::command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::bit_utils;
+use crate::utils::types::{Index, I32_SIZE};
 
 /**
  * Message to denote a new counter.

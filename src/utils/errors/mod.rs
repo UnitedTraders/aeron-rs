@@ -21,7 +21,8 @@ use thiserror::Error;
 
 use crate::channel_uri::State;
 use crate::client_conductor::RegistrationStatus;
-use crate::concurrent::{broadcast::BroadcastTransmitError, ring_buffer::RingBufferError};
+use crate::concurrent::broadcast::BroadcastTransmitError;
+use crate::concurrent::ring_buffer::RingBufferError;
 use crate::utils::types::{Index, Moment};
 
 pub mod distinct_error_log;
@@ -159,7 +160,7 @@ pub enum IllegalArgumentError {
     LimitOutsideRange { capacity: Index, limit: Index },
     #[error("Linger value cannot be negative: {0}")]
     LingerValueCannotBeNegative(i64),
-    #[error("MTU is not in range {left_bound}-{right_bound}: {0}")]
+    #[error("MTU is not in range {left_bound}-{right_bound}: {mtu}")]
     MtuIsNotInRange { mtu: u32, left_bound: i32, right_bound: i32 },
     #[error("MTU not a multiple of FRAME_ALIGNMENT= {frame_alignment}: mtu= {mtu}")]
     MtuNotMultipleOfFrameAlignment { mtu: u32, frame_alignment: Index },

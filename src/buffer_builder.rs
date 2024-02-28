@@ -14,19 +14,13 @@
  * limitations under the License.
  */
 
-use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
-use crate::{
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{data_frame_header, header::Header},
-    },
-    utils::{
-        bit_utils,
-        errors::AeronError,
-        misc::{alloc_buffer_aligned, dealloc_buffer_aligned},
-        types::Index,
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header;
+use crate::concurrent::logbuffer::header::Header;
+use crate::utils::bit_utils;
+use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
+use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::Index;
 
 const BUFFER_BUILDER_MAX_CAPACITY: Index = std::i32::MAX as Index - 8;
 

@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::{
-    command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
-    concurrent::atomic_buffer::AtomicBuffer,
-    utils::types::Index,
-};
+use crate::command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::types::Index;
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]

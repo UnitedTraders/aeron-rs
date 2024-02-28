@@ -15,16 +15,15 @@
  */
 
 use core::slice;
-use std::{
-    ffi::OsString,
-    fs::{self, OpenOptions},
-    path::Path,
-};
+use std::ffi::OsString;
+use std::fs::{self, OpenOptions};
+use std::path::Path;
 
 use memmap::MmapMut;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::{errors::AeronError, types::Index};
+use crate::utils::errors::AeronError;
+use crate::utils::types::Index;
 
 #[derive(Debug)]
 pub struct FileHandle {

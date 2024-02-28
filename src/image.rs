@@ -14,35 +14,22 @@
  * limitations under the License.
  */
 
-use std::{
-    cmp::min,
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
+use std::cmp::min;
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use crate::{
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            data_frame_header, frame_descriptor,
-            header::Header,
-            log_buffer_descriptor,
-            term_reader::{self, ErrorHandler, ReadOutcome},
-            term_scan::{scan, BlockHandler},
-        },
-        position::{ReadablePosition, UnsafeBufferPosition},
-    },
-    log,
-    utils::{
-        bit_utils::{align, number_of_trailing_zeroes},
-        errors::{AeronError, IllegalArgumentError},
-        log_buffers::LogBuffers,
-        types::Index,
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::header::Header;
+use crate::concurrent::logbuffer::term_reader::{self, ErrorHandler, ReadOutcome};
+use crate::concurrent::logbuffer::term_scan::{scan, BlockHandler};
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+use crate::log;
+use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
+use crate::utils::errors::{AeronError, IllegalArgumentError};
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::types::Index;
 
 #[derive(Eq, PartialEq)]
 pub enum ControlledPollAction {
@@ -181,7 +168,7 @@ impl Image {
      * @return the length in bytes for each term partition in the log buffer.
      */
     pub fn term_buffer_length(&self) -> i32 {
-        self.term_buffers[0].capacity() as i32
+        self.term_buffers[0].capacity()
     }
 
     /**
@@ -372,7 +359,7 @@ impl Image {
             assert!((0..log_buffer_descriptor::PARTITION_COUNT).contains(&index));
 
             let term_buffer = self.term_buffers[index as usize];
-            let mut offset = initial_offset as i32;
+            let mut offset = initial_offset;
             let capacity = term_buffer.capacity() as i64;
             let limit_offset = std::cmp::min(capacity, limit_position - initial_position + offset as i64) as i32;
 
@@ -404,7 +391,7 @@ impl Image {
                 fragments_read += 1;
             }
 
-            let resulting_position = initial_position + (offset - initial_offset as i32) as i64;
+            let resulting_position = initial_position + (offset - initial_offset) as i64;
             if resulting_position > initial_position {
                 self.subscriber_position.set_ordered(resulting_position);
             }
@@ -504,8 +491,8 @@ impl Image {
 
     /**
      * Poll for new messages in a stream. If new messages are found beyond the last consumed position then they
-     * will be delivered to the controlled_poll_fragment_handler_t up to a limited number of fragments as specified or
-     * the maximum position specified.
+     * will be delivered to the controlled_poll_fragment_handler_t up to a limited number of fragments as specified
+     * or the maximum position specified.
      *
      * To assemble messages that span multiple fragments then use ControlledFragmentAssembler.
      *
@@ -587,8 +574,8 @@ impl Image {
     }
 
     /**
-     * Peek for new messages in a stream by scanning forward from an initial position. If new messages are found then
-     * they will be delivered to the controlled_poll_fragment_handler_t up to a limited position.
+     * Peek for new messages in a stream by scanning forward from an initial position. If new messages are found
+     * then they will be delivered to the controlled_poll_fragment_handler_t up to a limited position.
      * <p>
      * To assemble messages that span multiple fragments then use ControlledFragmentAssembler. Scans must also
      * start at the beginning of a message so that the assembler is reset.
@@ -741,11 +728,10 @@ mod tests {
     use lazy_static::lazy_static;
 
     use super::*;
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::logbuffer::data_frame_header::DataFrameHeaderDefn;
+    use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
     use crate::utils::errors::GenericError;
-    use crate::{
-        concurrent::{atomic_buffer::AlignedBuffer, logbuffer::data_frame_header::DataFrameHeaderDefn},
-        utils::bit_utils::{align, number_of_trailing_zeroes},
-    };
 
     const TERM_LENGTH: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
     const PAGE_SIZE: Index = log_buffer_descriptor::AERON_PAGE_MIN_SIZE;
@@ -1049,9 +1035,9 @@ mod tests {
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
-            initial_position + *ALIGNED_FRAME_LENGTH as i64 as i64
+            initial_position + *ALIGNED_FRAME_LENGTH as i64
         );
-        assert_eq!(image.position(), initial_position + *ALIGNED_FRAME_LENGTH as i64 as i64);
+        assert_eq!(image.position(), initial_position + *ALIGNED_FRAME_LENGTH as i64);
     }
 
     #[test]

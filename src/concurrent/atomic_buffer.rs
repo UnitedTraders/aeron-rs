@@ -1,15 +1,11 @@
-use std::{
-    ffi::{CStr, CString},
-    fmt::{Debug, Error, Formatter},
-    io::Write,
-    slice,
-    sync::atomic::{fence, AtomicI32, AtomicI64, Ordering},
-};
+use std::ffi::{CStr, CString};
+use std::fmt::{Debug, Error, Formatter};
+use std::io::Write;
+use std::slice;
+use std::sync::atomic::{fence, AtomicI32, AtomicI64, Ordering};
 
-use crate::utils::{
-    misc::{alloc_buffer_aligned, dealloc_buffer_aligned},
-    types::{Index, I32_SIZE, I64_SIZE},
-};
+use crate::utils::misc::{alloc_buffer_aligned, dealloc_buffer_aligned};
+use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 
 /// Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
@@ -241,7 +237,7 @@ impl AtomicBuffer {
 
         unsafe {
             let ptr = self.ptr.offset(offset as isize);
-            ::std::ptr::copy(src.as_ptr(), ptr, src.len() as usize);
+            std::ptr::copy(src.as_ptr(), ptr, src.len());
         }
     }
 
@@ -252,7 +248,7 @@ impl AtomicBuffer {
 
         unsafe {
             let ptr = self.at(offset);
-            ::std::ptr::copy(ptr, dest, length as usize);
+            std::ptr::copy(ptr, dest, length as usize);
         }
     }
 
@@ -356,9 +352,10 @@ impl AtomicBuffer {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::utils::types::Index;
-    use std::io::Write;
 
     #[test]
     fn atomic_buffer_can_be_created() {

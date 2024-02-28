@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-use crate::{
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            buffer_claim::BufferClaim, data_frame_header, frame_descriptor, header::HeaderWriter, log_buffer_descriptor,
-        },
-    },
-    log,
-    utils::{
-        bit_utils,
-        errors::{AeronError, IllegalStateError},
-        types::{Index, I64_SIZE},
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+use crate::concurrent::logbuffer::header::HeaderWriter;
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::log;
+use crate::utils::bit_utils;
+use crate::utils::errors::{AeronError, IllegalStateError};
+use crate::utils::types::{Index, I64_SIZE};
 
 /**
  * Supplies the reserved value field for a data frame header. The returned value will be set in the header as
@@ -79,8 +73,8 @@ impl TermAppender {
     /// This fn publish message (with the size less than MTU) which was previously
     /// stored in internal term_buffer via append_..._message().
     /// MTU is a maximum transmission unit and its set on a channel level.
-    /// header - header writer which already points to header part of metadata buffer. Specific header info will be written inside claim()
-    /// length - length of the message body (payload)
+    /// header - header writer which already points to header part of metadata buffer. Specific header info will be
+    /// written inside claim() length - length of the message body (payload)
     /// buffer_claim - buffer in to which msg will be "written" (actually wrapped) from term_buffer
     /// active_term_id - the term to write message to
     pub fn claim(
@@ -452,7 +446,15 @@ mod tests {
     // Buffers listed in macro arguments should be filled by these tests while
     // not visible from inside buffers will be used for TermAppender and HeaderWriter
     macro_rules! gen_test_data {
-        ($metadata_buffer:ident, $term_buffer:ident, $hdr:ident, $msg_body:ident, $term_appender:ident, $header_writer:ident, $hidden_metadata_buffer:ident) => {
+        (
+            $metadata_buffer:ident,
+            $term_buffer:ident,
+            $hdr:ident,
+            $msg_body:ident,
+            $term_appender:ident,
+            $header_writer:ident,
+            $hidden_metadata_buffer:ident
+        ) => {
             let m_buff = AlignedBuffer::with_capacity(META_DATA_BUFFER_CAPACITY);
             let $metadata_buffer = AtomicBuffer::from_aligned(&m_buff);
             let t_buff = AlignedBuffer::with_capacity(TERM_BUFFER_CAPACITY);

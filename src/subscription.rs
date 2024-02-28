@@ -14,26 +14,19 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-};
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
-use crate::utils::errors::{GenericError, IllegalStateError};
-use crate::{
-    client_conductor::ClientConductor,
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        atomic_vec::AtomicVec,
-        logbuffer::{header::Header, term_scan::BlockHandler},
-        status::status_indicator_reader,
-    },
-    image::{ControlledPollAction, Image},
-    utils::{errors::AeronError, types::Index},
-};
+use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_vec::AtomicVec;
+use crate::concurrent::logbuffer::header::Header;
+use crate::concurrent::logbuffer::term_scan::BlockHandler;
+use crate::concurrent::status::status_indicator_reader;
+use crate::image::{ControlledPollAction, Image};
+use crate::utils::errors::{AeronError, GenericError, IllegalStateError};
+use crate::utils::types::Index;
 
 pub struct Subscription {
     conductor: Arc<Mutex<ClientConductor>>,
@@ -404,11 +397,11 @@ impl Drop for Subscription {
     fn drop(&mut self) {
         let list = self.image_list.take();
 
-        let _unused = self
-            .conductor
+        self.conductor
             .lock()
             .expect("Mutex poisoned")
-            .release_subscription(self.registration_id, list);
+            .release_subscription(self.registration_id, list)
+            .ok();
     }
 }
 

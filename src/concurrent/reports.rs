@@ -18,14 +18,11 @@ use std::ffi::CString;
 
 use lazy_static::lazy_static;
 
-use crate::{
-    concurrent::{atomic_buffer::AtomicBuffer, reports::loss_report_descriptor::LossReportEntryDefn},
-    utils::{
-        bit_utils,
-        misc::CACHE_LINE_LENGTH,
-        types::{Index, I32_SIZE},
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::reports::loss_report_descriptor::LossReportEntryDefn;
+use crate::utils::bit_utils;
+use crate::utils::misc::CACHE_LINE_LENGTH;
+use crate::utils::types::{Index, I32_SIZE};
 
 /**
  * A report of loss events on a message stream.
@@ -90,7 +87,7 @@ lazy_static! {
     pub static ref ENTRY_ALIGNMENT: Index = std::mem::size_of_val(&CACHE_LINE_LENGTH) as Index;
 }
 
-pub type LossConsumerHandler = fn(i64, LossReportEntryDefn, CString /*channel*/, CString /*source*/);
+pub type LossConsumerHandler = fn(i64, LossReportEntryDefn, CString /* channel */, CString /* source */);
 
 /**
  * Read a LossReport contained in the buffer. This can be done concurrently.

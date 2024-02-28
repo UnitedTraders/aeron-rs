@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-use crate::{
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            header::Header,
-            {data_frame_header, frame_descriptor},
-        },
-    },
-    utils::{bit_utils, errors::AeronError, types::Index},
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::header::Header;
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor};
+use crate::utils::bit_utils;
+use crate::utils::errors::AeronError;
+use crate::utils::types::Index;
 
 pub trait ErrorHandler {
     fn call(&self, error: AeronError);
@@ -53,8 +49,8 @@ where
  * Callback for handling fragments of data being read from a log.
  *
  * Handler for reading data that is coming from a log buffer. The frame will either contain a whole message
- * or a fragment of a message to be reassembled. Messages are fragmented if greater than the frame for MTU in length.
- * @param buffer containing the data.
+ * or a fragment of a message to be reassembled. Messages are fragmented if greater than the frame for MTU in
+ * length. @param buffer containing the data.
  * @param offset at which the data begins.
  * @param length of the data in bytes.
  * @param header representing the meta data for the data.
@@ -117,15 +113,13 @@ pub fn read(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concurrent::{
-        atomic_buffer::AlignedBuffer,
-        logbuffer::{log_buffer_descriptor, term_reader},
-    };
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::logbuffer::{log_buffer_descriptor, term_reader};
 
     const LOG_BUFFER_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH;
     // const META_DATA_BUFFER_CAPACITY: Index = log_buffer_descriptor::LOG_META_DATA_LENGTH;
-    // const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH + frame_descriptor::FRAME_ALIGNMENT - 1;
-    // const HDR_LENGTH: Index = data_frame_header::LENGTH;
+    // const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH +
+    // frame_descriptor::FRAME_ALIGNMENT - 1; const HDR_LENGTH: Index = data_frame_header::LENGTH;
     const INITIAL_TERM_ID: i32 = 7;
     const INT_MAX: i32 = std::i32::MAX;
 

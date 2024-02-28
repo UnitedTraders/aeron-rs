@@ -16,15 +16,11 @@
 
 use thiserror::Error;
 
-use crate::{
-    command::control_protocol_events::AeronCommand,
-    concurrent::atomic_buffer::AtomicBuffer,
-    utils::{
-        bit_utils::{align, is_power_of_two},
-        misc::CACHE_LINE_LENGTH,
-        types::Index,
-    },
-};
+use crate::command::control_protocol_events::AeronCommand;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::bit_utils::{align, is_power_of_two};
+use crate::utils::misc::CACHE_LINE_LENGTH;
+use crate::utils::types::Index;
 
 //todo: rewrite all these index-based accessors using blitted structs + custom volatile cells?
 pub const TAIL_POSITION_OFFSET: Index = CACHE_LINE_LENGTH * 2;
@@ -413,18 +409,18 @@ mod tests {
     // use std::sync::atomic::{AtomicI64, Ordering};
     // use std::sync::Arc;
 
+    use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
     use lazy_static::lazy_static;
 
     use super::*;
     use crate::command::control_protocol_events::AeronCommand;
+    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
     use crate::concurrent::ring_buffer::record_descriptor::{make_header, message_type, message_type_id, record_length};
-    use crate::{
-        concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer},
-        utils::{bit_utils::align, types::Index},
-    };
-    use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use crate::utils::bit_utils::align;
+    use crate::utils::types::Index;
 
     const CAPACITY: Index = 1024;
     const BUFFER_SZ: Index = CAPACITY + TRAILER_LENGTH;
@@ -486,12 +482,9 @@ mod tests {
         let test_buffer = AlignedBuffer::with_capacity(ODD_BUFFER_SZ);
         let ab = AtomicBuffer::from_aligned(&test_buffer);
         let ring_res = ManyToOneRingBuffer::new(ab);
-        assert_eq!(
-            ring_res.unwrap_err(),
-            RingBufferError::CapacityIsNotTwoPower {
-                capacity: ODD_BUFFER_SZ - TRAILER_LENGTH
-            }
-        );
+        assert_eq!(ring_res.unwrap_err(), RingBufferError::CapacityIsNotTwoPower {
+            capacity: ODD_BUFFER_SZ - TRAILER_LENGTH
+        });
     }
 
     #[test]

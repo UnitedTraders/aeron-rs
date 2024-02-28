@@ -61,7 +61,7 @@ impl StrategyMut for BackOffIdleStrategy {
             BACK_OFF_STATE_NOT_IDLE => {
                 self.state = BACK_OFF_STATE_SPINNING;
                 self.spins += 1;
-            }
+            },
             BACK_OFF_STATE_SPINNING => {
                 cpu_pause();
                 self.spins += 1;
@@ -69,7 +69,7 @@ impl StrategyMut for BackOffIdleStrategy {
                     self.state = BACK_OFF_STATE_YIELDING;
                     self.yields = 0;
                 }
-            }
+            },
             BACK_OFF_STATE_YIELDING => {
                 self.yields += 1;
                 if self.yields > self.max_yields {
@@ -78,12 +78,12 @@ impl StrategyMut for BackOffIdleStrategy {
                 } else {
                     std::thread::yield_now();
                 }
-            }
-            BACK_OFF_STATE_PARKING => {}
+            },
+            BACK_OFF_STATE_PARKING => {},
             _ => {
                 std::thread::sleep(Duration::from_nanos(self.park_period_ns));
                 self.park_period_ns = std::cmp::min(self.park_period_ns * 2, self.max_park_period_ns);
-            }
+            },
         }
     }
 

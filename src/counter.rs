@@ -19,7 +19,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::client_conductor::ClientConductor;
-use crate::concurrent::{atomic_buffer::AtomicBuffer, atomic_counter::AtomicCounter};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_counter::AtomicCounter;
 use crate::utils::errors::AeronError;
 
 pub struct Counter {

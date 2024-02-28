@@ -18,11 +18,9 @@ use std::sync::{Arc, Mutex};
 
 use super::broadcast_receiver::BroadcastReceiver;
 use super::BroadcastTransmitError;
-use crate::{
-    command::control_protocol_events::AeronCommand,
-    concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer},
-    utils::types::Index,
-};
+use crate::command::control_protocol_events::AeronCommand;
+use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+use crate::utils::types::Index;
 
 trait Handler {
     fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);

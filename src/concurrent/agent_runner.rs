@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-use std::{
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
-    thread,
-};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
-use crate::concurrent::{logbuffer::term_reader::ErrorHandler, strategies::Strategy};
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
+use crate::concurrent::strategies::Strategy;
 use crate::utils::errors::{AeronError, GenericError};
 
 /// The trait to be implemented by agents run within AgentRunner

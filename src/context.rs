@@ -18,19 +18,16 @@ use std::env;
 use std::ffi::CString;
 use std::sync::Arc;
 
-use crate::utils::errors::GenericError;
-use crate::{
-    cnc_file_descriptor,
-    concurrent::{counters::CountersReader, logbuffer::term_reader::ErrorHandler, ring_buffer::ManyToOneRingBuffer},
-    driver_proxy::DriverProxy,
-    image::Image,
-    utils::{
-        errors::AeronError,
-        memory_mapped_file::MemoryMappedFile,
-        misc::{semantic_version_major, semantic_version_to_string},
-        types::{Index, Moment},
-    },
-};
+use crate::cnc_file_descriptor;
+use crate::concurrent::counters::CountersReader;
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
+use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
+use crate::driver_proxy::DriverProxy;
+use crate::image::Image;
+use crate::utils::errors::{AeronError, GenericError};
+use crate::utils::memory_mapped_file::MemoryMappedFile;
+use crate::utils::misc::{semantic_version_major, semantic_version_to_string};
+use crate::utils::types::{Index, Moment};
 
 /// This name is used for conductor thread and useful when debugging or examining logs from
 /// application with several Aeron instances which run simultaneously.
@@ -118,7 +115,8 @@ where
  * @param channel of the Publication
  * @param stream_id within the channel of the Publication
  * @param session_id of the Publication
- * @param correlation_id used by the Publication for adding. Aka the registration_id returned by Aeron::add_publication
+ * @param correlation_id used by the Publication for adding. Aka the registration_id returned by
+ * Aeron::add_publication
  */
 pub trait OnNewPublication {
     fn call(&self, channel: CString, stream_id: i32, session_id: i32, correlation_id: i64);
@@ -152,7 +150,8 @@ where
  *
  * @param channel of the Subscription
  * @param stream_id within the channel of the Subscription
- * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by Aeron::add_subscription
+ * @param correlation_id used by the Subscription for adding. Aka the registration_id returned by
+ * Aeron::add_subscription
  */
 pub trait OnNewSubscription {
     fn call(&self, channel: CString, stream_id: i32, correlation_id: i64);
@@ -539,7 +538,8 @@ impl Context {
 
     /**
      * Set the amount of time, in milliseconds, that this client will wait until it determines the
-     * Media Driver is unavailable. When this happens a DriverTimeoutException will be generated for the error handler.
+     * Media Driver is unavailable. When this happens a DriverTimeoutException will be generated for the error
+     * handler.
      *
      * @param value Number of milliseconds.
      * @return reference to this Context instance
@@ -552,7 +552,8 @@ impl Context {
 
     /**
      * Get the amount of time, in milliseconds, that this client will wait until it determines the
-     * Media Driver is unavailable. When this happens a DriverTimeoutException will be generated for the error handler.
+     * Media Driver is unavailable. When this happens a DriverTimeoutException will be generated for the error
+     * handler.
      *
      * @return value in number of milliseconds.
      * @see errorHandler

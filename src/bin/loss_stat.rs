@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-use aeron_rs::{
-    concurrent::reports::{self, loss_report_descriptor},
-    context::Context,
-    utils::memory_mapped_file::MemoryMappedFile,
-};
+use aeron_rs::concurrent::reports::{self, loss_report_descriptor};
+use aeron_rs::context::Context;
+use aeron_rs::utils::memory_mapped_file::MemoryMappedFile;
 use chrono::{Local, TimeZone};
 
 struct CmdOpts {
@@ -39,8 +37,7 @@ fn parse_cmd_line() -> CmdOpts {
 
 fn format_date(milliseconds_since_epoch: i64) -> String {
     // yyyy-MM-dd HH:mm:ss.SSSZ
-    let time = Local.timestamp_millis(milliseconds_since_epoch);
-    time.to_string()
+    Local.timestamp_millis_opt(milliseconds_since_epoch).unwrap().to_string()
 }
 
 fn main() {

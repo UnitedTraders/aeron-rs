@@ -17,23 +17,21 @@
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
-use crate::{
-    client_conductor::ClientConductor,
-    command::{
-        client_timeout_flyweight::ClientTimeoutFlyweight,
-        control_protocol_events::AeronCommand,
-        counter_update_flyweight::CounterUpdateFlyweight,
-        error_response_flyweight::{ErrorResponseFlyweight, ERROR_CODE_CHANNEL_ENDPOINT_ERROR},
-        image_buffers_ready_flyweight::ImageBuffersReadyFlyweight,
-        image_message_flyweight::ImageMessageFlyweight,
-        operation_succeeded_flyweight::OperationSucceededFlyweight,
-        publication_buffers_ready_flyweight::*,
-        subscription_ready_flyweight::SubscriptionReadyFlyweight,
-    },
-    concurrent::{atomic_buffer::AtomicBuffer, broadcast::copy_broadcast_receiver::CopyBroadcastReceiver},
-    log,
-    utils::{errors::AeronError, types::Index},
-};
+use crate::client_conductor::ClientConductor;
+use crate::command::client_timeout_flyweight::ClientTimeoutFlyweight;
+use crate::command::control_protocol_events::AeronCommand;
+use crate::command::counter_update_flyweight::CounterUpdateFlyweight;
+use crate::command::error_response_flyweight::{ErrorResponseFlyweight, ERROR_CODE_CHANNEL_ENDPOINT_ERROR};
+use crate::command::image_buffers_ready_flyweight::ImageBuffersReadyFlyweight;
+use crate::command::image_message_flyweight::ImageMessageFlyweight;
+use crate::command::operation_succeeded_flyweight::OperationSucceededFlyweight;
+use crate::command::publication_buffers_ready_flyweight::*;
+use crate::command::subscription_ready_flyweight::SubscriptionReadyFlyweight;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+use crate::log;
+use crate::utils::errors::AeronError;
+use crate::utils::types::Index;
 
 pub trait DriverListener {
     #[allow(clippy::too_many_arguments)]
@@ -118,7 +116,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                         publication_ready.channel_status_indicator_id(),
                         publication_ready.log_file_name(),
                     );
-                }
+                },
                 AeronCommand::ResponseOnExclusivePublicationReady => {
                     let publication_ready = PublicationBuffersReadyFlyweight::new(buffer, offset);
 
@@ -131,7 +129,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                         publication_ready.channel_status_indicator_id(),
                         publication_ready.log_file_name(),
                     );
-                }
+                },
                 AeronCommand::ResponseOnSubscriptionReady => {
                     let subscription_ready = SubscriptionReadyFlyweight::new(buffer, offset);
 
@@ -139,7 +137,7 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                         subscription_ready.correlation_id(),
                         subscription_ready.channel_status_indicator_id(),
                     );
-                }
+                },
                 AeronCommand::ResponseOnAvailableImage => {
                     let image_ready = ImageBuffersReadyFlyweight::new(buffer, offset);
 
@@ -151,18 +149,18 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                         image_ready.log_file_name(),
                         image_ready.source_identity(),
                     );
-                }
+                },
                 AeronCommand::ResponseOnOperationSuccess => {
                     let operation_succeeded = OperationSucceededFlyweight::new(buffer, offset);
 
                     this_driver_listener.on_operation_success(operation_succeeded.correlation_id());
-                }
+                },
                 AeronCommand::ResponseOnUnavailableImage => {
                     let image_message = ImageMessageFlyweight::new(buffer, offset);
 
                     this_driver_listener
                         .on_unavailable_image(image_message.correlation_id(), image_message.subscription_registration_id());
-                }
+                },
                 AeronCommand::ResponseOnError => {
                     let error_response = ErrorResponseFlyweight::new(buffer, offset);
 
@@ -180,22 +178,22 @@ impl<T: DriverListener> DriverListenerAdapter<T> {
                             error_response.error_message(),
                         );
                     }
-                }
+                },
                 AeronCommand::ResponseOnCounterReady => {
                     let response = CounterUpdateFlyweight::new(buffer, offset);
                     this_driver_listener.on_available_counter(response.correlation_id(), response.counter_id());
-                }
+                },
                 AeronCommand::ResponseOnUnavailableCounter => {
                     let response = CounterUpdateFlyweight::new(buffer, offset);
                     this_driver_listener.on_unavailable_counter(response.correlation_id(), response.counter_id());
-                }
+                },
                 AeronCommand::ResponseOnClientTimeout => {
                     let response = ClientTimeoutFlyweight::new(buffer, offset);
                     this_driver_listener.on_client_timeout(response.client_id());
-                }
+                },
                 _ => {
                     unreachable!("Unexpected control protocol event: {}", msg as i32);
-                }
+                },
             }
         };
 

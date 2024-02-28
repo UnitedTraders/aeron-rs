@@ -16,36 +16,34 @@
 #[cfg(test)]
 use std::ffi::CString;
 
-use crate::{
-    command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight},
-    concurrent::atomic_buffer::AtomicBuffer,
-    utils::types::Index,
-};
+use crate::command::correlated_message_flyweight::{CorrelatedMessageDefn, CorrelatedMessageFlyweight};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::types::Index;
 
 /**
-* Control message for adding a subscription.
-*
-* <p>
-* 0                   1                   2                   3
-* 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-* |                         Client ID                             |
-* |                                                               |
-* +---------------------------------------------------------------+
-* |                       Correlation ID                          |
-* |                                                               |
-* +---------------------------------------------------------------+
-* |                 Registration Correlation ID                   |
-* |                                                               |
-* +---------------------------------------------------------------+
-* |                         Stream Id                             |
-* +---------------------------------------------------------------+
-* |                      Channel Length                           |
-* +---------------------------------------------------------------+
-* |                          Channel                             ...
-* ...                                                             |
-* +---------------------------------------------------------------+
-*/
+ * Control message for adding a subscription.
+ *
+ * <p>
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                         Client ID                             |
+ * |                                                               |
+ * +---------------------------------------------------------------+
+ * |                       Correlation ID                          |
+ * |                                                               |
+ * +---------------------------------------------------------------+
+ * |                 Registration Correlation ID                   |
+ * |                                                               |
+ * +---------------------------------------------------------------+
+ * |                         Stream Id                             |
+ * +---------------------------------------------------------------+
+ * |                      Channel Length                           |
+ * +---------------------------------------------------------------+
+ * |                          Channel                             ...
+ * ...                                                             |
+ * +---------------------------------------------------------------+
+ */
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]

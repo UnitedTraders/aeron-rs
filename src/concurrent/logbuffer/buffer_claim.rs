@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-use crate::concurrent::{atomic_buffer::AtomicBuffer, logbuffer::data_frame_header};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header;
 use crate::utils::types::Index;
 
 /**
- * Represents a claimed range in a buffer to be used for recording a message without copy semantics for later commit.
- * <p>
+ * Represents a claimed range in a buffer to be used for recording a message without copy semantics for later
+ * commit. <p>
  * The claimed space is in {@link #buffer()} between {@link #offset()} and {@link #offset()} + {@link #length()}.
  * When the buffer is filled with message data, use {@link #commit()} to make it available to subscribers.
  */

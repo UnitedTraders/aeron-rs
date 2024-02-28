@@ -14,37 +14,28 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-};
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
-use crate::utils::errors::{IllegalArgumentError, IllegalStateError};
-use crate::{
-    client_conductor::ClientConductor,
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            buffer_claim::BufferClaim,
-            data_frame_header,
-            exclusive_term_appender::ExclusiveTermAppender,
-            frame_descriptor,
-            header::HeaderWriter,
-            log_buffer_descriptor,
-            term_appender::{default_reserved_value_supplier, OnReservedValueSupplier},
-        },
-        position::{ReadablePosition, UnsafeBufferPosition},
-        status::status_indicator_reader,
-    },
-    utils::{bit_utils::number_of_trailing_zeroes, errors::AeronError, log_buffers::LogBuffers, types::Index},
-};
+use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+use crate::concurrent::logbuffer::exclusive_term_appender::ExclusiveTermAppender;
+use crate::concurrent::logbuffer::header::HeaderWriter;
+use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier};
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+use crate::concurrent::status::status_indicator_reader;
+use crate::utils::bit_utils::number_of_trailing_zeroes;
+use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::types::Index;
 
 /**
- * Aeron Publisher API for sending messages to subscribers of a given channel and streamId pair. ExclusivePublications
- * each get their own session id so multiple can be concurrently active on the same media driver as independent streams.
+ * Aeron Publisher API for sending messages to subscribers of a given channel and streamId pair.
+ * ExclusivePublications each get their own session id so multiple can be concurrently active on the same media
+ * driver as independent streams.
  *
  * {@link ExclusivePublication}s are created via the {@link Aeron#addExclusivePublication(String, int)} method,
  * and messages are sent via one of the {@link #offer(DirectBuffer)} methods, or a
@@ -54,7 +45,8 @@ use crate::{
  *
  * The APIs used try claim and offer are non-blocking.
  *
- * <b>Note:</b> ExclusivePublication instances are NOT threadsafe for offer and try claim methods but are for others.
+ * <b>Note:</b> ExclusivePublication instances are NOT threadsafe for offer and try claim methods but are for
+ * others.
  *
  * @see Aeron#addExclusivePublication(String, int)
  * @see BufferClaim
@@ -460,7 +452,8 @@ impl ExclusivePublication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // NOT implemented. Translate it from C++ if you need one.
-    //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError> { }
+    //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) ->
+    // Result<i64, AeronError> { }
 
     /**
      * Non-blocking publish of array of buffers containing a message.
@@ -472,14 +465,14 @@ impl ExclusivePublication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // NOT implemented. Translate it from C++ if you need one.
-    //pub fn offer_arr(&self, buffers[]: AtomicBuffer, length: Index, reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError> {
-    //    offer(buffers, buffers + length, reserved_value_supplier)
+    //pub fn offer_arr(&self, buffers[]: AtomicBuffer, length: Index, reserved_value_supplier: OnReservedValueSupplier) ->
+    // Result<i64, AeronError> {    offer(buffers, buffers + length, reserved_value_supplier)
     //}
 
     /**
      * Try to claim a range in the publication log into which a message can be written with zero copy semantics.
-     * Once the message has been written then {@link BufferClaim#commit()} should be called thus making it available.
-     * <p>
+     * Once the message has been written then {@link BufferClaim#commit()} should be called thus making it
+     * available. <p>
      * <b>Note:</b> This method can only be used for message lengths less than MTU length minus header.
      *
      * @param length      of the range to claim, in bytes..
@@ -631,11 +624,11 @@ impl ExclusivePublication {
 impl Drop for ExclusivePublication {
     fn drop(&mut self) {
         self.is_closed.store(true, Ordering::Release);
-        let _unused = self
-            .conductor
+        self.conductor
             .lock()
             .expect("Mutex poisoned")
-            .release_exclusive_publication(self.registration_id);
+            .release_exclusive_publication(self.registration_id)
+            .ok();
     }
 }
 
@@ -646,34 +639,25 @@ mod tests {
 
     use lazy_static::lazy_static;
 
-    use crate::{
-        client_conductor::ClientConductor,
-        concurrent::{
-            atomic_buffer::{AlignedBuffer, AtomicBuffer},
-            broadcast::{
-                broadcast_buffer_descriptor, broadcast_receiver::BroadcastReceiver,
-                copy_broadcast_receiver::CopyBroadcastReceiver,
-            },
-            counters::CountersReader,
-            logbuffer::{
-                buffer_claim::BufferClaim,
-                data_frame_header::LENGTH,
-                frame_descriptor,
-                log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH},
-            },
-            position::{ReadablePosition, UnsafeBufferPosition},
-            ring_buffer::{self, ManyToOneRingBuffer},
-            status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED},
-        },
-        driver_proxy::DriverProxy,
-        exclusive_publication::ExclusivePublication,
-        utils::{
-            errors::AeronError,
-            log_buffers::LogBuffers,
-            misc::unix_time_ms,
-            types::{Index, Moment, I64_SIZE},
-        },
-    };
+    use crate::client_conductor::ClientConductor;
+    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::broadcast::broadcast_buffer_descriptor;
+    use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
+    use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+    use crate::concurrent::counters::CountersReader;
+    use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+    use crate::concurrent::logbuffer::data_frame_header::LENGTH;
+    use crate::concurrent::logbuffer::frame_descriptor;
+    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
+    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+    use crate::concurrent::ring_buffer::{self, ManyToOneRingBuffer};
+    use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
+    use crate::driver_proxy::DriverProxy;
+    use crate::exclusive_publication::ExclusivePublication;
+    use crate::utils::errors::AeronError;
+    use crate::utils::log_buffers::LogBuffers;
+    use crate::utils::misc::unix_time_ms;
+    use crate::utils::types::{Index, Moment, I64_SIZE};
 
     lazy_static! {
         pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
@@ -701,7 +685,7 @@ mod tests {
 
     #[inline]
     fn raw_tail_value(term_id: i32, position: i64) -> i64 {
-        (term_id as i64 * (1_i64 << 32)) as i64 | position
+        (term_id as i64 * (1_i64 << 32)) | position
     }
 
     #[inline]

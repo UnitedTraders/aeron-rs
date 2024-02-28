@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use std::{
-    mem,
-    sync::atomic::{fence, AtomicI64, Ordering},
-};
+use std::mem;
+use std::sync::atomic::{fence, AtomicI64, Ordering};
 
 use crate::utils::types::Index;
 

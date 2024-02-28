@@ -69,7 +69,7 @@ impl TerminateDriverFlyweight {
         if token_length > 0 {
             self.correlated_message_flyweight.flyweight.put_bytes(
                 TERMINATE_DRIVER_LENGTH,
-                ::std::slice::from_raw_parts(token_buffer, token_length as usize),
+                std::slice::from_raw_parts(token_buffer, token_length as usize),
             )
         }
     }

@@ -14,37 +14,38 @@
  * limitations under the License.
  */
 
-use crate::concurrent::{atomic_buffer::AtomicBuffer, logbuffer::data_frame_header};
-use crate::utils::errors::IllegalStateError;
-use crate::utils::{errors::AeronError, types::Index};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header;
+use crate::utils::errors::{AeronError, IllegalStateError};
+use crate::utils::types::Index;
 
 /**
-* Description of the structure for message framing in a log buffer.
-*
-* All messages are logged in frames that have a minimum header layout as follows plus a reserve then
-* the encoded message follows:
-*
-* <pre>
-*   0                   1                   2                   3
-*   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*  |R|                       Frame Length                          |
-*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
-*  |  Version      |B|E| Flags     |             Type              |
-*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
-*  |R|                       Term Offset                           |
-*  +-+-------------------------------------------------------------+
-*  |                      Additional Fields                       ...
-* ...                                                              |
-*  +---------------------------------------------------------------+
-*  |                        Encoded Message                       ...
-* ...                                                              |
-*  +---------------------------------------------------------------+
-* </pre>
-*
-* The (B)egin and (E)nd flags are used for message fragmentation. (R) is for reserved bit.
-* Both are set for a message that does not span frames.
-*/
+ * Description of the structure for message framing in a log buffer.
+ *
+ * All messages are logged in frames that have a minimum header layout as follows plus a reserve then
+ * the encoded message follows:
+ *
+ * <pre>
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |R|                       Frame Length                          |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
+ *  |  Version      |B|E| Flags     |             Type              |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
+ *  |R|                       Term Offset                           |
+ *  +-+-------------------------------------------------------------+
+ *  |                      Additional Fields                       ...
+ * ...                                                              |
+ *  +---------------------------------------------------------------+
+ *  |                        Encoded Message                       ...
+ * ...                                                              |
+ *  +---------------------------------------------------------------+
+ * </pre>
+ *
+ * The (B)egin and (E)nd flags are used for message fragmentation. (R) is for reserved bit.
+ * Both are set for a message that does not span frames.
+ */
 
 pub const FRAME_ALIGNMENT: Index = 32;
 

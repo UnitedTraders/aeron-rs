@@ -20,10 +20,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::counters::CountersReader;
 use aeron_rs::context::Context;
 use lazy_static::lazy_static;
-
-use aeron_rs::concurrent::counters::CountersReader;
 
 // IMPORTANT NOTICE: currently integration test can only work sequentially
 // Run them with command: $ cargo test -- --test-threads=1

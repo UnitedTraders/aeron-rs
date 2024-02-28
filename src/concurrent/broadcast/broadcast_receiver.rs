@@ -16,15 +16,12 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{
-    command::control_protocol_events::AeronCommand,
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        atomics,
-        broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError},
-    },
-    utils::{bit_utils::align, types::Index},
-};
+use crate::command::control_protocol_events::AeronCommand;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomics;
+use crate::concurrent::broadcast::{broadcast_buffer_descriptor, record_descriptor, BroadcastTransmitError};
+use crate::utils::bit_utils::align;
+use crate::utils::types::Index;
 
 pub struct BroadcastReceiver {
     buffer: AtomicBuffer,
@@ -138,7 +135,8 @@ impl BroadcastReceiver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concurrent::{atomic_buffer::AlignedBuffer, broadcast::broadcast_transmitter::BroadcastTransmitter};
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::broadcast::broadcast_transmitter::BroadcastTransmitter;
 
     fn channel(buffer: AtomicBuffer) -> (BroadcastTransmitter, BroadcastReceiver) {
         (

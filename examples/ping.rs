@@ -14,33 +14,28 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, AtomicI64, Ordering},
-        Arc, Mutex,
-    },
-    time::{Duration, Instant},
-};
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-use aeron_rs::{
-    aeron::Aeron,
-    concurrent::{
-        atomic_buffer::{AlignedBuffer, AtomicBuffer},
-        logbuffer::header::Header,
-        strategies::{BusySpinIdleStrategy, Strategy},
-    },
-    context::Context,
-    example_config::{DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID},
-    fragment_assembler::FragmentAssembler,
-    image::Image,
-    publication::Publication,
-    subscription::Subscription,
-    utils::{errors::AeronError, types::Index},
+use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+use aeron_rs::concurrent::logbuffer::header::Header;
+use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
+use aeron_rs::context::Context;
+use aeron_rs::example_config::{
+    DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_MESSAGE_LENGTH, DEFAULT_PING_CHANNEL, DEFAULT_PING_STREAM_ID,
 };
+use aeron_rs::fragment_assembler::FragmentAssembler;
+use aeron_rs::image::Image;
+use aeron_rs::publication::Publication;
+use aeron_rs::subscription::Subscription;
+use aeron_rs::utils::errors::AeronError;
+use aeron_rs::utils::types::Index;
+use clap::Parser;
 use hdrhistogram::Histogram;
 use lazy_static::lazy_static;
-use structopt::StructOpt;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
@@ -56,31 +51,35 @@ fn sig_int_handler() {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
-#[derive(StructOpt, Clone, Debug)]
-#[structopt(name = "Aeron ping")]
+#[derive(Parser, Clone, Debug)]
+#[command(name = "Aeron ping")]
 struct CmdOpts {
-    #[structopt(short = "p", long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
+    #[arg(short = 'p', long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
     dir_prefix: String,
-    #[structopt(short = "c", long = "ping_channel", default_value = DEFAULT_PING_CHANNEL, help = "Ping channel")]
-    ping_channel: String,
-    #[structopt(short = "C", long = "pong_channel", default_value = DEFAULT_PING_CHANNEL, help = "Pong channel")]
-    pong_channel: String,
-    #[structopt(short = "s", long, default_value = DEFAULT_PING_STREAM_ID, help = "Ping Stream ID")]
-    ping_stream_id: i32,
-    #[structopt(short = "S", long, default_value = DEFAULT_PING_STREAM_ID, help = "Pong Stream ID")]
-    pong_stream_id: i32,
-    #[structopt(short = "w", long, default_value = "0", help = "Number of Messages for warmup")]
-    number_of_warmup_messages: i64,
-    #[structopt(short = "m", long, default_value = "100", help = "Number of Messages")]
-    number_of_messages: i64,
-    #[structopt(short = "L", long, default_value = DEFAULT_MESSAGE_LENGTH, help = "Length of Messages")]
-    message_length: i32,
-    #[structopt(short = "f", long, default_value = DEFAULT_FRAGMENT_COUNT_LIMIT, help = "Fragment Count Limit")]
-    fragment_count_limit: i32,
-}
 
-fn parse_cmd_line() -> CmdOpts {
-    CmdOpts::from_args()
+    #[arg(short = 'c', long = "ping_channel", default_value = DEFAULT_PING_CHANNEL, help = "Ping channel")]
+    ping_channel: String,
+
+    #[arg(short = 'C', long = "pong_channel", default_value = DEFAULT_PING_CHANNEL, help = "Pong channel")]
+    pong_channel: String,
+
+    #[arg(short = 's', long, default_value = DEFAULT_PING_STREAM_ID, help = "Ping Stream ID")]
+    ping_stream_id: i32,
+
+    #[arg(short = 'S', long, default_value = DEFAULT_PING_STREAM_ID, help = "Pong Stream ID")]
+    pong_stream_id: i32,
+
+    #[arg(short = 'w', long, default_value = "0", help = "Number of Messages for warmup")]
+    number_of_warmup_messages: i64,
+
+    #[arg(short = 'm', long, default_value = "100", help = "Number of Messages")]
+    number_of_messages: i64,
+
+    #[arg(short = 'L', long, default_value = DEFAULT_MESSAGE_LENGTH, help = "Length of Messages")]
+    message_length: i32,
+
+    #[arg(short = 'f', long, default_value = DEFAULT_FRAGMENT_COUNT_LIMIT, help = "Fragment Count Limit")]
+    fragment_count_limit: i32,
 }
 
 fn send_ping_and_receive_pong(
@@ -190,7 +189,7 @@ fn main() {
     })
     .expect("Error setting Ctrl-C handler");
 
-    let settings = parse_cmd_line();
+    let settings = CmdOpts::parse();
 
     println!(
         "Subscribing Pong at {} on Stream ID {}",

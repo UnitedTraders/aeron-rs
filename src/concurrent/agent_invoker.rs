@@ -15,7 +15,8 @@
  */
 use std::sync::{Arc, Mutex};
 
-use crate::concurrent::{agent_runner::Agent, logbuffer::term_reader::ErrorHandler};
+use crate::concurrent::agent_runner::Agent;
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
 
 pub struct AgentInvoker<T: Agent> {
     agent: Arc<Mutex<T>>,

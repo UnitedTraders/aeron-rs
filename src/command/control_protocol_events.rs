@@ -17,8 +17,8 @@
 use std::fmt;
 
 /**
-* List of event types used in the control protocol between the media driver and the core.
-*/
+ * List of event types used in the control protocol between the media driver and the core.
+ */
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum AeronCommand {

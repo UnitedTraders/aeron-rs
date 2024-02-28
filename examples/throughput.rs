@@ -14,34 +14,29 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, AtomicI64, Ordering},
-        Arc, Mutex,
-    },
-    thread,
-    time::Duration,
-};
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
-use aeron_rs::{
-    aeron::Aeron,
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{buffer_claim::BufferClaim, header::Header},
-        strategies::{BusySpinIdleStrategy, Strategy},
-    },
-    context::Context,
-    example_config::{
-        DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH,
-        DEFAULT_NUMBER_OF_MESSAGES, DEFAULT_STREAM_ID,
-    },
-    fragment_assembler::FragmentAssembler,
-    image::Image,
-    utils::{errors::AeronError, rate_reporter::RateReporter, types::Index},
+use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
+use aeron_rs::concurrent::logbuffer::buffer_claim::BufferClaim;
+use aeron_rs::concurrent::logbuffer::header::Header;
+use aeron_rs::concurrent::strategies::{BusySpinIdleStrategy, Strategy};
+use aeron_rs::context::Context;
+use aeron_rs::example_config::{
+    DEFAULT_CHANNEL, DEFAULT_FRAGMENT_COUNT_LIMIT, DEFAULT_LINGER_TIMEOUT_MS, DEFAULT_MESSAGE_LENGTH, DEFAULT_NUMBER_OF_MESSAGES,
+    DEFAULT_STREAM_ID,
 };
+use aeron_rs::fragment_assembler::FragmentAssembler;
+use aeron_rs::image::Image;
+use aeron_rs::utils::errors::AeronError;
+use aeron_rs::utils::rate_reporter::RateReporter;
+use aeron_rs::utils::types::Index;
+use clap::Parser;
 use lazy_static::lazy_static;
-use structopt::StructOpt;
 
 lazy_static! {
     pub static ref RUNNING: AtomicBool = AtomicBool::from(true);
@@ -54,54 +49,51 @@ fn sig_int_handler() {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
-#[derive(StructOpt, Clone, Debug)]
-#[structopt(name = "Aeron throughput measurement tool")]
+#[derive(Parser, Clone, Debug)]
+#[command(name = "Aeron throughput measurement tool")]
 struct CmdOpts {
-    #[structopt(short = "p", long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
+    #[arg(short = 'p', long = "dir", default_value = "", help = "Prefix directory for aeron driver")]
     dir_prefix: String,
-    #[structopt(short = "c", long = "channel", default_value = DEFAULT_CHANNEL, help = "Channel")]
-    channel: String,
-    #[structopt(short = "s", long = "stream", default_value = DEFAULT_STREAM_ID, help = "Stream ID")]
-    stream_id: i32,
-    #[structopt(short = "m", long, default_value = DEFAULT_NUMBER_OF_MESSAGES, help = "Number of messages")]
-    number_of_messages: i64,
-    #[structopt(short = "L", long, default_value = DEFAULT_MESSAGE_LENGTH, help = "Message length")]
-    message_length: i32,
-    #[structopt(short = "l", long, default_value = DEFAULT_LINGER_TIMEOUT_MS, help = "Linger timeout")]
-    linger_timeout_ms: i32,
-    #[structopt(short = "f", long, default_value = DEFAULT_FRAGMENT_COUNT_LIMIT, help = "Fragment Count Limit")]
-    fragment_count_limit: i32,
-    #[structopt(short = "P", long, help = "Show publication progress")]
-    progress: bool,
-}
 
-fn parse_cmd_line() -> CmdOpts {
-    CmdOpts::from_args()
+    #[arg(short = 'c', long = "channel", default_value = DEFAULT_CHANNEL, help = "Channel")]
+    channel: String,
+
+    #[arg(short = 's', long = "stream", default_value = DEFAULT_STREAM_ID, help = "Stream ID")]
+    stream_id: i32,
+
+    #[arg(short = 'm', long, default_value = DEFAULT_NUMBER_OF_MESSAGES, help = "Number of messages")]
+    number_of_messages: i64,
+
+    #[arg(short = 'L', long, default_value = DEFAULT_MESSAGE_LENGTH, help = "Message length")]
+    message_length: i32,
+
+    #[arg(short = 'l', long, default_value = DEFAULT_LINGER_TIMEOUT_MS, help = "Linger timeout")]
+    linger_timeout_ms: i32,
+
+    #[arg(short = 'f', long, default_value = DEFAULT_FRAGMENT_COUNT_LIMIT, help = "Fragment Count Limit")]
+    fragment_count_limit: i32,
+
+    #[arg(short = 'P', long, help = "Show publication progress")]
+    progress: bool,
 }
 
 fn print_rate(messages_per_sec: f64, bytes_per_sec: f64, total_fragments: u64, total_bytes: u64) {
     if PRINTING_ACTIVE.load(Ordering::SeqCst) {
         println!(
-            "{:.4} msgs/sec, {:.4} bytes/sec, totals {} messages {} MB payloads\n",
-            messages_per_sec,
-            bytes_per_sec,
-            total_fragments,
+            "{messages_per_sec:.4} msgs/sec, {bytes_per_sec:.4} bytes/sec, totals {total_fragments} messages {} MB payloads\n",
             total_bytes / (1024 * 1024)
         );
     }
 }
 
 fn on_new_subscription_handler(channel: CString, stream_id: i32, correlation_id: i64) {
-    println!("Subscription: {} {} {}", channel.to_str().unwrap(), stream_id, correlation_id);
+    println!("Subscription: {} {stream_id} {correlation_id}", channel.to_str().unwrap());
 }
 
 fn on_new_publication_handler(channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
     println!(
-        "Publication: {} {} {} {}",
+        "Publication: {} {stream_id} {session_id} {correlation_id}",
         channel.to_str().unwrap(),
-        stream_id,
-        session_id,
-        correlation_id
     );
 }
 
@@ -126,7 +118,7 @@ fn unavailable_image_handler(image: &Image) {
 }
 
 fn error_handler(error: AeronError) {
-    println!("Error: {:?}", error);
+    println!("Error: {error:?}");
 }
 
 fn str_to_c(val: &str) -> CString {
@@ -141,7 +133,7 @@ fn main() {
     })
     .expect("Error setting Ctrl-C handler");
 
-    let settings = parse_cmd_line();
+    let settings = CmdOpts::parse();
 
     println!(
         "Subscribing to channel {} on Stream ID {}",
@@ -196,7 +188,7 @@ fn main() {
 
     let mut publication = aeron.find_publication(publication_id);
     while publication.is_err() {
-        std::thread::yield_now();
+        thread::yield_now();
         publication = aeron.find_publication(publication_id);
     }
 
@@ -281,7 +273,7 @@ fn main() {
 
         if RUNNING.load(Ordering::SeqCst) && settings.linger_timeout_ms > 0 {
             println!("Lingering for {} milliseconds.", settings.linger_timeout_ms);
-            std::thread::sleep(Duration::from_millis(settings.linger_timeout_ms as u64));
+            thread::sleep(Duration::from_millis(settings.linger_timeout_ms as u64));
         }
 
         PRINTING_ACTIVE.store(false, Ordering::SeqCst);
@@ -290,9 +282,9 @@ fn main() {
     RUNNING.store(false, Ordering::SeqCst);
 
     rate_reporter.lock().unwrap().halt();
-    let _unused = poll_thread.join();
+    poll_thread.join().ok();
 
     if let Some(handle) = rate_reporter_thread {
-        let _unused = handle.join();
+        handle.join().ok();
     }
 }

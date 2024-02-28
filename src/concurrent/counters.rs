@@ -20,14 +20,10 @@ use std::fmt;
 
 use lazy_static::lazy_static;
 
-use crate::{
-    concurrent::atomic_buffer::AtomicBuffer,
-    utils::{
-        errors::*,
-        misc::CACHE_LINE_LENGTH,
-        types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE},
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::errors::*;
+use crate::utils::misc::CACHE_LINE_LENGTH;
+use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
 
 /**
  * Reads the counters metadata and values buffers.
@@ -291,7 +287,7 @@ impl<'a> Iterator for CountersReaderIter<'a> {
             RECORD_ALLOCATED => {
                 let ret = self.inner.metadata_buffer.as_ref::<CounterMetaDataDefn>(next_metadata_pos);
                 Some(ret)
-            }
+            },
             _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status),
         }
     }
@@ -493,11 +489,9 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use crate::concurrent::{
-        atomic_buffer::AlignedBuffer,
-        counters,
-        position::{ReadablePosition, UnsafeBufferPosition},
-    };
+    use crate::concurrent::atomic_buffer::AlignedBuffer;
+    use crate::concurrent::counters;
+    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
     use crate::utils;
 
     const NUM_COUNTERS: Index = 4;
@@ -573,7 +567,7 @@ mod tests {
     fn test_counters_check_empty() {
         gen_counters_manager!(counters_manager);
 
-        for _i in counters_manager.iter() {
+        if counters_manager.iter().next().is_some() {
             panic!("Counters iterator should return nothing");
         }
     }
@@ -749,8 +743,8 @@ mod tests {
     fn test_counters_store_meta_data() {
         gen_counters_manager!(counters_manager);
 
-        let labels = vec!["lab0", "lab1"];
-        let type_ids = vec![333, 222];
+        let labels = ["lab0", "lab1"];
+        let type_ids = [333, 222];
         let keys = [777, 444];
 
         let counter_id0 = counters_manager

@@ -17,56 +17,58 @@
 use lazy_static::lazy_static;
 
 use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::{bit_utils, memory_mapped_file::MemoryMappedFile, misc, types::Index};
+use crate::utils::memory_mapped_file::MemoryMappedFile;
+use crate::utils::types::Index;
+use crate::utils::{bit_utils, misc};
 
 /**
-* Description of the command and control file used between driver and clients
-*
-* File Layout
-* <pre>
-*  +-----------------------------+
-*  |          Meta Data          |
-*  +-----------------------------+
-*  |      to-driver Buffer       |
-*  +-----------------------------+
-*  |      to-clients Buffer      |
-*  +-----------------------------+
-*  |   Counters Metadata Buffer  |
-*  +-----------------------------+
-*  |    Counters Values Buffer   |
-*  +-----------------------------+
-*  |          Error Log          |
-*  +-----------------------------+
-* </pre>
-* <p>
-* Meta Data Layout {@link #CNC_VERSION}
-* <pre>
-*   0                   1                   2                   3
-*   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*  |                      Aeron CnC Version                        |
-*  +---------------------------------------------------------------+
-*  |                   to-driver buffer length                     |
-*  +---------------------------------------------------------------+
-*  |                  to-clients buffer length                     |
-*  +---------------------------------------------------------------+
-*  |               Counters Metadata buffer length                 |
-*  +---------------------------------------------------------------+
-*  |                Counters Values buffer length                  |
-*  +---------------------------------------------------------------+
-*  |                   Error Log buffer length                     |
-*  +---------------------------------------------------------------+
-*  |                   Client Liveness Timeout                     |
-*  |                                                               |
-*  +---------------------------------------------------------------+
-*  |                    Driver Start Timestamp                     |
-*  |                                                               |
-*  +---------------------------------------------------------------+
-*  |                         Driver PID                            |
-*  |                                                               |
-*  +---------------------------------------------------------------+
-* </pre>
-*/
+ * Description of the command and control file used between driver and clients
+ *
+ * File Layout
+ * <pre>
+ *  +-----------------------------+
+ *  |          Meta Data          |
+ *  +-----------------------------+
+ *  |      to-driver Buffer       |
+ *  +-----------------------------+
+ *  |      to-clients Buffer      |
+ *  +-----------------------------+
+ *  |   Counters Metadata Buffer  |
+ *  +-----------------------------+
+ *  |    Counters Values Buffer   |
+ *  +-----------------------------+
+ *  |          Error Log          |
+ *  +-----------------------------+
+ * </pre>
+ * <p>
+ * Meta Data Layout {@link #CNC_VERSION}
+ * <pre>
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                      Aeron CnC Version                        |
+ *  +---------------------------------------------------------------+
+ *  |                   to-driver buffer length                     |
+ *  +---------------------------------------------------------------+
+ *  |                  to-clients buffer length                     |
+ *  +---------------------------------------------------------------+
+ *  |               Counters Metadata buffer length                 |
+ *  +---------------------------------------------------------------+
+ *  |                Counters Values buffer length                  |
+ *  +---------------------------------------------------------------+
+ *  |                   Error Log buffer length                     |
+ *  +---------------------------------------------------------------+
+ *  |                   Client Liveness Timeout                     |
+ *  |                                                               |
+ *  +---------------------------------------------------------------+
+ *  |                    Driver Start Timestamp                     |
+ *  |                                                               |
+ *  +---------------------------------------------------------------+
+ *  |                         Driver PID                            |
+ *  |                                                               |
+ *  +---------------------------------------------------------------+
+ * </pre>
+ */
 
 pub static CNC_FILE: &str = "cnc.dat";
 pub const CNC_VERSION: i32 = 16;

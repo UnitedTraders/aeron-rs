@@ -14,23 +14,17 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    io::{stdout, Write},
-    sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
-};
+use std::ffi::CString;
+use std::io::{stdout, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
-use aeron_rs::{
-    aeron::Aeron,
-    concurrent::{
-        atomic_buffer::{AlignedBuffer, AtomicBuffer},
-        status::status_indicator_reader::channel_status_to_str,
-    },
-    context::Context,
-    example_config::{DEFAULT_CHANNEL, DEFAULT_STREAM_ID},
-    utils::errors::AeronError,
-};
+use aeron_rs::aeron::Aeron;
+use aeron_rs::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+use aeron_rs::concurrent::status::status_indicator_reader::channel_status_to_str;
+use aeron_rs::context::Context;
+use aeron_rs::example_config::{DEFAULT_CHANNEL, DEFAULT_STREAM_ID};
+use aeron_rs::utils::errors::AeronError;
 use lazy_static::lazy_static;
 use nix::NixPath;
 
@@ -156,7 +150,7 @@ fn main() {
         src_buffer.put_bytes(0, c_str_msg.as_bytes());
 
         println!("offering {}/{}", i + 1, settings.number_of_messages);
-        let _unused = stdout().flush();
+        stdout().flush().ok();
 
         let result = publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32);
 

@@ -17,22 +17,19 @@
 use std::ffi::CString;
 use std::sync::Arc;
 
-use crate::utils::errors::IllegalStateError;
-use crate::{
-    command::{
-        control_protocol_events::AeronCommand,
-        correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH},
-        counter_message_flyweight::CounterMessageFlyweight,
-        destination_message_flyweight::DestinationMessageFlyweight,
-        publication_message_flyweight::PublicationMessageFlyweight,
-        remove_message_flyweight::RemoveMessageFlyweight,
-        subscription_message_flyweight::SubscriptionMessageFlyweight,
-        terminate_driver_flyweight::TerminateDriverFlyweight,
-    },
-    concurrent::{atomic_buffer::AtomicBuffer, ring_buffer::ManyToOneRingBuffer},
-    log,
-    utils::{errors::AeronError, types::Index},
-};
+use crate::command::control_protocol_events::AeronCommand;
+use crate::command::correlated_message_flyweight::{CorrelatedMessageFlyweight, CORRELATED_MESSAGE_LENGTH};
+use crate::command::counter_message_flyweight::CounterMessageFlyweight;
+use crate::command::destination_message_flyweight::DestinationMessageFlyweight;
+use crate::command::publication_message_flyweight::PublicationMessageFlyweight;
+use crate::command::remove_message_flyweight::RemoveMessageFlyweight;
+use crate::command::subscription_message_flyweight::SubscriptionMessageFlyweight;
+use crate::command::terminate_driver_flyweight::TerminateDriverFlyweight;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
+use crate::log;
+use crate::utils::errors::{AeronError, IllegalStateError};
+use crate::utils::types::Index;
 
 pub struct DriverProxy {
     to_driver_command_buffer: Arc<ManyToOneRingBuffer>,

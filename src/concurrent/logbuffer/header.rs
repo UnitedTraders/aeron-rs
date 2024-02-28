@@ -14,19 +14,11 @@
  * limitations under the License.
  */
 
-use crate::{
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            data_frame_header::{self, DataFrameHeaderDefn},
-            frame_descriptor, log_buffer_descriptor,
-        },
-    },
-    utils::{
-        bit_utils::{align, number_of_trailing_zeroes},
-        types::Index,
-    },
-};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header::{self, DataFrameHeaderDefn};
+use crate::concurrent::logbuffer::{frame_descriptor, log_buffer_descriptor};
+use crate::utils::bit_utils::{align, number_of_trailing_zeroes};
+use crate::utils::types::Index;
 
 /**
  * Represents the header of the data frame for accessing meta data fields.
@@ -215,7 +207,7 @@ impl HeaderWriter {
         term_buffer.put_ordered::<i32>(offset, -(length));
 
         unsafe {
-            let mut hdr = term_buffer.overlay_struct::<DataFrameHeaderDefn>(offset);
+            let hdr = term_buffer.overlay_struct::<DataFrameHeaderDefn>(offset);
 
             (*hdr).version = data_frame_header::CURRENT_VERSION;
             (*hdr).flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;

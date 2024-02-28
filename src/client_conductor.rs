@@ -14,47 +14,36 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::HashMap,
-    ffi::{CStr, CString},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, Weak,
-    },
-};
+use std::collections::HashMap;
+use std::ffi::{CStr, CString};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, Weak};
 
-use crate::utils::errors::{DriverInteractionError, GenericError, IllegalArgumentError};
-use crate::{
-    concurrent::{
-        agent_runner::Agent,
-        atomic_buffer::AtomicBuffer,
-        atomic_counter::AtomicCounter,
-        broadcast::copy_broadcast_receiver::CopyBroadcastReceiver,
-        counters::{self, CountersReader},
-        logbuffer::term_reader::ErrorHandler,
-        position::UnsafeBufferPosition,
-        status::status_indicator_reader,
-    },
-    context::{
-        OnAvailableCounter, OnAvailableImage, OnCloseClient, OnNewPublication, OnNewSubscription, OnUnavailableCounter,
-        OnUnavailableImage,
-    },
-    counter::Counter,
-    driver_listener_adapter::{DriverListener, DriverListenerAdapter},
-    driver_proxy::DriverProxy,
-    exclusive_publication::ExclusivePublication,
-    heartbeat_timestamp,
-    image::Image,
-    log,
-    publication::Publication,
-    subscription::Subscription,
-    utils::{
-        errors::AeronError::{self, ChannelEndpointException},
-        log_buffers::LogBuffers,
-        misc::CallbackGuard,
-        types::{Moment, MAX_MOMENT},
-    },
+use crate::concurrent::agent_runner::Agent;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_counter::AtomicCounter;
+use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+use crate::concurrent::counters::{self, CountersReader};
+use crate::concurrent::logbuffer::term_reader::ErrorHandler;
+use crate::concurrent::position::UnsafeBufferPosition;
+use crate::concurrent::status::status_indicator_reader;
+use crate::context::{
+    OnAvailableCounter, OnAvailableImage, OnCloseClient, OnNewPublication, OnNewSubscription, OnUnavailableCounter,
+    OnUnavailableImage,
 };
+use crate::counter::Counter;
+use crate::driver_listener_adapter::{DriverListener, DriverListenerAdapter};
+use crate::driver_proxy::DriverProxy;
+use crate::exclusive_publication::ExclusivePublication;
+use crate::image::Image;
+use crate::publication::Publication;
+use crate::subscription::Subscription;
+use crate::utils::errors::AeronError::{self, ChannelEndpointException};
+use crate::utils::errors::{DriverInteractionError, GenericError, IllegalArgumentError};
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::misc::CallbackGuard;
+use crate::utils::types::{Moment, MAX_MOMENT};
+use crate::{heartbeat_timestamp, log};
 
 type EpochClock = fn() -> Moment;
 
@@ -642,7 +631,7 @@ impl ClientConductor {
                         } else {
                             Err(AeronError::PublicationNotReady(registration_id))
                         }
-                    }
+                    },
                     RegistrationStatus::Registered => {
                         let publication_limit =
                             UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
@@ -676,7 +665,7 @@ impl ClientConductor {
                             }
                             .into())
                         }
-                    }
+                    },
 
                     RegistrationStatus::Errored => {
                         publication_to_remove = Some(registration_id);
@@ -684,7 +673,7 @@ impl ClientConductor {
                             state.error_code,
                             &state.error_message,
                         ))
-                    }
+                    },
                 }
             }
         } else {
@@ -788,7 +777,7 @@ impl ClientConductor {
                         } else {
                             Err(GenericError::ExclusivePublicationNotReadyYet { status: state.status }.into())
                         }
-                    }
+                    },
                     RegistrationStatus::Registered => {
                         let publication_limit =
                             UnsafeBufferPosition::new(self.counter_values_buffer, state.publication_limit_counter_id);
@@ -821,7 +810,7 @@ impl ClientConductor {
                             }
                             .into())
                         }
-                    }
+                    },
 
                     RegistrationStatus::Errored => {
                         publication_to_remove = Some(registration_id);
@@ -829,7 +818,7 @@ impl ClientConductor {
                             state.error_code,
                             &state.error_message,
                         ))
-                    }
+                    },
                 }
             }
         } else {
@@ -1267,7 +1256,7 @@ impl ClientConductor {
                     } else {
                         Ok(false)
                     }
-                }
+                },
                 RegistrationStatus::Registered => Ok(true),
                 RegistrationStatus::Errored => Err(ClientConductor::return_registration_error(
                     state.error_code,
@@ -1298,7 +1287,8 @@ impl ClientConductor {
         self.ensure_not_reentrant();
         self.ensure_open()?;
 
-        // self.on_available_counter_handlers.retain(|item| item as usize != handler as usize); FIXME: add registration ID for handlers
+        // self.on_available_counter_handlers.retain(|item| item as usize != handler as usize); FIXME: add registration ID for
+        // handlers
         Ok(())
     }
 
@@ -1420,7 +1410,7 @@ impl ClientConductor {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in self.on_check_managed_resources");
 
         let mut log_buffers_to_remove: Vec<i64> = Vec::new();
-        for (id, mut entry) in &mut self.log_buffers_by_registration_id {
+        for (id, entry) in &mut self.log_buffers_by_registration_id {
             if Arc::strong_count(&entry.log_buffers) == 1 {
                 if MAX_MOMENT == entry.time_of_last_state_change_ms {
                     entry.time_of_last_state_change_ms = now_ms;
@@ -1782,7 +1772,6 @@ impl DriverListener for ClientConductor {
             destination.status = RegistrationStatus::Errored;
             destination.error_code = error_code;
             destination.error_message = error_message;
-            return;
         }
     }
 
@@ -1968,6 +1957,7 @@ mod tests {
     use lazy_static::lazy_static;
     use nix::unistd;
 
+    use super::*;
     use crate::command::control_protocol_events::AeronCommand;
     use crate::command::counter_message_flyweight::CounterMessageFlyweight;
     use crate::command::error_response_flyweight::{ERROR_CODE_GENERIC_ERROR, ERROR_CODE_INVALID_CHANNEL};
@@ -1982,8 +1972,6 @@ mod tests {
     use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
     use crate::utils::memory_mapped_file::MemoryMappedFile;
     use crate::utils::misc::unix_time_ms;
-
-    use super::*;
 
     const CHANNEL: &str = "aeron:udp?endpoint=localhost:40123";
     const STREAM_ID: i32 = 10;
@@ -2015,7 +2003,7 @@ mod tests {
             Ok((_fd, path)) => {
                 unistd::unlink(path.as_path()).unwrap(); // flag file to be deleted at app termination
                 path.to_string_lossy().to_string()
-            }
+            },
             Err(e) => panic!("mkstemp failed: {}", e),
         }
     }

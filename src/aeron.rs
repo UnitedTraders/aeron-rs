@@ -20,37 +20,30 @@ use std::time::Duration;
 
 use rand::distributions::Uniform;
 
-use crate::utils::errors::{DriverInteractionError, GenericError};
-use crate::utils::misc::semantic_version_to_string;
-use crate::{
-    client_conductor::ClientConductor,
-    cnc_file_descriptor,
-    concurrent::{
-        agent_invoker::AgentInvoker,
-        agent_runner::{AgentRunner, AgentStopper},
-        atomic_buffer::AtomicBuffer,
-        broadcast::{broadcast_receiver::BroadcastReceiver, copy_broadcast_receiver::CopyBroadcastReceiver},
-        counters::CountersReader,
-        ring_buffer::ManyToOneRingBuffer,
-        strategies::SleepingIdleStrategy,
-    },
-    context::{Context, OnAvailableCounter, OnAvailableImage, OnCloseClient, OnUnavailableCounter, OnUnavailableImage},
-    counter::Counter,
-    driver_proxy::DriverProxy,
-    exclusive_publication::ExclusivePublication,
-    publication::Publication,
-    subscription::Subscription,
-    utils::{
-        errors::AeronError,
-        memory_mapped_file::MemoryMappedFile,
-        misc::{semantic_version_major, unix_time_ms},
-        types::Moment,
-    },
-};
+use crate::client_conductor::ClientConductor;
+use crate::cnc_file_descriptor;
+use crate::concurrent::agent_invoker::AgentInvoker;
+use crate::concurrent::agent_runner::{AgentRunner, AgentStopper};
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
+use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+use crate::concurrent::counters::CountersReader;
+use crate::concurrent::ring_buffer::ManyToOneRingBuffer;
+use crate::concurrent::strategies::SleepingIdleStrategy;
+use crate::context::{Context, OnAvailableCounter, OnAvailableImage, OnCloseClient, OnUnavailableCounter, OnUnavailableImage};
+use crate::counter::Counter;
+use crate::driver_proxy::DriverProxy;
+use crate::exclusive_publication::ExclusivePublication;
+use crate::publication::Publication;
+use crate::subscription::Subscription;
+use crate::utils::errors::{AeronError, DriverInteractionError, GenericError};
+use crate::utils::memory_mapped_file::MemoryMappedFile;
+use crate::utils::misc::{semantic_version_major, semantic_version_to_string, unix_time_ms};
+use crate::utils::types::Moment;
 
 /**
- * Aeron entry point for communicating to the Media Driver for creating {@link Publication}s and {@link Subscription}s.
- * Use a {@link Context} to configure the Aeron object.
+ * Aeron entry point for communicating to the Media Driver for creating {@link Publication}s and {@link
+ * Subscription}s. Use a {@link Context} to configure the Aeron object.
  * <p>
  * A client application requires only one Aeron object per Media Driver.
  */
@@ -131,7 +124,7 @@ impl Aeron {
         let use_agent_invoker = context.use_conductor_agent_invoker();
 
         let mut aeronchik = Self {
-            session_id_distribution: Uniform::from(std::i32::MIN..std::i32::MAX),
+            session_id_distribution: Uniform::from(i32::MIN..i32::MAX),
             context: context.clone(),
             cnc_buffer: cnc_buf,
             to_driver_atomic_buffer: local_to_driver_atomic_buffer,
@@ -260,7 +253,8 @@ impl Aeron {
      *
      * - If the registration_id is unknown, then a nullptr is returned.
      * - If the media driver has not answered the add command, then a nullptr is returned.
-     * - If the media driver has successfully added the ExclusivePublication then what is returned is the ExclusivePublication.
+     * - If the media driver has successfully added the ExclusivePublication then what is returned is the
+     *   ExclusivePublication.
      * - If the media driver has returned an error, this method will throw the error returned.
      *
      * @see Aeron::add_exclusive_publication

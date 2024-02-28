@@ -28,7 +28,7 @@ use crate::utils::types::Index;
  *  |                       Encoded Message                        ...
  * ...                                                              |
  *  +---------------------------------------------------------------+
- **/
+ */
 
 const LENGTH_OFFSET: Index = 0;
 const TYPE_OFFSET: Index = 4;

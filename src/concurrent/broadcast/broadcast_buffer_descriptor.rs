@@ -15,11 +15,9 @@
  */
 
 use crate::concurrent::broadcast::BroadcastTransmitError;
-use crate::utils::{
-    bit_utils::is_power_of_two,
-    misc::CACHE_LINE_LENGTH,
-    types::{Index, I64_SIZE},
-};
+use crate::utils::bit_utils::is_power_of_two;
+use crate::utils::misc::CACHE_LINE_LENGTH;
+use crate::utils::types::{Index, I64_SIZE};
 
 pub const TAIL_INTENT_COUNTER_OFFSET: Index = 0;
 pub const TAIL_COUNTER_OFFSET: Index = TAIL_INTENT_COUNTER_OFFSET + I64_SIZE as Index;

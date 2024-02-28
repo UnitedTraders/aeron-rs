@@ -14,36 +14,23 @@
  * limitations under the License.
  */
 
-use std::{
-    ffi::CString,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-};
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
-use crate::{
-    client_conductor::ClientConductor,
-    concurrent::{
-        atomic_buffer::AtomicBuffer,
-        logbuffer::{
-            buffer_claim::BufferClaim,
-            data_frame_header, frame_descriptor,
-            header::HeaderWriter,
-            log_buffer_descriptor,
-            term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender},
-        },
-        position::{ReadablePosition, UnsafeBufferPosition},
-        status::status_indicator_reader,
-    },
-    log,
-    utils::{
-        bit_utils::number_of_trailing_zeroes,
-        errors::{AeronError, IllegalArgumentError, IllegalStateError},
-        log_buffers::LogBuffers,
-        types::Index,
-    },
-};
+use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+use crate::concurrent::logbuffer::header::HeaderWriter;
+use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier, TermAppender};
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+use crate::concurrent::status::status_indicator_reader;
+use crate::log;
+use crate::utils::bit_utils::number_of_trailing_zeroes;
+use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::types::Index;
 
 pub trait BulkPubSize {
     const SIZE: usize;
@@ -51,8 +38,8 @@ pub trait BulkPubSize {
 
 /**
  * @example basic_publisher.rs
- */
-/**
+ *
+ *
  * Aeron Publisher API for sending messages to subscribers of a given channel and stream_id pair. Publishers
  * are created via an {@link Aeron} object, and messages are sent via an offer method or a claim and commit
  * method combination.
@@ -451,7 +438,8 @@ impl Publication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // NOT implemented. Translate it from C++ if you need one.
-    //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError> { }
+    //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) ->
+    // Result<i64, AeronError> { }
 
     /**
      * Non-blocking publish of array of buffers containing a message.
@@ -463,8 +451,8 @@ impl Publication {
      * {@link #ADMIN_ACTION} or {@link #CLOSED}.
      */
     // NOT implemented. Translate it from C++ if you need one.
-    //pub fn offer_arr(&self, buffers[]: AtomicBuffer, length: Index, reserved_value_supplier: OnReservedValueSupplier) -> Result<i64, AeronError> {
-    //    offer(buffers, buffers + length, reserved_value_supplier)
+    //pub fn offer_arr(&self, buffers[]: AtomicBuffer, length: Index, reserved_value_supplier: OnReservedValueSupplier) ->
+    // Result<i64, AeronError> {    offer(buffers, buffers + length, reserved_value_supplier)
     //}
     /**
      * Non-blocking publish of array of buffers containing a message.
@@ -546,8 +534,8 @@ impl Publication {
 
     /**
      * Try to claim a range in the publication log into which a message can be written with zero copy semantics.
-     * Once the message has been written then {@link BufferClaim#commit(&self)} should be called thus making it available.
-     * <p>
+     * Once the message has been written then {@link BufferClaim#commit(&self)} should be called thus making it
+     * available. <p>
      * <b>Note:</b> This method can only be used for message lengths less than MTU length minus header.
      *
      * @param length      of the range to claim, in bytes..
@@ -701,7 +689,7 @@ impl Publication {
             };
         }
 
-        if position as i64 + term_offset as i64 > self.max_possible_position {
+        if position + term_offset as i64 > self.max_possible_position {
             return Err(AeronError::MaxPositionExceeded);
         }
 
@@ -760,34 +748,25 @@ mod tests {
 
     use lazy_static::lazy_static;
 
-    use crate::{
-        client_conductor::ClientConductor,
-        concurrent::{
-            atomic_buffer::{AlignedBuffer, AtomicBuffer},
-            broadcast::{
-                broadcast_buffer_descriptor, broadcast_receiver::BroadcastReceiver,
-                copy_broadcast_receiver::CopyBroadcastReceiver,
-            },
-            counters::CountersReader,
-            logbuffer::{
-                buffer_claim::BufferClaim,
-                data_frame_header::LENGTH,
-                frame_descriptor,
-                log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH},
-            },
-            position::{ReadablePosition, UnsafeBufferPosition},
-            ring_buffer::{self, ManyToOneRingBuffer},
-            status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED},
-        },
-        driver_proxy::DriverProxy,
-        publication::Publication,
-        utils::{
-            errors::AeronError,
-            log_buffers::LogBuffers,
-            misc::unix_time_ms,
-            types::{Index, Moment, I64_SIZE},
-        },
-    };
+    use crate::client_conductor::ClientConductor;
+    use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
+    use crate::concurrent::broadcast::broadcast_buffer_descriptor;
+    use crate::concurrent::broadcast::broadcast_receiver::BroadcastReceiver;
+    use crate::concurrent::broadcast::copy_broadcast_receiver::CopyBroadcastReceiver;
+    use crate::concurrent::counters::CountersReader;
+    use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+    use crate::concurrent::logbuffer::data_frame_header::LENGTH;
+    use crate::concurrent::logbuffer::frame_descriptor;
+    use crate::concurrent::logbuffer::log_buffer_descriptor::{self, AERON_PAGE_MIN_SIZE, TERM_MIN_LENGTH};
+    use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+    use crate::concurrent::ring_buffer::{self, ManyToOneRingBuffer};
+    use crate::concurrent::status::status_indicator_reader::{StatusIndicatorReader, NO_ID_ALLOCATED};
+    use crate::driver_proxy::DriverProxy;
+    use crate::publication::Publication;
+    use crate::utils::errors::AeronError;
+    use crate::utils::log_buffers::LogBuffers;
+    use crate::utils::misc::unix_time_ms;
+    use crate::utils::types::{Index, Moment, I64_SIZE};
 
     lazy_static! {
         pub static ref CHANNEL: CString = CString::new("aeron:udp?endpoint=localhost:40123").unwrap();
@@ -816,7 +795,7 @@ mod tests {
 
     #[inline]
     fn raw_tail_value(term_id: i32, position: i64) -> i64 {
-        (term_id as i64 * (1_i64 << 32)) as i64 | position
+        (term_id as i64 * (1_i64 << 32)) | position
     }
 
     #[inline]
@@ -1077,7 +1056,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i64::max_value() as i64);
+        test.publication_limit.set(i64::MAX);
 
         let position = test.publication.position();
         assert!(position.is_ok());
