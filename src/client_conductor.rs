@@ -3775,12 +3775,14 @@ mod tests {
             .unwrap()
             .add_publication(str_to_c(CHANNEL), STREAM_ID)
             .expect("failed to add publication");
+
         let ex_pub_id = test
             .conductor
             .lock()
             .unwrap()
             .add_exclusive_publication(str_to_c(CHANNEL), STREAM_ID)
             .expect("failed to add publication");
+
         let sub_id = test
             .conductor
             .lock()
@@ -3802,6 +3804,7 @@ mod tests {
             CHANNEL_STATUS_INDICATOR_ID,
             str_to_c(&test.log_file_name),
         );
+
         test.conductor.lock().unwrap().on_new_exclusive_publication(
             ex_pub_id,
             ex_pub_id,
@@ -3811,17 +3814,16 @@ mod tests {
             CHANNEL_STATUS_INDICATOR_ID,
             str_to_c(&test.log_file_name2),
         );
+
         test.conductor
             .lock()
             .unwrap()
             .on_subscription_ready(sub_id, CHANNEL_STATUS_INDICATOR_ID);
 
         let publication = test.conductor.lock().unwrap().find_publication(pub_id);
-
         assert!(publication.is_ok());
 
         let subscription = test.conductor.lock().unwrap().find_subscription(sub_id);
-
         assert!(subscription.is_ok());
 
         let ex_pub = test.conductor.lock().unwrap().find_exclusive_publication(ex_pub_id);
@@ -3832,9 +3834,19 @@ mod tests {
             .lock()
             .unwrap()
             .close_all_resources(*test.current_time.lock().unwrap());
-        assert!(publication.unwrap().lock().unwrap().is_closed());
-        assert!(subscription.unwrap().lock().unwrap().is_closed());
-        assert!(ex_pub.unwrap().lock().unwrap().is_closed());
+
+        let publication = publication.unwrap();
+        let pub_g = publication.lock().unwrap();
+
+        let subscription = subscription.unwrap();
+        let sub_g = subscription.lock().unwrap();
+
+        let ex_pub = ex_pub.unwrap();
+        let ex_pub_g = ex_pub.lock().unwrap();
+
+        assert!(pub_g.is_closed());
+        assert!(sub_g.is_closed());
+        assert!(ex_pub_g.is_closed());
     }
 
     #[test]
