@@ -468,8 +468,8 @@ mod tests {
 
         let test_string = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // without trailing zero
 
-        atomic_buffer.put_string(2, &test_string);
-        let read_str = atomic_buffer.get_string(2); // trailing zero added here while reading from AB
+        atomic_buffer.put_string(0, &test_string);
+        let read_str = atomic_buffer.get_string(0); // trailing zero added here while reading from AB
 
         assert_eq!(read_str.as_bytes().len(), 9);
         assert_eq!(read_str.as_bytes(), test_string); // as_bytes() returns string body without trailing zero

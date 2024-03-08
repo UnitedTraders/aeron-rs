@@ -159,7 +159,7 @@ pub enum IllegalArgumentError {
     LimitOutsideRange { capacity: Index, limit: Index },
     #[error("Linger value cannot be negative: {0}")]
     LingerValueCannotBeNegative(i64),
-    #[error("MTU is not in range {left_bound}-{right_bound}: {0}")]
+    #[error("MTU is not in range {left_bound}-{right_bound}: {mtu}")]
     MtuIsNotInRange { mtu: u32, left_bound: i32, right_bound: i32 },
     #[error("MTU not a multiple of FRAME_ALIGNMENT= {frame_alignment}: mtu= {mtu}")]
     MtuNotMultipleOfFrameAlignment { mtu: u32, frame_alignment: Index },

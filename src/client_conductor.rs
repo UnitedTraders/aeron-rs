@@ -1420,7 +1420,7 @@ impl ClientConductor {
         //let _guard = self.admin_lock.lock().expect("Failed to obtain admin_lock in self.on_check_managed_resources");
 
         let mut log_buffers_to_remove: Vec<i64> = Vec::new();
-        for (id, mut entry) in &mut self.log_buffers_by_registration_id {
+        for (id, entry) in &mut self.log_buffers_by_registration_id {
             if Arc::strong_count(&entry.log_buffers) == 1 {
                 if MAX_MOMENT == entry.time_of_last_state_change_ms {
                     entry.time_of_last_state_change_ms = now_ms;

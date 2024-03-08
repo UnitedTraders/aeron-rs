@@ -215,7 +215,7 @@ impl HeaderWriter {
         term_buffer.put_ordered::<i32>(offset, -(length));
 
         unsafe {
-            let mut hdr = term_buffer.overlay_struct::<DataFrameHeaderDefn>(offset);
+            let hdr: *mut DataFrameHeaderDefn = term_buffer.overlay_struct(offset);
 
             (*hdr).version = data_frame_header::CURRENT_VERSION;
             (*hdr).flags = frame_descriptor::BEGIN_FRAG | frame_descriptor::END_FRAG;
