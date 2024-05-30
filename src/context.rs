@@ -651,7 +651,15 @@ impl Context {
         }
     }
 
+    pub fn default_aeron_path_parent() -> String {
+        match env::consts::OS {
+            // as per https://github.com/real-logic/aeron/wiki/Configuration-Options#common-options
+            "linux" => { String::from("/dev/shm/") }
+            _ => {Self::tmp_dir()}
+        }
+    }
+
     pub fn default_aeron_path() -> String {
-        String::from("/dev/shm/aeron-") + &Context::get_user_name()
+        format!("{}aeron-{}", Self::default_aeron_path_parent(), Self::get_user_name())
     }
 }
