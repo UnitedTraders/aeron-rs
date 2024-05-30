@@ -54,8 +54,8 @@ pub trait OnAvailableImage {
 }
 
 impl<T> OnAvailableImage for T
-where
-    T: Fn(&Image) + Clone + 'static,
+    where
+        T: Fn(&Image) + Clone + 'static,
 {
     fn clone_box(&self) -> Box<dyn OnAvailableImage> {
         Box::new(self.clone())
@@ -94,8 +94,8 @@ impl Clone for Box<dyn OnUnavailableImage> {
 }
 
 impl<F> OnUnavailableImage for F
-where
-    F: Fn(&Image) + Clone + 'static,
+    where
+        F: Fn(&Image) + Clone + 'static,
 {
     fn call(&self, image: &Image) {
         self(image)
@@ -130,8 +130,8 @@ impl Clone for Box<dyn OnNewPublication> {
 }
 
 impl<F> OnNewPublication for F
-where
-    F: Fn(CString, i32, i32, i64) + Clone + 'static,
+    where
+        F: Fn(CString, i32, i32, i64) + Clone + 'static,
 {
     fn call(&self, channel: CString, stream_id: i32, session_id: i32, correlation_id: i64) {
         self(channel, stream_id, session_id, correlation_id)
@@ -165,8 +165,8 @@ impl Clone for Box<dyn OnNewSubscription> {
 }
 
 impl<F> OnNewSubscription for F
-where
-    F: Fn(CString, i32, i64) + Clone + 'static,
+    where
+        F: Fn(CString, i32, i64) + Clone + 'static,
 {
     fn call(&self, channel: CString, stream_id: i32, correlation_id: i64) {
         self(channel, stream_id, correlation_id)
@@ -199,8 +199,8 @@ impl Clone for Box<dyn OnAvailableCounter> {
 }
 
 impl<F> OnAvailableCounter for F
-where
-    F: Fn(&CountersReader, i64, i32) + Clone + 'static,
+    where
+        F: Fn(&CountersReader, i64, i32) + Clone + 'static,
 {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32) {
         self(counters_reader, registration_id, counter_id)
@@ -233,8 +233,8 @@ impl Clone for Box<dyn OnUnavailableCounter> {
 }
 
 impl<F> OnUnavailableCounter for F
-where
-    F: Fn(&CountersReader, i64, i32) + Clone + 'static,
+    where
+        F: Fn(&CountersReader, i64, i32) + Clone + 'static,
 {
     fn call(&self, counters_reader: &CountersReader, registration_id: i64, counter_id: i32) {
         self(counters_reader, registration_id, counter_id)
@@ -261,8 +261,8 @@ impl Clone for Box<dyn OnCloseClient> {
 }
 
 impl<F> OnCloseClient for F
-where
-    F: Fn() + Clone + 'static,
+    where
+        F: Fn() + Clone + 'static,
 {
     fn call(&self) {
         self()
@@ -621,7 +621,7 @@ impl Context {
                     app_version: semantic_version_to_string(cnc_file_descriptor::CNC_VERSION),
                     file_version: semantic_version_to_string(cnc_version),
                 }
-                .into());
+                    .into());
             }
 
             let to_driver_buffer = cnc_file_descriptor::create_to_driver_buffer(&cnc_file);
@@ -654,8 +654,8 @@ impl Context {
     pub fn default_aeron_path_parent() -> String {
         match env::consts::OS {
             // as per https://github.com/real-logic/aeron/wiki/Configuration-Options#common-options
-            "linux" => { String::from("/dev/shm/") }
-            _ => {Self::tmp_dir()}
+            "linux" => String::from("/dev/shm/"),
+            _ => Self::tmp_dir(),
         }
     }
 
