@@ -906,12 +906,12 @@ mod tests {
     #[test]
     fn should_ensure_the_publication_is_open_before_claim() {
         let mut test = ExclusivePublicationTest::new();
-        let buffer_claim = BufferClaim::default();
+        let mut buffer_claim = BufferClaim::default();
 
         test.publication.close();
         assert!(test.publication.is_closed());
 
-        let claim_result = test.publication.try_claim(1024, buffer_claim);
+        let claim_result = test.publication.try_claim(1024, &mut buffer_claim);
         assert!(claim_result.is_err());
         assert_eq!(claim_result.unwrap_err(), AeronError::PublicationClosed);
     }
@@ -1016,13 +1016,13 @@ mod tests {
         test.publication_limit.set(i32::max_value() as i64);
         test.create_pub();
 
-        let buffer_claim = BufferClaim::default();
+        let mut buffer_claim = BufferClaim::default();
 
         let position = test.publication.position();
         assert!(position.is_ok());
         assert_eq!(position.unwrap(), initial_position as i64);
 
-        let claim_result = test.publication.try_claim(1024, buffer_claim);
+        let claim_result = test.publication.try_claim(1024, &mut buffer_claim);
         assert!(claim_result.is_err());
         assert_eq!(claim_result.unwrap_err(), AeronError::AdminAction);
 
@@ -1038,7 +1038,7 @@ mod tests {
         );
 
         assert!(
-            test.publication.try_claim(1024, buffer_claim).unwrap()
+            test.publication.try_claim(1024, &mut buffer_claim).unwrap()
                 > (initial_position + LENGTH + test.src_buffer.capacity()) as i64
         );
 

@@ -25,7 +25,7 @@ pub const CHANNEL_ENDPOINT_CLOSING: i64 = 2;
 
 pub const NO_ID_ALLOCATED: i32 = -1;
 
-static mut STATIC_BUFFER_SLICE: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+static mut STATIC_BUFFER_SLICE: [u8; I64_SIZE as usize] = [0, 0, 0, 0, 0, 0, 0, 0];
 
 pub fn channel_status_to_str(status_id: i64) -> String {
     match status_id {
@@ -38,10 +38,7 @@ pub fn channel_status_to_str(status_id: i64) -> String {
 }
 
 fn static_buffer() -> AtomicBuffer {
-    let buffer = unsafe {
-        assert_eq!(STATIC_BUFFER_SLICE.len(), I64_SIZE as usize);
-        AtomicBuffer::wrap_slice(&mut STATIC_BUFFER_SLICE)
-    };
+    let buffer = AtomicBuffer::wrap_raw_slice(&raw mut STATIC_BUFFER_SLICE);
     buffer.put_ordered::<i64>(0, CHANNEL_ENDPOINT_ACTIVE);
     buffer
 }

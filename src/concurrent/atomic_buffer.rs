@@ -97,6 +97,13 @@ impl AtomicBuffer {
         }
     }
 
+    pub fn wrap_raw_slice(slice: *mut [u8]) -> Self {
+        AtomicBuffer {
+            ptr: slice as *mut _,
+            len: slice.len() as Index,
+        }
+    }
+
     //TODO: check that len is ok and ptr is aligned
     pub(crate) fn new(ptr: *mut u8, len: Index) -> AtomicBuffer {
         AtomicBuffer { ptr, len }

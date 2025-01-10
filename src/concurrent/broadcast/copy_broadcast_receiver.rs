@@ -22,10 +22,6 @@ use crate::command::control_protocol_events::AeronCommand;
 use crate::concurrent::atomic_buffer::{AlignedBuffer, AtomicBuffer};
 use crate::utils::types::Index;
 
-trait Handler {
-    fn handle(message_type_id: i32, buffer: AtomicBuffer, i1: Index, i2: Index);
-}
-
 #[allow(dead_code)]
 pub struct CopyBroadcastReceiver {
     receiver: Arc<Mutex<BroadcastReceiver>>,
