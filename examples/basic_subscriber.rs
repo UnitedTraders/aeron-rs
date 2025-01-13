@@ -131,14 +131,7 @@ fn main() {
     context.set_error_handler(Box::new(error_handler));
     context.set_pre_touch_mapped_memory(true);
 
-    let aeron = Aeron::new(context);
-
-    if aeron.is_err() {
-        println!("Error creating Aeron instance: {:?}", aeron.err());
-        return;
-    }
-
-    let mut aeron = aeron.unwrap();
+    let mut aeron = Aeron::new(context).expect("Error creating Aeron instance");
 
     let subscription_id = aeron
         .add_subscription(str_to_c(&settings.channel), settings.stream_id)
@@ -146,13 +139,12 @@ fn main() {
 
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
 
-    let mut subscription = aeron.find_subscription(subscription_id);
-    while subscription.is_err() {
+    let subscription = loop {
+        if let Ok(subscription) = aeron.find_subscription(subscription_id) {
+            break subscription;
+        }
         std::thread::yield_now();
-        subscription = aeron.find_subscription(subscription_id);
-    }
-
-    let subscription = subscription.unwrap();
+    };
 
     let channel_status = subscription.lock().expect("Fu").channel_status();
 

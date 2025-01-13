@@ -235,24 +235,19 @@ fn main() {
     SUBSCRIPTION_ID.store(subscription_id, Ordering::SeqCst);
     PUBLICATION_ID.store(publication_id, Ordering::SeqCst);
 
-    let mut pong_subscription = aeron.find_subscription(subscription_id);
-    while pong_subscription.is_err() {
+    let pong_subscription = loop {
+        if let Ok(subscription) = aeron.find_subscription(subscription_id) {
+            break subscription;
+        }
         std::thread::yield_now();
-        pong_subscription = aeron.find_subscription(subscription_id);
-    }
+    };
 
-    let mut ping_publication = aeron.find_publication(publication_id);
-    while ping_publication.is_err() {
+    let ping_publication = loop {
+        if let Ok(publication) = aeron.find_publication(publication_id) {
+            break publication;
+        }
         std::thread::yield_now();
-        ping_publication = aeron.find_publication(publication_id);
-    }
-
-    let ping_publication = ping_publication.unwrap();
-    let pong_subscription = pong_subscription.unwrap();
-
-    //while COUNT_DOWN.load(Ordering::SeqCst) > 0 {
-    //    std::thread::yield_now();
-    //}
+    };
 
     if settings.number_of_warmup_messages > 0 {
         let mut warmup_settings = settings.clone();

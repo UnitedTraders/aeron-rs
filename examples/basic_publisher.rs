@@ -120,13 +120,12 @@ fn main() {
         .add_publication(str_to_c(&settings.channel), settings.stream_id)
         .expect("Error adding publication");
 
-    let mut publication = aeron.find_publication(publication_id);
-    while publication.is_err() {
+    let publication = loop {
+        if let Ok(publication) = aeron.find_publication(publication_id) {
+            break publication;
+        }
         std::thread::yield_now();
-        publication = aeron.find_publication(publication_id);
-    }
-
-    let publication = publication.unwrap();
+    };
 
     let channel_status = publication.lock().unwrap().channel_status();
 
@@ -153,11 +152,9 @@ fn main() {
         stdout().flush().ok();
 
         let result = publication.lock().unwrap().offer_part(src_buffer, 0, c_str_msg.len() as i32);
-
-        if let Ok(code) = result {
-            println!("Sent with code {}!", code);
-        } else {
-            println!("Offer with error: {:?}", result.err());
+        match result {
+            Ok(code) => println!("Sent with code {}!", code),
+            Err(err) => println!("Offer with error: {}", err),
         }
 
         if !publication.lock().unwrap().is_connected() {
