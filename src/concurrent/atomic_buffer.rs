@@ -138,7 +138,7 @@ impl AtomicBuffer {
     #[inline]
     pub fn get<T: Copy>(&self, position: Index) -> T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
-        unsafe { *(self.at(position) as *mut T) }
+        unsafe { (self.at(position) as *mut T).read_unaligned() }
     }
 
     #[inline]
@@ -187,7 +187,7 @@ impl AtomicBuffer {
     #[inline]
     pub fn put<T>(&self, position: Index, val: T) {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
-        unsafe { *(self.at(position) as *mut T) = val }
+        unsafe { (self.at(position) as *mut T).write_unaligned(val) }
     }
 
     #[inline]

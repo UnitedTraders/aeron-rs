@@ -84,7 +84,6 @@ impl<T> AtomicVec<T> {
                 self.begin_change.store(seq_no, Ordering::Release);
 
                 let buf = mem::take(&mut self.buf);
-                *self = Self::new();
 
                 self.end_change.store(seq_no, Ordering::Release);
 

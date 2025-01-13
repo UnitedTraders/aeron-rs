@@ -148,7 +148,8 @@ mod tests {
 
     #[test]
     fn test_creating_file() {
-        MemoryMappedFile::create_new(Path::new("abc.file"), 0, 128).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        MemoryMappedFile::create_new(tmp_dir.path().join("abc.file"), 0, 128).unwrap();
     }
 
     #[allow(dead_code)]

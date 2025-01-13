@@ -3827,7 +3827,6 @@ mod tests {
         assert!(subscription.is_ok());
 
         let ex_pub = test.conductor.lock().unwrap().find_exclusive_publication(ex_pub_id);
-
         assert!(ex_pub.is_ok());
 
         test.conductor
