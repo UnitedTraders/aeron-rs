@@ -851,7 +851,7 @@ mod tests {
             let src = AlignedBuffer::with_capacity(1024);
             let src_buffer = AtomicBuffer::from_aligned(&src);
             let log_buffers =
-                Arc::new(unsafe { LogBuffers::new(log.ptr, log.len as isize, log_buffer_descriptor::TERM_MIN_LENGTH) });
+                Arc::new(unsafe { LogBuffers::new(log.ptr(), log.len() as isize, log_buffer_descriptor::TERM_MIN_LENGTH) });
 
             let to_driver = AlignedBuffer::with_capacity(MANY_TO_ONE_RING_BUFFER_LENGTH);
             let to_clients = AlignedBuffer::with_capacity(BROADCAST_BUFFER_LENGTH);

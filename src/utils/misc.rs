@@ -71,7 +71,6 @@ pub fn semantic_version_to_string(version: i32) -> String {
     )
 }
 
-#[allow(dead_code)]
 /// Allocate a buffer aligned on the cache size
 pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
     unsafe {
@@ -81,19 +80,16 @@ pub fn alloc_buffer_aligned(size: Index) -> *mut u8 {
 }
 
 /// Deallocate a buffer aligned on a cache size
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
-    unsafe {
-        if cfg!(debug_assertions) {
-            // dealloc markers for debug
-            for i in 0..len as isize {
-                *buff_ptr.offset(i) = 0xff;
-            }
+pub unsafe fn dealloc_buffer_aligned(buff_ptr: *mut u8, len: Index) {
+    if cfg!(debug_assertions) {
+        // dealloc markers for debug
+        for i in 0..len as isize {
+            *buff_ptr.offset(i) = 0xff;
         }
-
-        let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
-        dealloc(buff_ptr, layout)
     }
+
+    let layout = Layout::from_size_align_unchecked(len as usize, CACHE_LINE_SIZE);
+    dealloc(buff_ptr, layout)
 }
 
 /// This struct is used to set bool flag to true till the end of scope and

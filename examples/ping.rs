@@ -283,11 +283,7 @@ fn main() {
             let end = Instant::now();
             let mut start = Instant::now(); // Just to init it
 
-            buffer.get_bytes(
-                offset,
-                &mut start as *mut Instant as *mut u8,
-                std::mem::size_of_val(&start) as i32,
-            );
+            buffer.get_bytes(offset, &mut start);
             let nano_rtt = end - start;
 
             let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);

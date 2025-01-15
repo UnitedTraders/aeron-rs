@@ -63,13 +63,14 @@ impl TerminateDriverFlyweight {
     }
 
     #[inline]
-    pub unsafe fn set_token_buffer(&mut self, token_buffer: *const u8, token_length: Index) {
-        (*self.m_struct).token_length = token_length;
-        if token_length > 0 {
-            self.correlated_message_flyweight.flyweight.put_bytes(
-                TERMINATE_DRIVER_LENGTH,
-                std::slice::from_raw_parts(token_buffer, token_length as usize),
-            )
+    pub fn set_token_buffer(&mut self, token_buffer: &[u8]) {
+        unsafe {
+            (*self.m_struct).token_length = token_buffer.len() as i32;
+        }
+        if !token_buffer.is_empty() {
+            self.correlated_message_flyweight
+                .flyweight
+                .put_bytes(TERMINATE_DRIVER_LENGTH, token_buffer)
         }
     }
 

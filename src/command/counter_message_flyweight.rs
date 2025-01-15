@@ -98,11 +98,9 @@ impl CounterMessageFlyweight {
     pub fn key_length(&self) -> i32 {
         let mut length: i32 = 0;
 
-        self.correlated_message_flyweight.flyweight.get_bytes(
-            self.key_length_offset(),
-            &mut length as *mut i32 as *mut u8,
-            I32_SIZE,
-        );
+        self.correlated_message_flyweight
+            .flyweight
+            .get_bytes(self.key_length_offset(), &mut length);
 
         length
     }

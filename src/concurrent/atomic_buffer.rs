@@ -9,8 +9,8 @@ use crate::utils::types::{Index, I32_SIZE, I64_SIZE};
 
 /// Buffer allocated on cache-aligned memory boundaries. This struct owns the memory it is pointing to
 pub struct AlignedBuffer {
-    pub ptr: *mut u8,
-    pub len: Index,
+    ptr: *mut u8,
+    len: Index,
 }
 
 impl AlignedBuffer {
@@ -20,11 +20,25 @@ impl AlignedBuffer {
             len,
         }
     }
+
+    pub fn ptr(&self) -> *mut u8 {
+        self.ptr
+    }
+
+    pub fn len(&self) -> Index {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 impl Drop for AlignedBuffer {
     fn drop(&mut self) {
-        dealloc_buffer_aligned(self.ptr, self.len)
+        unsafe {
+            dealloc_buffer_aligned(self.ptr, self.len);
+        }
     }
 }
 
@@ -132,7 +146,7 @@ impl AtomicBuffer {
 
     #[inline]
     pub fn bounds_check(&self, idx: Index, len: Index) {
-        assert!((idx + len as Index) <= self.len)
+        assert!((idx + len) <= self.len)
     }
 
     #[inline]
@@ -249,13 +263,13 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    pub fn get_bytes(&self, offset: Index, dest: *mut u8, length: Index) {
-        self.bounds_check(offset, length);
+    pub fn get_bytes<T>(&self, offset: Index, dest: &mut T) {
+        let length = std::mem::size_of::<T>();
+        self.bounds_check(offset, length as Index);
 
         unsafe {
             let ptr = self.at(offset);
-            std::ptr::copy(ptr, dest, length as usize);
+            std::ptr::copy(ptr, dest as *mut T as *mut _, length);
         }
     }
 

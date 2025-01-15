@@ -34,8 +34,10 @@ pub struct BufferBuilder {
 
 impl Drop for BufferBuilder {
     fn drop(&mut self) {
-        // Free the memory we own
-        dealloc_buffer_aligned(self.buffer, self.capacity)
+        unsafe {
+            // Free the memory we own
+            dealloc_buffer_aligned(self.buffer, self.capacity);
+        }
     }
 }
 

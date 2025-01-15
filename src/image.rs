@@ -848,7 +848,7 @@ mod tests {
         pub fn new(log_buf: &AlignedBuffer, src_buf: &AlignedBuffer, cnt_buf: &AlignedBuffer) -> Self {
             let counters_buffer = AtomicBuffer::from_aligned(cnt_buf);
 
-            let l_log_buffers = unsafe { Arc::new(LogBuffers::new(log_buf.ptr, log_buf.len as isize, TERM_LENGTH)) };
+            let l_log_buffers = unsafe { Arc::new(LogBuffers::new(log_buf.ptr(), log_buf.len() as isize, TERM_LENGTH)) };
 
             let ret = Self {
                 term_buffers: [

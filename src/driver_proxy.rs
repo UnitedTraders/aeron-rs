@@ -290,15 +290,13 @@ impl DriverProxy {
         Ok(correlation_id)
     }
 
-    pub fn terminate_driver(&self, token_buffer: *const u8, token_length: Index) -> Result<(), AeronError> {
+    pub fn terminate_driver(&self, token_buffer: &[u8]) -> Result<(), AeronError> {
         self.write_command_to_driver(|buffer, length| {
             let mut request = TerminateDriverFlyweight::new(buffer, 0);
 
             request.set_client_id(self.client_id);
             request.set_correlation_id(-1);
-            unsafe {
-                request.set_token_buffer(token_buffer, token_length);
-            }
+            request.set_token_buffer(token_buffer);
 
             *length = request.length();
 
