@@ -1,6 +1,6 @@
 [package]
 name = "aeron-rs"
-version = "0.1.6"
+version = "0.1.7"
 authors = [
     "Denis Komissarov <denisxor@gmail.com>",
     "Kirill Karbushev <kiriosk@yandex.ru>",
