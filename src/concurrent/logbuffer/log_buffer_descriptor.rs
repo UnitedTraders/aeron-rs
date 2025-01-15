@@ -45,8 +45,9 @@ pub const PARTITION_COUNT: Index = 3;
  *  +----------------------------+
  * </pre>
  */
-
 pub const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
+
+pub const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
 
 /**
  * <pre>
@@ -98,9 +99,6 @@ pub const LOG_META_DATA_SECTION_INDEX: Index = PARTITION_COUNT;
  *  +---------------------------------------------------------------+
  * </pre>
  */
-
-pub const LOG_DEFAULT_FRAME_HEADER_MAX_LENGTH: Index = CACHE_LINE_LENGTH * 2;
-
 #[repr(C, packed(4))]
 pub struct LogMetaDataDefn {
     term_tail_counters: [i64; PARTITION_COUNT as usize],

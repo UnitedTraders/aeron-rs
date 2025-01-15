@@ -20,7 +20,7 @@ use crate::utils::types::Index;
 
 pub const SETUP_DEFN_SIZE: Index = std::mem::size_of::<SetupDefn>() as Index;
 
-/**
+/*
  * HeaderFlyweight for Setup Frames
  * <p>
  * <a href="https://github.com/real-logic/Aeron/wiki/Protocol-Specification#stream-setup">Stream Setup</a>

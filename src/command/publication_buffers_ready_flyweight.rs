@@ -48,7 +48,6 @@ use crate::utils::types::Index;
  * ...                                                             |
  * +---------------------------------------------------------------+
  */
-
 #[repr(C, packed(4))]
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct PublicationBuffersReadyDefn {

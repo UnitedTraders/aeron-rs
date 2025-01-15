@@ -21,9 +21,9 @@ pub type Index = i32;
 
 // These are types USED inside "raw bytes packed" buffers and thus their size can't be changed
 pub type Moment = u64;
-pub const MAX_MOMENT: Moment = std::u64::MAX;
+pub const MAX_MOMENT: Moment = u64::MAX;
 
-const INDEX_MAX_USIZE: usize = ::std::isize::MAX as usize;
+const INDEX_MAX_USIZE: usize = isize::MAX as usize;
 
 pub fn clamp_to_index(sz: usize) -> Index {
     sz.min(INDEX_MAX_USIZE) as Index

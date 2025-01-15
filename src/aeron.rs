@@ -47,7 +47,6 @@ use crate::utils::types::Moment;
  * <p>
  * A client application requires only one Aeron object per Media Driver.
  */
-
 #[allow(dead_code)]
 pub struct Aeron {
     session_id_distribution: rand::distributions::Uniform<i32>,
@@ -86,7 +85,6 @@ impl Aeron {
      *
      * @param context for configuration of the client.
      */
-
     pub fn new(context: Context) -> Result<Self, AeronError> {
         // Most of Aeron internal field will be represented as Arc's to avoid self referencing.
         let cnc_buf = Self::map_cnc_file(&context)?;

@@ -121,7 +121,7 @@ mod tests {
     // const LOG_BUFFER_UNALIGNED_CAPACITY: Index = log_buffer_descriptor::TERM_MIN_LENGTH +
     // frame_descriptor::FRAME_ALIGNMENT - 1; const HDR_LENGTH: Index = data_frame_header::LENGTH;
     const INITIAL_TERM_ID: i32 = 7;
-    const INT_MAX: i32 = std::i32::MAX;
+    const INT_MAX: i32 = i32::MAX;
 
     macro_rules! gen_test_data {
         ($log_buffer:ident, $fragment_header:ident) => {

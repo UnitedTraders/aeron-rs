@@ -51,6 +51,7 @@ impl FileHandle {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&file_path)
             .map_err(AeronError::MemMappedFileError)?;
 
@@ -65,7 +66,7 @@ impl FileHandle {
 #[derive(Debug)]
 pub struct MemoryMappedFile {
     ptr: *mut u8,
-    fd: FileHandle,
+    _fd: FileHandle,
     memory_size: Index,
 }
 
@@ -99,7 +100,7 @@ impl MemoryMappedFile {
 
         let mmf = Self {
             ptr: fd.mmap.as_mut_ptr(),
-            fd,
+            _fd: fd,
             memory_size: length,
         };
 
@@ -186,6 +187,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&file_path)
             .unwrap();
 

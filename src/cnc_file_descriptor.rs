@@ -69,7 +69,6 @@ use crate::utils::{bit_utils, misc};
  *  +---------------------------------------------------------------+
  * </pre>
  */
-
 pub static CNC_FILE: &str = "cnc.dat";
 pub const CNC_VERSION: i32 = 16;
 

@@ -236,7 +236,7 @@ impl ManyToOneRingBuffer {
     // Read all messages
     #[inline]
     pub fn read_all<F: FnMut(AeronCommand, AtomicBuffer)>(&self, handler: F) -> i32 {
-        self.read(handler, std::i32::MAX)
+        self.read(handler, i32::MAX)
     }
 
     #[inline]

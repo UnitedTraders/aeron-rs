@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::broadcast::BroadcastTransmitError;
-use crate::utils::types::Index;
-
-/**
+/*!
  *   0                   1                   2                   3
  *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -29,6 +26,9 @@ use crate::utils::types::Index;
  * ...                                                              |
  *  +---------------------------------------------------------------+
  */
+
+use crate::concurrent::broadcast::BroadcastTransmitError;
+use crate::utils::types::Index;
 
 const LENGTH_OFFSET: Index = 0;
 const TYPE_OFFSET: Index = 4;

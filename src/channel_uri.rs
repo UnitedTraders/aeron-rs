@@ -120,7 +120,7 @@ impl ChannelUri {
 
     #[inline]
     pub fn contains_key(&self, key: &str) -> bool {
-        self.params.get(key).is_some()
+        self.params.contains_key(key)
     }
 
     pub fn parse(uri: &str) -> Result<Arc<Mutex<Self>>, AeronError> {

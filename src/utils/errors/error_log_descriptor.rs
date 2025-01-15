@@ -18,7 +18,7 @@ use lazy_static::lazy_static;
 
 use crate::utils::types::{Index, I64_SIZE};
 
-/**
+/*
  * Distinct record of error observations. Rather than grow a record indefinitely when many errors of the same type
  * are logged, this log takes the approach of only recording distinct errors of the same type type and stack trace
  * and keeping a count and time of observation so that the record only grows with new distinct observations.

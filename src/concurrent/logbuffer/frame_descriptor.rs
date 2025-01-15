@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::data_frame_header;
-use crate::utils::errors::{AeronError, IllegalStateError};
-use crate::utils::types::Index;
-
-/**
+/*!
  * Description of the structure for message framing in a log buffer.
  *
  * All messages are logged in frames that have a minimum header layout as follows plus a reserve then
@@ -46,6 +41,11 @@ use crate::utils::types::Index;
  * The (B)egin and (E)nd flags are used for message fragmentation. (R) is for reserved bit.
  * Both are set for a message that does not span frames.
  */
+
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::data_frame_header;
+use crate::utils::errors::{AeronError, IllegalStateError};
+use crate::utils::types::Index;
 
 pub const FRAME_ALIGNMENT: Index = 32;
 

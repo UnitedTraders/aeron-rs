@@ -109,7 +109,7 @@ impl<'a> CallbackGuard<'a> {
     }
 }
 
-impl<'a> Drop for CallbackGuard<'a> {
+impl Drop for CallbackGuard<'_> {
     fn drop(&mut self) {
         *self.is_in_callback = false;
     }

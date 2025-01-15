@@ -24,43 +24,42 @@ use crate::utils::bit_utils;
 use crate::utils::misc::CACHE_LINE_LENGTH;
 use crate::utils::types::{Index, I32_SIZE};
 
-/**
- * A report of loss events on a message stream.
- * <p>
- * The provided AtomicBuffer can wrap a memory-mapped file so logging can be out of process. This provides
- * the benefit that if a crash or lockup occurs then the log can be read externally without loss of data.
- * <pre>
- *   0                   1                   2                   3
- *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |R|                    Observation Count                        |
- *  |                                                               |
- *  +-+-------------------------------------------------------------+
- *  |R|                     Total Bytes Lost                        |
- *  |                                                               |
- *  +---------------------------------------------------------------+
- *  |                 First Observation Timestamp                   |
- *  |                                                               |
- *  +---------------------------------------------------------------+
- *  |                  Last Observation Timestamp                   |
- *  |                                                               |
- *  +---------------------------------------------------------------+
- *  |                          Session ID                           |
- *  +---------------------------------------------------------------+
- *  |                           Stream ID                           |
- *  +---------------------------------------------------------------+
- *  |                 Channel encoded in US-ASCII                  ...
- * ...                                                              |
- *  +---------------------------------------------------------------+
- *  |                  Source encoded in US-ASCII                  ...
- * ...                                                              |
- *  +---------------------------------------------------------------+
- * </pre>
- */
-
 pub mod loss_report_descriptor {
     use crate::utils::types::Index;
 
+    /**
+     * A report of loss events on a message stream.
+     * <p>
+     * The provided AtomicBuffer can wrap a memory-mapped file so logging can be out of process. This provides
+     * the benefit that if a crash or lockup occurs then the log can be read externally without loss of data.
+     * <pre>
+     *   0                   1                   2                   3
+     *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *  |R|                    Observation Count                        |
+     *  |                                                               |
+     *  +-+-------------------------------------------------------------+
+     *  |R|                     Total Bytes Lost                        |
+     *  |                                                               |
+     *  +---------------------------------------------------------------+
+     *  |                 First Observation Timestamp                   |
+     *  |                                                               |
+     *  +---------------------------------------------------------------+
+     *  |                  Last Observation Timestamp                   |
+     *  |                                                               |
+     *  +---------------------------------------------------------------+
+     *  |                          Session ID                           |
+     *  +---------------------------------------------------------------+
+     *  |                           Stream ID                           |
+     *  +---------------------------------------------------------------+
+     *  |                 Channel encoded in US-ASCII                  ...
+     * ...                                                              |
+     *  +---------------------------------------------------------------+
+     *  |                  Source encoded in US-ASCII                  ...
+     * ...                                                              |
+     *  +---------------------------------------------------------------+
+     * </pre>
+     */
     #[repr(C, packed(4))]
     #[derive(Copy, Clone)]
     pub struct LossReportEntryDefn {

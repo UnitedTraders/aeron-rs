@@ -54,7 +54,6 @@ use crate::utils::types::{Index, I32_SIZE};
  *...                                                              |
  * +---------------------------------------------------------------+
  */
-
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 pub(crate) struct ImageBuffersReadyDefn {

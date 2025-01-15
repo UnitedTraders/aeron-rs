@@ -45,7 +45,6 @@ pub const STATUS_MESSAGE_DEFN_SIZE: Index = std::mem::size_of::<StatusMessageDef
  *  ...                                                              |
  *   +---------------------------------------------------------------+
  */
-
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 pub struct StatusMessageDefn {

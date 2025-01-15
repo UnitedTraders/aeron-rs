@@ -42,7 +42,6 @@ use crate::utils::types::Index;
  *...                                                              |
  * +---------------------------------------------------------------+
  */
-
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 pub(crate) struct PublicationMessageDefn {

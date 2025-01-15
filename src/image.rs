@@ -69,7 +69,7 @@ pub enum ControlledPollAction {
 pub struct Image {
     source_identity: CString,
     log_buffers: Arc<LogBuffers>,
-    exception_handler: Box<dyn ErrorHandler + Send>,
+    _exception_handler: Box<dyn ErrorHandler + Send>,
     term_buffers: Vec<AtomicBuffer>,
     subscriber_position: UnsafeBufferPosition,
     header: Header,
@@ -123,7 +123,7 @@ impl Image {
             log_buffers,
             source_identity,
             is_closed: Arc::new(AtomicBool::new(false)),
-            exception_handler,
+            _exception_handler: exception_handler,
             correlation_id,
             subscription_registration_id,
             session_id,
@@ -412,7 +412,6 @@ impl Image {
      *
      * @see controlled_poll_fragment_handler_t
      */
-
     pub fn controlled_poll(
         &mut self,
         mut fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError>,
@@ -500,7 +499,6 @@ impl Image {
      * @return the number of fragments that have been consumed.
      * @see controlled_poll_fragment_handler_t
      */
-
     pub fn bounded_controlled_poll(
         &mut self,
         mut fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError>,
@@ -584,7 +582,6 @@ impl Image {
      * @return the resulting position after the scan terminates which is a complete message.
      * @see controlled_poll_fragment_handler_t
      */
-
     pub fn controlled_peek(
         &mut self,
         initial_position: i64,
@@ -678,7 +675,6 @@ impl Image {
      *
      * @see block_handler_t
      */
-
     pub fn block_poll(&self, block_handler: BlockHandler, block_length_limit: Index) -> i32 {
         if !self.is_closed() {
             let position = self.subscriber_position.get();
@@ -1028,7 +1024,7 @@ mod tests {
 
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
 
-        let fragments = image.poll(&mut fragment_handler_check_len, std::i32::MAX);
+        let fragments = image.poll(&mut fragment_handler_check_len, i32::MAX);
 
         assert_eq!(fragments, 1);
         assert_eq!(
@@ -1070,7 +1066,7 @@ mod tests {
 
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
 
-        let fragments = image.poll(&mut fragment_handler_check_len, std::i32::MAX);
+        let fragments = image.poll(&mut fragment_handler_check_len, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1112,7 +1108,7 @@ mod tests {
 
         image_test.insert_data_frame(active_term_id, ImageTest::offset_of_frame(message_index));
 
-        let fragments = image.poll(&mut fragment_handler_check_len, std::i32::MAX);
+        let fragments = image.poll(&mut fragment_handler_check_len, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1180,7 +1176,7 @@ mod tests {
         );
 
         image.close();
-        assert_eq!(image.poll(&mut fragment_handler_check_len, std::i32::MAX), 0);
+        assert_eq!(image.poll(&mut fragment_handler_check_len, i32::MAX), 0);
     }
 
     #[test]
@@ -1217,7 +1213,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, std::i32::MAX);
+        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, i32::MAX);
         assert_eq!(fragments, 0);
         assert_eq!(image_test.subscriber_position.get(), initial_position);
         assert_eq!(image.position(), initial_position);
@@ -1257,7 +1253,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, std::i32::MAX);
+        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), max_position);
         assert_eq!(image.position(), max_position);
@@ -1297,7 +1293,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, std::i32::MAX);
+        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), max_position);
         assert_eq!(image.position(), max_position);
@@ -1331,7 +1327,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, initial_offset);
         image_test.insert_padding_frame(INITIAL_TERM_ID, initial_offset + *ALIGNED_FRAME_LENGTH);
 
-        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, std::i32::MAX);
+        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), TERM_LENGTH as i64);
         assert_eq!(image.position(), TERM_LENGTH as i64);
@@ -1346,7 +1342,7 @@ mod tests {
         let initial_offset = TERM_LENGTH - (*ALIGNED_FRAME_LENGTH * 2);
         let initial_position =
             log_buffer_descriptor::compute_position(INITIAL_TERM_ID, initial_offset, *POSITION_BITS_TO_SHIFT, INITIAL_TERM_ID);
-        let max_position = std::i32::MAX as i64 + 1000;
+        let max_position = i32::MAX as i64 + 1000;
 
         image_test.subscriber_position.set(initial_position);
         let mut image = Image::create(
@@ -1365,7 +1361,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, initial_offset);
         image_test.insert_padding_frame(INITIAL_TERM_ID, initial_offset + *ALIGNED_FRAME_LENGTH);
 
-        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, std::i32::MAX);
+        let fragments = image.bounded_poll(fragment_handler_check_len, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), TERM_LENGTH as i64);
         assert_eq!(image.position(), TERM_LENGTH as i64);
@@ -1401,7 +1397,7 @@ mod tests {
         assert_eq!(image_test.subscriber_position.get(), initial_position);
         assert_eq!(image.position(), initial_position);
 
-        let fragments = image.controlled_poll(controlled_poll_handler, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_poll_handler, i32::MAX);
         assert_eq!(fragments, 0);
         assert_eq!(image_test.subscriber_position.get(), initial_position);
         assert_eq!(image.position(), initial_position);
@@ -1438,7 +1434,7 @@ mod tests {
 
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
 
-        let fragments = image.controlled_poll(controlled_poll_handler_continue, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_poll_handler_continue, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1479,7 +1475,7 @@ mod tests {
 
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
 
-        let fragments = image.controlled_poll(controlled_poll_handler_abort, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_poll_handler_abort, i32::MAX);
         assert_eq!(fragments, 0);
         assert_eq!(image_test.subscriber_position.get(), initial_position);
         assert_eq!(image.position(), initial_position);
@@ -1518,7 +1514,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.controlled_poll(controlled_poll_handler_break, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_poll_handler_break, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1560,7 +1556,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.controlled_poll(controlled_poll_handler_commit, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_poll_handler_commit, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1602,7 +1598,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.controlled_poll(controlled_handler_cont_cont, std::i32::MAX);
+        let fragments = image.controlled_poll(controlled_handler_cont_cont, i32::MAX);
         assert_eq!(fragments, 2);
         assert_eq!(
             image_test.subscriber_position.get(),
@@ -1645,7 +1641,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_controlled_poll(controlled_poll_handler, max_position, std::i32::MAX);
+        let fragments = image.bounded_controlled_poll(controlled_poll_handler, max_position, i32::MAX);
         assert_eq!(fragments, 0);
         assert_eq!(image_test.subscriber_position.get(), initial_position);
         assert_eq!(image.position(), initial_position);
@@ -1685,7 +1681,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, std::i32::MAX);
+        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), max_position);
         assert_eq!(image.position(), max_position);
@@ -1725,7 +1721,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index));
         image_test.insert_data_frame(INITIAL_TERM_ID, ImageTest::offset_of_frame(message_index + 1));
 
-        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, std::i32::MAX);
+        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), max_position);
         assert_eq!(image.position(), max_position);
@@ -1760,7 +1756,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, initial_offset);
         image_test.insert_padding_frame(INITIAL_TERM_ID, initial_offset + *ALIGNED_FRAME_LENGTH);
 
-        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, std::i32::MAX);
+        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), TERM_LENGTH as i64);
         assert_eq!(image.position(), TERM_LENGTH as i64);
@@ -1776,7 +1772,7 @@ mod tests {
         let initial_offset = TERM_LENGTH - (*ALIGNED_FRAME_LENGTH * 2);
         let initial_position =
             log_buffer_descriptor::compute_position(INITIAL_TERM_ID, initial_offset, *POSITION_BITS_TO_SHIFT, INITIAL_TERM_ID);
-        let max_position = std::i32::MAX as i64 + 1000;
+        let max_position = i32::MAX as i64 + 1000;
 
         image_test.subscriber_position.set(initial_position);
         let mut image = Image::create(
@@ -1795,7 +1791,7 @@ mod tests {
         image_test.insert_data_frame(INITIAL_TERM_ID, initial_offset);
         image_test.insert_padding_frame(INITIAL_TERM_ID, initial_offset + *ALIGNED_FRAME_LENGTH);
 
-        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, std::i32::MAX);
+        let fragments = image.bounded_controlled_poll(controlled_poll_handler_continue, max_position, i32::MAX);
         assert_eq!(fragments, 1);
         assert_eq!(image_test.subscriber_position.get(), TERM_LENGTH as i64);
         assert_eq!(image.position(), TERM_LENGTH as i64);

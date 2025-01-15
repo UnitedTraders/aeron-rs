@@ -30,7 +30,6 @@ use crate::utils::types::Index;
  *  |                  Channel Status Indicator ID                  |
  *  +---------------------------------------------------------------+
  */
-
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
 pub(crate) struct SubscriptionReadyDefn {

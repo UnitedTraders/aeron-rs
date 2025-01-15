@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+/*!
+ * HeaderFlyweight for Data Header
+ * <p>
+ * <a href="https://github.com/real-logic/Aeron/wiki/Protocol-Specification#data-frame">Data Frame</a>
+ */
+
 use crate::concurrent::atomic_buffer::AtomicBuffer;
 use crate::protocol::header_flyweight::{HeaderDefn, HeaderFlyweight};
 use crate::utils::types::Index;
 
 pub const DATA_HEADER_DEFN_SIZE: Index = std::mem::size_of::<DataHeaderDefn>() as Index;
-
-/**
- * HeaderFlyweight for Data Header
- * <p>
- * <a href="https://github.com/real-logic/Aeron/wiki/Protocol-Specification#data-frame">Data Frame</a>
- */
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]

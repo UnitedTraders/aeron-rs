@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-use crate::concurrent::counters::{self, CountersReader};
-
-/**
+/*!
  * The heartbeat as a timestamp for an entity to indicate liveness.
  * <p>
  * Key has the following layout:
@@ -29,6 +27,8 @@ use crate::concurrent::counters::{self, CountersReader};
  *  +---------------------------------------------------------------+
  * </pre>
  */
+
+use crate::concurrent::counters::{self, CountersReader};
 
 /// Counter type id of a client heartbeat timestamp
 pub const CLIENT_HEARTBEAT_TYPE_ID: i32 = 11;

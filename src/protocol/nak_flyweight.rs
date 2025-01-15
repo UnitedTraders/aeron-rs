@@ -20,7 +20,7 @@ use crate::utils::types::Index;
 
 pub const NAK_DEFN_SIZE: Index = std::mem::size_of::<NakDefn>() as Index;
 
-/**
+/*
  * Data recovery retransmit message:
  *
  * https://github.com/real-logic/Aeron/wiki/Protocol-Specification#data-recovery-via-retransmit-request

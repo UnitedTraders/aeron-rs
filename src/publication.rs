@@ -50,7 +50,6 @@ pub trait BulkPubSize {
  * @see Aeron#add_publication
  * @see Aeron#findPublication
  */
-
 #[allow(dead_code)]
 pub struct Publication {
     conductor: Arc<Mutex<ClientConductor>>,
@@ -428,7 +427,7 @@ impl Publication {
         self.offer_part(buffer, 0, buffer.capacity())
     }
 
-    /**
+    /*
      * Non-blocking publish of buffers containing a message.
      *
      * @param startBuffer containing part of the message.
@@ -441,7 +440,7 @@ impl Publication {
     //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) ->
     // Result<i64, AeronError> { }
 
-    /**
+    /*
      * Non-blocking publish of array of buffers containing a message.
      *
      * @param buffers containing parts of the message.
@@ -454,6 +453,7 @@ impl Publication {
     //pub fn offer_arr(&self, buffers[]: AtomicBuffer, length: Index, reserved_value_supplier: OnReservedValueSupplier) ->
     // Result<i64, AeronError> {    offer(buffers, buffers + length, reserved_value_supplier)
     //}
+
     /**
      * Non-blocking publish of array of buffers containing a message.
      * The buffers are in vector and will be appended to the log file in the sequence they appear in the vec.
@@ -470,7 +470,7 @@ impl Publication {
     ) -> Result<u64, AeronError> {
         let length: Index = buffers.iter().map(|&ab| ab.capacity()).sum();
 
-        if length == std::i32::MAX {
+        if length == i32::MAX {
             return Err(IllegalStateError::LengthOverflow(length).into());
         }
 
@@ -1077,7 +1077,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i32::MAX as i64);
 
         let position = test.publication.position();
         assert!(position.is_ok());
@@ -1118,7 +1118,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i32::MAX as i64);
 
         let mut buffer_claim = BufferClaim::default();
 

@@ -84,6 +84,7 @@ impl LogBuffers {
         Ok(Self {
             memory_mapped_file: Some(memory_mapped_file),
             buffers: [
+                #[allow(clippy::get_first)]
                 *buffers.get(0).expect("Log buffers get(0) failed"),
                 *buffers.get(1).expect("Log buffers get(1) failed"),
                 *buffers.get(2).expect("Log buffers get(2) failed"),

@@ -14,18 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::VecDeque;
-use std::ffi::CString;
-use std::fmt;
-
-use lazy_static::lazy_static;
-
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::utils::errors::*;
-use crate::utils::misc::CACHE_LINE_LENGTH;
-use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
-
-/**
+/*!
  * Reads the counters metadata and values buffers.
  *
  * This code is threadsafe and can be used across threads.
@@ -69,6 +58,17 @@ use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZ
  * ...                                                              |
  *  +---------------------------------------------------------------+
  */
+
+use std::collections::VecDeque;
+use std::ffi::CString;
+use std::fmt;
+
+use lazy_static::lazy_static;
+
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::utils::errors::*;
+use crate::utils::misc::CACHE_LINE_LENGTH;
+use crate::utils::types::{Index, Moment, I32_SIZE, I64_SIZE, MAX_MOMENT, U64_SIZE};
 
 pub const NULL_COUNTER_ID: i32 = -1;
 pub const RECORD_UNUSED: i32 = 0;
@@ -343,8 +343,8 @@ impl CountersManager {
 
     /// This fn allocates counter with given type, key and label.
     /// The keys can be provided by two ways:
-    /// 1. through key_opt param
-    /// 2. could be generated and written in-place by key_func param
+    ///     1. through key_opt param
+    ///     2. could be generated and written in-place by key_func param
     /// If both key_opt and key_func are specified then AeronError is returned.
     pub fn allocate_opt(
         &mut self,
@@ -495,7 +495,7 @@ mod tests {
     use crate::utils;
 
     const NUM_COUNTERS: Index = 4;
-    // const INT_MAX: i32 = std::i32::MAX;
+    // const INT_MAX: i32 = i32::MAX;
     const FREE_TO_REUSE_TIMEOUT: u64 = 1000;
 
     macro_rules! gen_counters_manager {

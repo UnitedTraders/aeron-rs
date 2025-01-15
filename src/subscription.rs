@@ -152,7 +152,6 @@ impl Subscription {
      * @return number of Image s that have reached End of Stream.
      * @deprecated
      */
-
     pub fn poll_end_of_streams(&self, end_of_stream_handler: EndOfStreamHandler) -> i32 {
         self.image_list
             .load()
@@ -207,7 +206,6 @@ impl Subscription {
      *
      * @see fragment_handler_t
      */
-
     pub fn poll(&mut self, fragment_handler: &mut impl FnMut(&AtomicBuffer, Index, Index, &Header), fragment_limit: i32) -> i32 {
         self.poll_inner(fragment_limit, |image, fragments_left| {
             image.poll(fragment_handler, fragments_left)
@@ -303,7 +301,6 @@ impl Subscription {
      * @param index in the array
      * @return image at given index or exception if out of range.
      */
-
     pub fn image_by_index(&mut self, index: usize) -> Option<&mut Image> {
         let list = self.image_list.load_mut();
         list.get_mut(index)

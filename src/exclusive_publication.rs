@@ -14,25 +14,7 @@
  * limitations under the License.
  */
 
-use std::ffi::CString;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-
-use crate::client_conductor::ClientConductor;
-use crate::concurrent::atomic_buffer::AtomicBuffer;
-use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
-use crate::concurrent::logbuffer::exclusive_term_appender::ExclusiveTermAppender;
-use crate::concurrent::logbuffer::header::HeaderWriter;
-use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier};
-use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
-use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
-use crate::concurrent::status::status_indicator_reader;
-use crate::utils::bit_utils::number_of_trailing_zeroes;
-use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
-use crate::utils::log_buffers::LogBuffers;
-use crate::utils::types::Index;
-
-/**
+/*!
  * Aeron Publisher API for sending messages to subscribers of a given channel and streamId pair.
  * ExclusivePublications each get their own session id so multiple can be concurrently active on the same media
  * driver as independent streams.
@@ -51,6 +33,24 @@ use crate::utils::types::Index;
  * @see Aeron#addExclusivePublication(String, int)
  * @see BufferClaim
  */
+
+use std::ffi::CString;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
+use crate::client_conductor::ClientConductor;
+use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::logbuffer::buffer_claim::BufferClaim;
+use crate::concurrent::logbuffer::exclusive_term_appender::ExclusiveTermAppender;
+use crate::concurrent::logbuffer::header::HeaderWriter;
+use crate::concurrent::logbuffer::term_appender::{default_reserved_value_supplier, OnReservedValueSupplier};
+use crate::concurrent::logbuffer::{data_frame_header, frame_descriptor, log_buffer_descriptor};
+use crate::concurrent::position::{ReadablePosition, UnsafeBufferPosition};
+use crate::concurrent::status::status_indicator_reader;
+use crate::utils::bit_utils::number_of_trailing_zeroes;
+use crate::utils::errors::{AeronError, IllegalArgumentError, IllegalStateError};
+use crate::utils::log_buffers::LogBuffers;
+use crate::utils::types::Index;
 
 #[allow(dead_code)]
 pub struct ExclusivePublication {
@@ -442,7 +442,7 @@ impl ExclusivePublication {
         self.offer_part(buffer, 0, buffer.capacity())
     }
 
-    /**
+    /*
      * Non-blocking publish of buffers containing a message.
      *
      * @param startBuffer containing part of the message.
@@ -455,7 +455,7 @@ impl ExclusivePublication {
     //pub fn offer_buf_iter<T>(&self, startBuffer: T, lastBuffer: T, reserved_value_supplier: OnReservedValueSupplier) ->
     // Result<i64, AeronError> { }
 
-    /**
+    /*
      * Non-blocking publish of array of buffers containing a message.
      *
      * @param buffers containing parts of the message.
@@ -950,7 +950,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i32::MAX as i64);
         test.create_pub();
 
         let position = test.publication.position();
@@ -972,7 +972,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i32::MAX as i64);
         test.create_pub();
 
         let position = test.publication.position();
@@ -1013,7 +1013,7 @@ mod tests {
             term_tail_counter_offset(active_index),
             raw_tail_value(TERM_ID_1, initial_position as i64),
         );
-        test.publication_limit.set(i32::max_value() as i64);
+        test.publication_limit.set(i32::MAX as i64);
         test.create_pub();
 
         let mut buffer_claim = BufferClaim::default();
