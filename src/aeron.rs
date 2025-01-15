@@ -172,8 +172,8 @@ impl Aeron {
      * @param context for configuration of the client.
      * @return the new Aeron instance connected to the Media Driver.
      */
-    pub fn connect_ctx(context: Context) -> Arc<Result<Aeron, AeronError>> {
-        Arc::new(Aeron::new(context))
+    pub fn connect_ctx(context: Context) -> Result<Aeron, AeronError> {
+        Aeron::new(context)
     }
 
     /**
@@ -183,8 +183,8 @@ impl Aeron {
      *
      * @return the new Aeron instance connected to the Media Driver.
      */
-    pub fn connect() -> Arc<Result<Aeron, AeronError>> {
-        Arc::new(Aeron::new(Context::new()))
+    pub fn connect() -> Result<Aeron, AeronError> {
+        Aeron::new(Context::new())
     }
 
     /**
