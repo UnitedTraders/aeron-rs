@@ -544,9 +544,13 @@ mod tests {
             state: 1,
             type_id: 2,
             free_to_reuse_deadline: 3,
-            key: CounterMetaDataKey { key: [1; 112] },
+            key: CounterMetaDataKey {
+                key: [1; (2 * CACHE_LINE_LENGTH - 2 * I32_SIZE - U64_SIZE) as usize],
+            },
             label_length: 4,
-            label: CounterMetaDataLabel { val: [68; 380] },
+            label: CounterMetaDataLabel {
+                val: [68; (6 * CACHE_LINE_LENGTH - I32_SIZE) as usize],
+            },
         };
 
         metadata_buffer.put::<CounterMetaDataDefn>(0, meta);
