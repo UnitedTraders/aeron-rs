@@ -62,9 +62,11 @@ pub fn stop_aeron_md(driver_proc: Child) {
     println!("Killing aeronmd with pid {}", pid);
 
     Command::new("kill")
-        .args(&["-2", &pid]) // Send SIGINT
+        .args(["-2", &pid]) // Send SIGINT
         .spawn()
-        .expect("problem while sending SIGINT to aeronmd");
+        .expect("problem while sending SIGINT to aeronmd")
+        .wait()
+        .expect("failed to kill aeronmd");
 
     // Let some time for driver to shutdown prior startup in the next test
     std::thread::sleep(Duration::from_millis(1000));
