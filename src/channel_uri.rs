@@ -100,20 +100,12 @@ impl ChannelUri {
 
     #[inline]
     pub fn get(&self, key: &str) -> &str {
-        if let Some(value) = self.params.get(key) {
-            value
-        } else {
-            ""
-        }
+        self.params.get(key).map(String::as_str).unwrap_or_default()
     }
 
     #[inline]
     pub fn get_or_default<'a>(&'a self, key: &str, default_value: &'a str) -> &'a str {
-        if let Some(value) = self.params.get(key) {
-            value
-        } else {
-            default_value
-        }
+        self.params.get(key).map(String::as_str).unwrap_or(default_value)
     }
 
     #[inline]
@@ -123,11 +115,7 @@ impl ChannelUri {
 
     #[inline]
     pub fn remove(&mut self, key: &str) -> String {
-        if let Some(result) = self.params.remove(key) {
-            result
-        } else {
-            String::default()
-        }
+        self.params.remove(key).unwrap_or_default()
     }
 
     #[inline]
@@ -136,21 +124,18 @@ impl ChannelUri {
     }
 
     pub fn parse(uri: &str) -> Result<Arc<Mutex<Self>>, AeronError> {
-        let mut position = 0;
-        let prefix;
+        let orig_uri = uri;
+        let (uri, prefix) = orig_uri
+            .strip_prefix(SPY_PREFIX)
+            .map(|uri| (uri, SPY_QUALIFIER))
+            .unwrap_or((orig_uri, ""));
+        let uri = uri
+            .strip_prefix(AERON_PREFIX)
+            .ok_or_else(|| IllegalArgumentError::UriMustStartWithAeron {
+                uri: orig_uri.to_string(),
+            })?;
 
-        if uri.starts_with(SPY_PREFIX) {
-            prefix = SPY_QUALIFIER;
-            position = SPY_PREFIX.len();
-        } else {
-            prefix = "";
-        }
-
-        if !&uri[position..].starts_with(AERON_PREFIX) {
-            return Err(IllegalArgumentError::UriMustStartWithAeron { uri: uri.to_string() }.into());
-        } else {
-            position += AERON_PREFIX.len();
-        }
+        let position = AERON_PREFIX.len() + if prefix.is_empty() { 0 } else { SPY_PREFIX.len() };
 
         let mut builder = String::new();
         let mut params: HashMap<String, String> = HashMap::new();
@@ -158,20 +143,18 @@ impl ChannelUri {
         let mut key = String::new();
         let mut state = State::Media;
 
-        for i in position..uri.len() {
-            let c: char = uri.chars().nth(i).unwrap();
+        for (index, c) in uri.chars().enumerate() {
             match state {
                 State::Media => match c {
                     '?' => {
-                        media = builder.clone();
-                        builder.clear();
+                        media = std::mem::take(&mut builder);
                         state = State::ParamsKey;
                     },
                     '=' | '|' | ':' => {
                         return Err(IllegalStateError::EncounteredCharacterWithinMediaDefinition {
                             c,
-                            index: i,
-                            uri: uri.to_string(),
+                            index: index + position,
+                            uri: orig_uri.to_string(),
                         }
                         .into());
                     },
@@ -181,19 +164,18 @@ impl ChannelUri {
                     if c == '=' {
                         if builder.is_empty() {
                             return Err(IllegalStateError::EmptyKeyNotAllowed {
-                                index: i,
-                                uri: uri.to_string(),
+                                index: index + position,
+                                uri: orig_uri.to_string(),
                             }
                             .into());
                         }
-                        key = builder.clone();
-                        builder.clear();
+                        key = std::mem::take(&mut builder);
                         state = State::ParamsValue;
                     } else {
                         if c == '|' {
                             return Err(IllegalStateError::InvalidEndOfKey {
-                                index: i,
-                                uri: uri.to_string(),
+                                index: index + position,
+                                uri: orig_uri.to_string(),
                             }
                             .into());
                         }
@@ -202,8 +184,7 @@ impl ChannelUri {
                 },
                 State::ParamsValue => {
                     if c == '|' {
-                        params.insert(key.clone(), builder.clone());
-                        builder.clear();
+                        params.insert(key.clone(), std::mem::take(&mut builder));
                         state = State::ParamsKey;
                     } else {
                         builder.push(c);
@@ -243,11 +224,8 @@ impl ChannelUri {
 impl Display for ChannelUri {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut sb = String::new();
-        if self.prefix.is_empty() {
-            sb.reserve((self.params.len() * 20) + 10);
-        } else {
-            sb.reserve((self.params.len() * 20) + 20);
+        let mut sb = String::with_capacity(self.params.len() * 20 + 10 + 10 * self.prefix.is_empty() as usize);
+        if !self.prefix.is_empty() {
             sb += &self.prefix;
             if !self.prefix.ends_with(':') {
                 sb += ":";

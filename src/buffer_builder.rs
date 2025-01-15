@@ -131,7 +131,7 @@ impl BufferBuilder {
             let new_buffer = alloc_buffer_aligned(new_capacity);
 
             unsafe {
-                std::ptr::copy(self.buffer, new_buffer, self.limit as usize);
+                std::ptr::copy_nonoverlapping(self.buffer, new_buffer, self.limit as usize);
                 dealloc_buffer_aligned(self.buffer, self.capacity)
             }
 

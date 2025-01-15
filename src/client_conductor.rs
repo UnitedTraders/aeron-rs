@@ -419,9 +419,9 @@ impl ClientConductor {
         self.counter_values_buffer
     }
 
-    fn on_heartbeat_check_timeouts(&mut self) -> i64 {
+    fn on_heartbeat_check_timeouts(&mut self) -> bool {
         let now_ms = (self.epoch_clock)();
-        let mut result: i64 = 0;
+        let mut result = false;
 
         if now_ms > self.time_of_last_do_work_ms + self.inter_service_timeout_ms {
             self.close_all_resources(now_ms);
@@ -485,13 +485,13 @@ impl ClientConductor {
             }
 
             self.time_of_last_keepalive_ms = now_ms;
-            result = 1;
+            result = true;
         }
 
         if now_ms > self.time_of_last_check_managed_resources_ms + RESOURCE_TIMEOUT_MS {
             self.on_check_managed_resources(now_ms);
             self.time_of_last_check_managed_resources_ms = now_ms;
-            result = 1;
+            result = true;
         }
 
         result

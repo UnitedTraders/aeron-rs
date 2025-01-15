@@ -36,24 +36,24 @@ pub enum ControlledPollAction {
     /**
      * Abort the current polling operation and do not advance the position for this fragment.
      */
-    ABORT = 1,
+    Abort = 1,
 
     /**
      * Break from the current polling operation and commit the position as of the end of the current fragment
      * being handled.
      */
-    BREAK,
+    Break,
 
     /**
      * Continue processing but commit the position as of the end of the current fragment so that
      * flow control is applied to this point.
      */
-    COMMIT,
+    Commit,
 
     /**
      * Continue processing taking the same approach as the in fragment_handler_t.
      */
-    CONTINUE,
+    Continue,
 }
 
 /**
@@ -107,11 +107,9 @@ impl Image {
             log_buffers.atomic_buffer(0).capacity(),
         );
 
-        let mut term_buffers: Vec<AtomicBuffer> = Vec::new();
-
-        for i in 0..log_buffer_descriptor::PARTITION_COUNT {
-            term_buffers.push(log_buffers.atomic_buffer(i))
-        }
+        let term_buffers = (0..log_buffer_descriptor::PARTITION_COUNT)
+            .map(|i| log_buffers.atomic_buffer(i))
+            .collect::<Vec<_>>();
 
         let capacity = term_buffers[0].capacity();
 
@@ -121,7 +119,7 @@ impl Image {
         Self {
             term_buffers,
             header,
-            subscriber_position: (*subscriber_position).clone(),
+            subscriber_position: subscriber_position.clone(),
             log_buffers,
             source_identity,
             is_closed: Arc::new(AtomicBool::new(false)),
@@ -462,16 +460,16 @@ impl Image {
                 //     self.exception_handler(err)
                 // }
 
-                if ControlledPollAction::ABORT == action {
+                if ControlledPollAction::Abort == action {
                     resulting_offset -= aligned_length;
                     break;
                 }
 
                 fragments_read += 1;
 
-                if ControlledPollAction::BREAK == action {
+                if ControlledPollAction::Break == action {
                     break;
-                } else if ControlledPollAction::COMMIT == action {
+                } else if ControlledPollAction::Commit == action {
                     initial_position += (resulting_offset - initial_offset) as i64;
                     initial_offset = resulting_offset;
                     self.subscriber_position.set_ordered(initial_position);
@@ -546,16 +544,16 @@ impl Image {
                 )
                 .unwrap(); //todo
 
-                if ControlledPollAction::ABORT == action {
+                if ControlledPollAction::Abort == action {
                     resulting_offset -= aligned_length;
                     break;
                 }
 
                 fragments_read += 1;
 
-                if ControlledPollAction::BREAK == action {
+                if ControlledPollAction::Break == action {
                     break;
-                } else if ControlledPollAction::COMMIT == action {
+                } else if ControlledPollAction::Commit == action {
                     initial_position += (resulting_offset - initial_offset) as i64;
                     initial_offset = resulting_offset;
                     self.subscriber_position.set_ordered(initial_position);
@@ -637,7 +635,7 @@ impl Image {
                 )
                 .unwrap(); //todo
 
-                if ControlledPollAction::ABORT == action {
+                if ControlledPollAction::Abort == action {
                     break;
                 }
 
@@ -648,7 +646,7 @@ impl Image {
                     resulting_position = position;
                 }
 
-                if ControlledPollAction::BREAK == action {
+                if ControlledPollAction::Break == action {
                     break;
                 }
             }
@@ -787,7 +785,7 @@ mod tests {
         _length: Index,
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
-        Ok(ControlledPollAction::CONTINUE)
+        Ok(ControlledPollAction::Continue)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -797,7 +795,7 @@ mod tests {
         _length: Index,
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
-        Ok(ControlledPollAction::ABORT)
+        Ok(ControlledPollAction::Abort)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -807,7 +805,7 @@ mod tests {
         _length: Index,
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
-        Ok(ControlledPollAction::BREAK)
+        Ok(ControlledPollAction::Break)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -818,9 +816,9 @@ mod tests {
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
         if offset == data_frame_header::LENGTH {
-            return Ok(ControlledPollAction::COMMIT);
+            return Ok(ControlledPollAction::Commit);
         } else if offset == *ALIGNED_FRAME_LENGTH + data_frame_header::LENGTH {
-            return Ok(ControlledPollAction::ABORT);
+            return Ok(ControlledPollAction::Abort);
         }
 
         unreachable!("Should not get there!");
@@ -834,7 +832,7 @@ mod tests {
         _header: &Header,
     ) -> Result<ControlledPollAction, AeronError> {
         if offset == data_frame_header::LENGTH || offset == *ALIGNED_FRAME_LENGTH + data_frame_header::LENGTH {
-            return Ok(ControlledPollAction::CONTINUE);
+            return Ok(ControlledPollAction::Continue);
         }
 
         unreachable!("Should not get there!");
