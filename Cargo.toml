@@ -11,7 +11,7 @@ license = "Apache-2.0"
 description = "Aeron client library - fast messaging over UDP on Rust"
 readme = "README.md"
 repository = "https://github.com/UnitedTraders/aeron-rs"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 thiserror = "2.0"
