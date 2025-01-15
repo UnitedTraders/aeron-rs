@@ -231,11 +231,11 @@ impl Subscription {
      */
     pub fn controlled_poll(
         &mut self,
-        fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError> + Copy,
+        mut fragment_handler: impl FnMut(&AtomicBuffer, Index, Index, &Header) -> Result<ControlledPollAction, AeronError>,
         fragment_limit: i32,
     ) -> i32 {
         self.poll_inner(fragment_limit, |image, fragments_left| {
-            image.controlled_poll(fragment_handler, fragments_left)
+            image.controlled_poll(&mut fragment_handler, fragments_left)
         })
     }
 
