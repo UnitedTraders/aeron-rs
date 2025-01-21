@@ -82,49 +82,37 @@ impl Write for AtomicBuffer {
     }
 }
 
-// Where needed AtomicBuffer is accessed through mem fences or atomic operations.
-// Seems its safe to share AtomicBuffer between threads.
-unsafe impl Send for AtomicBuffer {}
-unsafe impl Sync for AtomicBuffer {}
-
 // todo: add bounds checks!!!
 // todo: remove unsafe?
 impl AtomicBuffer {
-    pub fn from_aligned(aligned: &AlignedBuffer) -> AtomicBuffer {
-        AtomicBuffer {
+    pub fn from_aligned(aligned: &AlignedBuffer) -> Self {
+        Self {
             ptr: aligned.ptr,
             len: aligned.len as Index,
         }
     }
 
-    pub fn wrap(buffer: AtomicBuffer) -> Self {
-        AtomicBuffer {
-            ptr: buffer.ptr,
-            len: buffer.len as Index,
-        }
-    }
-
     pub fn wrap_slice(slice: &mut [u8]) -> Self {
-        AtomicBuffer {
+        Self {
             ptr: slice.as_mut_ptr(),
             len: slice.len() as Index,
         }
     }
 
-    pub fn wrap_raw_slice(slice: *mut [u8]) -> Self {
-        AtomicBuffer {
+    pub(crate) unsafe fn wrap_raw_slice(slice: *mut [u8]) -> Self {
+        Self {
             ptr: slice as *mut _,
             len: slice.len() as Index,
         }
     }
 
-    //TODO: check that len is ok and ptr is aligned
-    pub(crate) fn new(ptr: *mut u8, len: Index) -> AtomicBuffer {
-        AtomicBuffer { ptr, len }
+    // TODO: check that len is ok and ptr is aligned
+    pub(crate) fn new(ptr: *mut u8, len: Index) -> Self {
+        Self { ptr, len }
     }
 
     #[inline]
-    unsafe fn at(&self, offset: Index) -> *mut u8 {
+    const unsafe fn at(&self, offset: Index) -> *mut u8 {
         self.ptr.offset(offset as isize)
     }
 
@@ -134,7 +122,7 @@ impl AtomicBuffer {
     pub fn view(&self, offset: Index, len: Index) -> Self {
         self.bounds_check(offset, len);
 
-        AtomicBuffer {
+        Self {
             ptr: unsafe { self.at(offset) },
             len,
         }
@@ -168,18 +156,18 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn buffer(&self) -> *mut u8 {
+    pub const fn buffer(&self) -> *mut u8 {
         self.ptr
     }
 
     #[inline]
     pub fn set_memory(&self, position: Index, len: Index, value: u8) {
         self.bounds_check(position, len);
-        let s = unsafe { slice::from_raw_parts_mut(self.ptr.offset(position as isize), len as usize) };
+        let slice = unsafe { slice::from_raw_parts_mut(self.ptr.offset(position as isize), len as usize) };
 
         // poor man's memcp
-        for i in s {
-            *i = value
+        for byte in slice {
+            *byte = value
         }
     }
 

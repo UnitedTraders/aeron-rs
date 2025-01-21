@@ -38,7 +38,7 @@ pub fn channel_status_to_str(status_id: i64) -> String {
 }
 
 fn static_buffer() -> AtomicBuffer {
-    let buffer = AtomicBuffer::wrap_raw_slice(&raw mut STATIC_BUFFER_SLICE);
+    let buffer = unsafe { AtomicBuffer::wrap_raw_slice(&raw mut STATIC_BUFFER_SLICE) };
     buffer.put_ordered::<i64>(0, CHANNEL_ENDPOINT_ACTIVE);
     buffer
 }
@@ -54,14 +54,14 @@ impl StatusIndicatorReader {
     pub fn new(input_buffer: AtomicBuffer, id: i32) -> Self {
         if NO_ID_ALLOCATED == id {
             Self {
-                buffer: AtomicBuffer::wrap(static_buffer()),
+                buffer: static_buffer(),
                 id,
                 offset: 0,
             }
         } else {
             let offset = CountersReader::counter_offset(id);
             Self {
-                buffer: AtomicBuffer::wrap(input_buffer),
+                buffer: input_buffer,
                 id,
                 offset,
             }
