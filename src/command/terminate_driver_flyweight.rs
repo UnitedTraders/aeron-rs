@@ -43,6 +43,8 @@ pub(crate) struct TerminateDriverDefn {
     token_length: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for TerminateDriverDefn {}
+
 pub const TERMINATE_DRIVER_LENGTH: Index = std::mem::size_of::<TerminateDriverDefn>() as Index;
 
 pub(crate) struct TerminateDriverFlyweight {

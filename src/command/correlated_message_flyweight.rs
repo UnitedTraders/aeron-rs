@@ -36,6 +36,8 @@ pub(crate) struct CorrelatedMessageDefn {
     correlation_id: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for CorrelatedMessageDefn {}
+
 pub const CORRELATED_MESSAGE_LENGTH: Index = std::mem::size_of::<CorrelatedMessageDefn>() as Index;
 
 pub(crate) struct CorrelatedMessageFlyweight {

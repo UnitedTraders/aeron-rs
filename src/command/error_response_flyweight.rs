@@ -47,6 +47,8 @@ pub(crate) struct ErrorResponseDefn {
     error_message_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for ErrorResponseDefn {}
+
 pub const ERROR_CODE_UNKNOWN_CODE_VALUE: i32 = -1;
 
 pub const ERROR_CODE_GENERIC_ERROR: i32 = 0;

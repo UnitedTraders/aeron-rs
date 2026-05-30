@@ -37,6 +37,8 @@ pub(crate) struct SubscriptionReadyDefn {
     channel_status_indicator_id: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for SubscriptionReadyDefn {}
+
 pub const SUBSCRIPTION_READY_LENGTH: Index = std::mem::size_of::<SubscriptionReadyDefn>() as Index;
 
 pub(crate) struct SubscriptionReadyFlyweight {

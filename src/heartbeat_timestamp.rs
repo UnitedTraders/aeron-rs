@@ -39,6 +39,8 @@ struct HeartbeatTimestampKeyDefn {
     registration_id: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for HeartbeatTimestampKeyDefn {}
+
 /**
  * Find the active counter id for an entity with a type id and registration id.
  *

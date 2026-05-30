@@ -37,6 +37,8 @@ pub struct NakDefn {
     length: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for NakDefn {}
+
 #[allow(dead_code)]
 pub struct NakFlyweight {
     header_flyweight: HeaderFlyweight,

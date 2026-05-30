@@ -86,6 +86,8 @@ struct MetaDataDefn {
     pid: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for MetaDataDefn {}
+
 lazy_static! {
     pub static ref META_DATA_LENGTH: Index =
         bit_utils::align(std::mem::size_of::<MetaDataDefn>() as Index, misc::CACHE_LINE_LENGTH * 2);

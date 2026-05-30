@@ -37,6 +37,8 @@ pub(crate) struct CounterUpdateDefn {
     counter_id: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for CounterUpdateDefn {}
+
 pub const COUNTER_READY_LENGTH: Index = std::mem::size_of::<CounterUpdateDefn>() as Index;
 
 pub(crate) struct CounterUpdateFlyweight {
