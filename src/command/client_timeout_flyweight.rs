@@ -34,6 +34,8 @@ pub(crate) struct ClientTimeoutDefn {
     client_id: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for ClientTimeoutDefn {}
+
 pub const CLIENT_TIMEOUT_LENGTH: Index = std::mem::size_of::<ClientTimeoutDefn>() as Index;
 
 pub(crate) struct ClientTimeoutFlyweight {

@@ -37,6 +37,8 @@ pub struct DataHeaderDefn {
     data: [u8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for DataHeaderDefn {}
+
 #[allow(dead_code)]
 pub struct DataHeaderFlyweight {
     header_flyweight: HeaderFlyweight,

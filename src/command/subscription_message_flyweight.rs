@@ -54,6 +54,8 @@ pub(crate) struct SubscriptionMessageDefn {
     channel_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for SubscriptionMessageDefn {}
+
 pub(crate) struct SubscriptionMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut SubscriptionMessageDefn,

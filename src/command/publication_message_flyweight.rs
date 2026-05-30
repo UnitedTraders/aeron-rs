@@ -51,6 +51,8 @@ pub(crate) struct PublicationMessageDefn {
     channel_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for PublicationMessageDefn {}
+
 pub(crate) struct PublicationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut PublicationMessageDefn, // This is actually part of above field memory space

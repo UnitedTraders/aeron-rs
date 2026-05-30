@@ -56,6 +56,8 @@ pub struct StatusMessageDefn {
     receiver_window: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for StatusMessageDefn {}
+
 #[allow(dead_code)]
 pub struct StatusMessageFlyweight {
     header_flyweight: HeaderFlyweight,

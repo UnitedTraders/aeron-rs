@@ -51,6 +51,8 @@ pub(crate) struct CounterMessageDefn {
     type_id: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for CounterMessageDefn {}
+
 pub const COUNTER_MESSAGE_LENGTH: Index = std::mem::size_of::<CounterMessageDefn>() as Index;
 
 pub(crate) struct CounterMessageFlyweight {

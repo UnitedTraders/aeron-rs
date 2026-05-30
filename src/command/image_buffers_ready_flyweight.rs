@@ -64,6 +64,8 @@ pub(crate) struct ImageBuffersReadyDefn {
     subscriber_position_id: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for ImageBuffersReadyDefn {}
+
 pub const IMAGE_BUFFERS_READY_LENGTH: Index = std::mem::size_of::<ImageBuffersReadyDefn>() as Index;
 
 pub(crate) struct ImageBuffersReadyFlyweight {

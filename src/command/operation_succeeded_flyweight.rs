@@ -34,6 +34,8 @@ pub(crate) struct OperationSucceededDefn {
     correlation_id: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for OperationSucceededDefn {}
+
 pub const OPERATION_SUCCEEDED_LENGTH: Index = std::mem::size_of::<OperationSucceededDefn>() as Index;
 
 pub(crate) struct OperationSucceededFlyweight {

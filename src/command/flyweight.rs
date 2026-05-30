@@ -16,7 +16,7 @@
 
 use std::ffi::CString;
 
-use crate::concurrent::atomic_buffer::AtomicBuffer;
+use crate::concurrent::atomic_buffer::{AtomicBuffer, Pod};
 use crate::utils::types::Index;
 
 pub(crate) struct Flyweight<T> {
@@ -25,7 +25,7 @@ pub(crate) struct Flyweight<T> {
     base_offset: Index,
 }
 
-impl<T: Copy> Flyweight<T> {
+impl<T: Pod> Flyweight<T> {
     pub fn new(buffer: AtomicBuffer, base_offset: Index) -> Self {
         Self {
             m_struct: buffer.overlay_struct::<T>(base_offset),
@@ -55,17 +55,17 @@ impl<T: Copy> Flyweight<T> {
     }
 
     #[inline]
-    pub fn get_bytes<D>(&self, offset: Index, dest: &mut D) {
+    pub fn get_bytes<D: Pod>(&self, offset: Index, dest: &mut D) {
         self.buffer.get_bytes(self.base_offset + offset, dest);
     }
 
     #[inline]
-    pub fn put<U>(&self, offset: Index, value: U) {
+    pub fn put<U: Pod>(&self, offset: Index, value: U) {
         self.buffer.put::<U>(self.base_offset + offset, value);
     }
 
     #[inline]
-    pub fn overlay_struct<U>(&self, offset: Index) -> *mut U {
+    pub fn overlay_struct<U: Pod>(&self, offset: Index) -> *mut U {
         self.buffer.overlay_struct::<U>(self.base_offset + offset)
     }
 }

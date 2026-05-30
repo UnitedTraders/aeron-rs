@@ -283,7 +283,17 @@ fn main() {
             let end = Instant::now();
             let mut start = Instant::now(); // Just to init it
 
-            buffer.get_bytes(offset, &mut start);
+            // SAFETY: `start` was written by the sender via the matching raw-byte cast
+            // (see send path that uses `put_bytes` on a byte view of an `Instant`).
+            // Round-tripping the same memory representation is what the example assumes.
+            unsafe {
+                let dst = std::slice::from_raw_parts_mut(
+                    &mut start as *mut Instant as *mut u8,
+                    std::mem::size_of::<Instant>(),
+                );
+                let src = buffer.as_sub_slice(offset, std::mem::size_of::<Instant>() as Index);
+                dst.copy_from_slice(src);
+            }
             let nano_rtt = end - start;
 
             let _ignored = HISTOGRAMM.lock().unwrap().record(nano_rtt.as_nanos() as u64);

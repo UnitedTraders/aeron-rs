@@ -32,6 +32,8 @@ pub struct DataFrameHeaderDefn {
     pub reserved_value: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for DataFrameHeaderDefn {}
+
 lazy_static! {
     pub static ref FRAME_LENGTH_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, frame_length) as Index;
     pub static ref VERSION_FIELD_OFFSET: Index = offset_of!(DataFrameHeaderDefn, version) as Index;

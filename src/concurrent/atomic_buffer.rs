@@ -82,6 +82,50 @@ impl Write for AtomicBuffer {
     }
 }
 
+/// Marker for types that can be safely read from or written to an [`AtomicBuffer`]
+/// as a raw byte image.
+///
+/// Implementing types are reinterpreted from arbitrary memory contents, so every
+/// possible bit pattern of `size_of::<Self>()` bytes must yield a valid value.
+/// In practice this restricts implementors to plain-data composites: integers,
+/// floats, and `#[repr(C)]` / `#[repr(transparent)]` aggregates of the same.
+/// Types that carry validity invariants — references, raw pointers, `NonZero*`,
+/// `bool`, `char`, enums with niches — are **not** sound and must not implement
+/// this trait.
+///
+/// # Safety
+///
+/// Implementors must guarantee that any byte pattern is a valid value of `Self`,
+/// and that `Self: Copy` semantics correctly describe ownership of the value
+/// (no destructors will be skipped, no heap resources will be leaked).
+///
+/// # Extending to your own types
+///
+/// ```
+/// use aeron_rs::concurrent::atomic_buffer::Pod;
+///
+/// #[repr(C)]
+/// #[derive(Copy, Clone)]
+/// struct MyHeader {
+///     length: i32,
+///     timestamp: i64,
+/// }
+///
+/// // SAFETY: MyHeader is repr(C) and contains only Pod scalars.
+/// unsafe impl Pod for MyHeader {}
+/// ```
+pub unsafe trait Pod: Copy {}
+
+macro_rules! impl_pod_for_primitives {
+    ($($t:ty),* $(,)?) => {
+        $( unsafe impl Pod for $t {} )*
+    };
+}
+
+impl_pod_for_primitives!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+
+unsafe impl<T: Pod, const N: usize> Pod for [T; N] {}
+
 // todo: add bounds checks!!!
 // todo: remove unsafe?
 impl AtomicBuffer {
@@ -137,22 +181,50 @@ impl AtomicBuffer {
         assert!((idx + len) <= self.len)
     }
 
+    /// Read a value of type `T` from the buffer at `position`.
+    ///
+    /// The bound on [`Pod`] prevents constructing values with validity invariants
+    /// (references, `NonZero*`, etc.) from raw buffer contents.
+    ///
+    /// ```compile_fail
+    /// use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
+    /// // `&str` is not `Pod`: reading 16 bytes as a fat pointer would be UB.
+    /// AtomicBuffer::wrap_slice(&mut [1u8; 16]).get::<&str>(0);
+    /// ```
     #[inline]
-    pub fn get<T: Copy>(&self, position: Index) -> T {
+    pub fn get<T: Pod>(&self, position: Index) -> T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { (self.at(position) as *mut T).read_unaligned() }
     }
 
     #[inline]
-    pub fn overlay_struct<T>(&self, position: Index) -> *mut T {
+    pub fn overlay_struct<T: Pod>(&self, position: Index) -> *mut T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { self.at(position) as *mut T }
     }
 
+    /// Return a shared reference to a value of type `T` borrowed from the buffer.
+    ///
+    /// # Safety
+    ///
+    /// `AtomicBuffer` exposes mutating operations through `&self` (such as
+    /// [`set_memory`](Self::set_memory) and [`put`](Self::put)). Returning a
+    /// `&T` borrowed from the buffer would therefore alias with concurrent
+    /// writes, which is undefined behaviour even when `T` has no validity
+    /// invariants. The caller must guarantee that no other thread or code path
+    /// mutates the buffer region `position..position + size_of::<T>()` while
+    /// the returned reference is live.
+    ///
+    /// ```compile_fail
+    /// use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
+    /// // `&str` is not `Pod`; even with `unsafe`, this must not compile.
+    /// let buf = AtomicBuffer::wrap_slice(&mut [0u8; 16]);
+    /// let _ = unsafe { buf.as_ref::<&str>(0) };
+    /// ```
     #[inline]
-    pub fn as_ref<T: Copy>(&self, position: Index) -> &T {
+    pub unsafe fn as_ref<T: Pod>(&self, position: Index) -> &T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
-        unsafe { &*(self.at(position) as *const T) }
+        &*(self.at(position) as *const T)
     }
 
     #[inline]
@@ -172,7 +244,7 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn get_volatile<T: Copy>(&self, position: Index) -> T {
+    pub fn get_volatile<T: Pod>(&self, position: Index) -> T {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
         let read = self.get(position);
         fence(Ordering::Acquire);
@@ -180,14 +252,14 @@ impl AtomicBuffer {
     }
 
     #[inline]
-    pub fn put_ordered<T>(&self, position: Index, val: T) {
+    pub fn put_ordered<T: Pod>(&self, position: Index, val: T) {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
         fence(Ordering::Release);
         self.put(position, val);
     }
 
     #[inline]
-    pub fn put<T>(&self, position: Index, val: T) {
+    pub fn put<T: Pod>(&self, position: Index, val: T) {
         self.bounds_check(position, std::mem::size_of::<T>() as Index);
         unsafe { (self.at(position) as *mut T).write_unaligned(val) }
     }
@@ -250,8 +322,17 @@ impl AtomicBuffer {
         }
     }
 
+    /// Overwrite `*dest` with `size_of::<T>()` bytes read from the buffer at `offset`.
+    ///
+    /// ```compile_fail
+    /// use aeron_rs::concurrent::atomic_buffer::AtomicBuffer;
+    /// // `&str` is not `Pod`: writing arbitrary bytes through `&mut &str`
+    /// // would forge an invalid fat pointer.
+    /// let buf = AtomicBuffer::wrap_slice(&mut [0u8; 1024]);
+    /// buf.get_bytes(16, &mut "");
+    /// ```
     #[inline]
-    pub fn get_bytes<T>(&self, offset: Index, dest: &mut T) {
+    pub fn get_bytes<T: Pod>(&self, offset: Index, dest: &mut T) {
         let length = std::mem::size_of::<T>();
         self.bounds_check(offset, length as Index);
 
@@ -391,6 +472,17 @@ mod tests {
         let read: i32 = buffer.get(0);
 
         assert_eq!(read, to_write)
+    }
+
+    #[test]
+    fn atomic_buffer_as_ref_returns_pod_view() {
+        let src = AlignedBuffer::with_capacity(16);
+        let buffer = AtomicBuffer::from_aligned(&src);
+        buffer.put::<i64>(0, 0x0123_4567_89ab_cdef);
+
+        // SAFETY: no concurrent mutator runs against `buffer` while `value` is borrowed.
+        let value: &i64 = unsafe { buffer.as_ref::<i64>(0) };
+        assert_eq!(*value, 0x0123_4567_89ab_cdef);
     }
 
     #[test]

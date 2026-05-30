@@ -32,6 +32,8 @@ pub struct HeaderDefn {
     h_type: i16,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for HeaderDefn {}
+
 pub(crate) struct HeaderFlyweight {
     pub flyweight: Flyweight<HeaderDefn>,
 }

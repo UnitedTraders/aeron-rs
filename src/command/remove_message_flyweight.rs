@@ -42,6 +42,8 @@ pub(crate) struct RemoveMessageDefn {
     registration_id: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for RemoveMessageDefn {}
+
 pub const REMOVE_MESSAGE_LENGTH: Index = std::mem::size_of::<RemoveMessageDefn>() as Index;
 
 pub(crate) struct RemoveMessageFlyweight {

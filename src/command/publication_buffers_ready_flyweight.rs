@@ -61,6 +61,8 @@ pub(crate) struct PublicationBuffersReadyDefn {
     log_file_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for PublicationBuffersReadyDefn {}
+
 pub(crate) struct PublicationBuffersReadyFlyweight {
     flyweight: Flyweight<PublicationBuffersReadyDefn>,
 }

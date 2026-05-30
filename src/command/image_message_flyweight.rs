@@ -48,6 +48,8 @@ pub(crate) struct ImageMessageDefn {
     channel_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for ImageMessageDefn {}
+
 pub(crate) struct ImageMessageFlyweight {
     flyweight: Flyweight<ImageMessageDefn>,
 }

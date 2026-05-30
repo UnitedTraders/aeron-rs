@@ -39,6 +39,8 @@ pub struct SetupDefn {
     mtu: i32,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for SetupDefn {}
+
 #[allow(dead_code)]
 pub struct SetupFlyweight {
     header_flyweight: HeaderFlyweight,

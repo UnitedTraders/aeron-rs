@@ -26,6 +26,8 @@ struct DestinationMessageDefn {
     channel_data: [i8; 1],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for DestinationMessageDefn {}
+
 pub(crate) struct DestinationMessageFlyweight {
     correlated_message_flyweight: CorrelatedMessageFlyweight,
     m_struct: *mut DestinationMessageDefn, // This is actually part of above field memory space

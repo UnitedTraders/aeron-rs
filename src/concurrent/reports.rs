@@ -71,6 +71,8 @@ pub mod loss_report_descriptor {
         pub stream_id: i32,
     }
 
+    unsafe impl crate::concurrent::atomic_buffer::Pod for LossReportEntryDefn {}
+
     pub(super) const CHANNEL_OFFSET: Index = std::mem::size_of::<LossReportEntryDefn>() as Index;
 
     const LOSS_REPORT_FILE_NAME: &str = "loss-report.dat";

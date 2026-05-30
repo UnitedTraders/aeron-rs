@@ -59,6 +59,8 @@ pub struct ErrorLogEntryDefn {
     pub first_observation_timestamp: i64,
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for ErrorLogEntryDefn {}
+
 lazy_static! {
     pub static ref LENGTH_OFFSET: Index = offset_of!(ErrorLogEntryDefn, length) as Index;
     pub static ref OBSERVATION_COUNT_OFFSET: Index = offset_of!(ErrorLogEntryDefn, observation_count) as Index;

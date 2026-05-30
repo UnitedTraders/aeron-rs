@@ -96,6 +96,8 @@ pub struct CounterMetaDataKey {
     pub key: [u8; (2 * CACHE_LINE_LENGTH - 2 * I32_SIZE - U64_SIZE) as usize],
 }
 
+unsafe impl crate::concurrent::atomic_buffer::Pod for CounterMetaDataKey {}
+
 // This type is needed just to be able get sizeof of this packed array
 // May be its redundant - need to test
 #[repr(C, packed(4))]
@@ -103,6 +105,8 @@ pub struct CounterMetaDataKey {
 pub struct CounterMetaDataLabel {
     pub val: [u8; (6 * CACHE_LINE_LENGTH - I32_SIZE) as usize],
 }
+
+unsafe impl crate::concurrent::atomic_buffer::Pod for CounterMetaDataLabel {}
 
 #[repr(C, packed(4))]
 #[derive(Copy, Clone)]
@@ -114,6 +118,8 @@ pub struct CounterMetaDataDefn {
     pub label_length: i32,
     pub label: CounterMetaDataLabel,
 }
+
+unsafe impl crate::concurrent::atomic_buffer::Pod for CounterMetaDataDefn {}
 
 impl fmt::Debug for CounterMetaDataDefn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -285,7 +291,12 @@ impl<'a> Iterator for CountersReaderIter<'a> {
         match record_status {
             RECORD_UNUSED | RECORD_RECLAIMED => None,
             RECORD_ALLOCATED => {
-                let ret = self.inner.metadata_buffer.as_ref::<CounterMetaDataDefn>(next_metadata_pos);
+                // SAFETY: an allocated record's fields are only published once by the driver
+                // before its status becomes RECORD_ALLOCATED (read via acquire above), and
+                // are never mutated again until the record is reclaimed (which transitions
+                // the status away from RECORD_ALLOCATED). No concurrent writer mutates this
+                // region while the returned reference is live.
+                let ret = unsafe { self.inner.metadata_buffer.as_ref::<CounterMetaDataDefn>(next_metadata_pos) };
                 Some(ret)
             },
             _ => unreachable!("CountersReaderIter::next: unknown record status {}", record_status),
