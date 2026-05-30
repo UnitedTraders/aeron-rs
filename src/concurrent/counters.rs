@@ -255,7 +255,7 @@ impl CountersReader {
         }
     }
 
-    pub fn iter(&self) -> CountersReaderIter {
+    pub fn iter(&self) -> CountersReaderIter<'_> {
         CountersReaderIter { inner: self, pos: 0 }
     }
 }
@@ -348,7 +348,7 @@ impl CountersManager {
 
     // This fn is "inherited" from CountersReader just to keep CounterManager iface similar
     // to C++\Java iface (forEach method)
-    pub fn iter(&self) -> CountersReaderIter {
+    pub fn iter(&self) -> CountersReaderIter<'_> {
         self.reader.iter()
     }
 
